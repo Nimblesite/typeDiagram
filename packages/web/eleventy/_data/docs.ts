@@ -40,6 +40,17 @@ const handwritten: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "api", label: "Node.js API" },
 ];
 
+const INTRO_PATH = resolve(__dirname, "../../../../docs/shared/intro.md");
+const SHARED_INTRO_MD = readFileSync(INTRO_PATH, "utf-8");
+
+const introEntry: DocEntry = {
+  slug: "introduction",
+  label: "Introduction",
+  title: "Introduction",
+  isTopLevel: true,
+  html: mdToHtml(`# Introduction\n\n${SHARED_INTRO_MD}`),
+};
+
 const loadHandwritten = (slug: string, label: string): DocEntry => ({
   slug,
   label,
@@ -83,4 +94,4 @@ const loadApiEntries = (): DocEntry[] => {
   });
 };
 
-export default [...handwritten.map((d) => loadHandwritten(d.slug, d.label)), ...loadApiEntries()];
+export default [introEntry, ...handwritten.map((d) => loadHandwritten(d.slug, d.label)), ...loadApiEntries()];

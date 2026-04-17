@@ -8,7 +8,10 @@
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
 Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
 
-DON'T ASK THE USER QUESTIONS!!! DO YOUR JOB. USE YOUR JDUGMENT!
+⚠️ DON'T ASK THE USER QUESTIONS!!! 
+- DO YOUR JOB. 
+- NEVER say things like "Open questions before I start"
+- USE YOUR JDUGMENT! ⚠️ 
 
 ## Project Overview
 
