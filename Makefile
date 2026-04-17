@@ -54,7 +54,7 @@ test:
 
 ## lint: Run all linters/analyzers (read-only). Does NOT format. Fails fast on first error.
 ## Builds typediagram-core first so consumer packages can resolve its types.
-lint: fmt-check
+lint:
 	@echo "==> Pre-building typediagram-core (needed for consumer typecheck)..."
 	npm run -w typediagram-core build
 	@echo "==> Typechecking..."
@@ -62,12 +62,12 @@ lint: fmt-check
 	@$(MAKE) eslint
 	@$(MAKE) banned-deps
 
-## fmt: Format all code in-place. Pass CHECK=1 for read-only check (CI use).
+## fmt: Format all code in-place.
 fmt:
-	@echo "==> Formatting$(if $(CHECK), (check mode),)..."
-	npx prettier $(if $(CHECK),--check,--write) .
+	@echo "==> Formatting (write)..."
+	npx prettier --write .
 
-## fmt-check: Read-only formatting check; fails if any file is misformatted.
+## fmt-check: Read-only format check (CI-safe). Fails if any file is misformatted.
 fmt-check:
 	@echo "==> Format check..."
 	npx prettier --check .
@@ -93,8 +93,8 @@ clean:
 	$(RM) packages/typediagram/dist packages/cli/dist packages/web/dist packages/vscode/dist coverage
 
 ## ci: full CI simulation. Fail-fast on every gate, in order:
-##     fmt-check -> typecheck -> eslint -> banned-deps -> test+coverage -> build -> bundle-size
-ci: lint test build bundle-size
+##     fmt-check -> lint (typecheck + eslint + banned-deps) -> test+coverage -> build -> bundle-size
+ci: fmt-check lint test build bundle-size
 
 ## setup: Post-create dev environment setup (used by devcontainer)
 setup:

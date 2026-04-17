@@ -35,11 +35,22 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # `make ci` runs every gate fail-fast in order:
-      # fmt-check -> typecheck -> eslint -> banned-deps -> test+coverage+threshold -> build -> bundle-size.
-      # If any gate fails, later gates don't run.
-      - name: Run full CI (make ci)
-        run: make ci
+      # Each gate is its own step so failures surface clearly in the GitHub UI.
+      # Order matches `make ci`: fmt-check -> lint -> test -> build -> bundle-size.
+      - name: Format check (make fmt-check)
+        run: make fmt-check
+
+      - name: Lint (make lint)
+        run: make lint
+
+      - name: Test + coverage (make test)
+        run: make test
+
+      - name: Build (make build)
+        run: make build
+
+      - name: Bundle-size budget (make bundle-size)
+        run: make bundle-size
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

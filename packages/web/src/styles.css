@@ -171,7 +171,9 @@ body {
   height: 2px;
   background: var(--td-primary);
   border-radius: 2px;
-  transition: transform var(--td-ease), opacity var(--td-ease);
+  transition:
+    transform var(--td-ease),
+    opacity var(--td-ease);
 }
 
 .nav-toggle:checked ~ .nav-burger span:nth-child(1) {
