@@ -1,6 +1,22 @@
 // [VSCODE-EXT] Extension entry point — registers preview command, wires editor events.
 import * as vscode from "vscode";
+import { warmupSyncRender } from "typediagram-core";
 import { openPreview } from "./preview-panel.js";
+import { typediagramMarkdownItPlugin, type MarkdownIt } from "./markdown-it-plugin.js";
+
+// [VSCODE-MD-EXTEND] Required export for VS Code's markdown preview plugin API.
+// VS Code calls this with its markdown-it instance so we can augment it.
+// See: https://code.visualstudio.com/api/extension-guides/markdown-extension
+export const extendMarkdownIt = (md: MarkdownIt): MarkdownIt => {
+  // Kick off warmup (fire-and-forget). First preview render may show the placeholder;
+  // once warmup resolves we trigger a preview refresh so the SVG replaces it.
+  void warmupSyncRender().then(() => {
+    // [VSCODE-MD-REFRESH] After warmup, refresh any open markdown previews so placeholders
+    // become real SVGs. `markdown.preview.refresh` is a built-in VS Code command.
+    void vscode.commands.executeCommand("markdown.preview.refresh");
+  });
+  return typediagramMarkdownItPlugin(md);
+};
 
 export const activate = (context: vscode.ExtensionContext) => {
   const panels = new Map<string, vscode.WebviewPanel>();

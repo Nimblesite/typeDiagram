@@ -58,6 +58,7 @@ export const commands = {
     }
     return { dispose: vi.fn() };
   }),
+  executeCommand: vi.fn((_cmd: string, ..._args: unknown[]) => Promise.resolve(undefined)),
   _handler: undefined as (() => void) | undefined,
   _handlers: new Map<string, (...args: unknown[]) => unknown>(),
 };

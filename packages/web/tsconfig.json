@@ -3,6 +3,14 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["src/**/*", "test/**/*", "vite.config.ts", "vitest.config.ts", "vite-plugin-docs.ts"],
+  "include": [
+    "src/**/*",
+    "test/**/*",
+    "eleventy/**/*",
+    "vite.config.ts",
+    "vitest.config.ts",
+    "vite-plugin-docs.ts",
+    "vite-plugin-copy-eleventy.ts"
+  ],
   "exclude": ["dist", "node_modules"]
 }

@@ -15,7 +15,15 @@ export default function (eleventyConfig) {
     return dt.toISOString().slice(0, 10);
   });
 
-  eleventyConfig.addPassthroughCopy({ "public": "." });
+  eleventyConfig.addPassthroughCopy({ public: "." });
+
+  // Watch external markdown sources so edits outside eleventy/ trigger a rebuild
+  // (handwritten docs, shared intro, TypeDoc API output, core TS the highlighter imports).
+  eleventyConfig.addWatchTarget("../../docs/specs/");
+  eleventyConfig.addWatchTarget("../../docs/shared/");
+  eleventyConfig.addWatchTarget("./.typedoc-out/");
+  eleventyConfig.addWatchTarget("./src/highlight.ts");
+  eleventyConfig.addWatchTarget("./eleventy/_data/");
 
   return {
     dir: {

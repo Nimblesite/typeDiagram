@@ -38,6 +38,16 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ["out/", "dist/", "**/*.d.ts", "node_modules/", "coverage/", "**/*.js", "**/*.mjs"],
+    ignores: [
+      "out/",
+      "dist/",
+      "**/*.d.ts",
+      "node_modules/",
+      "coverage/",
+      "**/*.js",
+      "**/*.mjs",
+      "**/*.cjs",
+      "**/.vscode-test/",
+    ],
   }
 );

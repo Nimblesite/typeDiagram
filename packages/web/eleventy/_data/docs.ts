@@ -36,6 +36,7 @@ const handwritten: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "getting-started", label: "Getting Started" },
   { slug: "language-reference", label: "Language Reference" },
   { slug: "cli", label: "CLI" },
+  { slug: "multi-language-pipeline", label: "Multi-Language Pipeline" },
   { slug: "converters", label: "Converters" },
   { slug: "api", label: "Node.js API" },
 ];
@@ -60,7 +61,9 @@ const loadHandwritten = (slug: string, label: string): DocEntry => ({
 });
 
 const walkMd = (dir: string, acc: string[] = []): string[] => {
-  if (!existsSync(dir)) return acc;
+  if (!existsSync(dir)) {
+    return acc;
+  }
   for (const name of readdirSync(dir)) {
     const full = resolve(dir, name);
     if (statSync(full).isDirectory()) {

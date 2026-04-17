@@ -29,8 +29,12 @@ export const copyEleventyPlugin = (eleventyRoot: string): Plugin => ({
     const all = await walk(eleventyRoot);
     for (const abs of all) {
       const rel = toPosix(relative(eleventyRoot, abs));
-      if (!rel.endsWith(".html")) continue;
-      if (ENTRY_HTML.has(rel)) continue;
+      if (!rel.endsWith(".html")) {
+        continue;
+      }
+      if (ENTRY_HTML.has(rel)) {
+        continue;
+      }
       const raw = await readFile(abs, "utf-8");
       const source = raw.replace(/\/src\/styles\.css/g, cssHref);
       this.emitFile({ type: "asset", fileName: rel, source });

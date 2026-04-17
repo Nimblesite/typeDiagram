@@ -5,7 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "npm run typedoc && npm run eleventy && vite",
+    "dev": "npm run typedoc && npm run eleventy && concurrently -k -n 11ty,vite -c magenta,cyan \"npm:eleventy:watch\" \"vite\"",
     "typedoc": "typedoc --options typedoc.json",
     "eleventy": "node --import tsx ../../node_modules/@11ty/eleventy/cmd.cjs --config=eleventy.config.mjs",
     "eleventy:watch": "node --import tsx ../../node_modules/@11ty/eleventy/cmd.cjs --config=eleventy.config.mjs --watch",
@@ -20,6 +20,7 @@
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.5",
+    "concurrently": "^9.2.1",
     "happy-dom": "^15.0.0",
     "tsx": "^4.21.0",
     "typedoc": "^0.28.19",

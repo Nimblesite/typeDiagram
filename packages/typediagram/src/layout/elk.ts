@@ -278,7 +278,9 @@ function getElk(): InstanceType<typeof ELK> {
 // (one async layout) first so layout algorithms are registered; subsequent sync
 // calls reuse that registration. Fragile to elkjs internal shape — pinned to 0.9.x.
 interface FakeWorkerDispatcher {
-  saveDispatch: (msg: { data: { id: number; cmd: string; graph: unknown; layoutOptions: unknown; options: unknown } }) => void;
+  saveDispatch: (msg: {
+    data: { id: number; cmd: string; graph: unknown; layoutOptions: unknown; options: unknown };
+  }) => void;
 }
 interface FakeWorker {
   dispatcher: FakeWorkerDispatcher;
@@ -314,26 +316,32 @@ export function isLayoutWarm(): boolean {
   return warmedUp;
 }
 
+interface ElkSyncAnswer {
+  id: number;
+  data?: ElkResult;
+  error?: { message?: string };
+}
+
 function callElkSync(graph: ElkGraph): ElkResult {
   const elk = getElk() as unknown as ElkInternal;
   const DispatcherCtor = elk.worker.worker.dispatcher.constructor as new (client: {
-    postMessage: (msg: { id: number; data?: ElkResult; error?: { message?: string } }) => void;
+    postMessage: (msg: ElkSyncAnswer) => void;
   }) => FakeWorkerDispatcher;
-  let answer: { id: number; data?: ElkResult; error?: { message?: string } } | null = null;
-  const dispatcher = new DispatcherCtor({ postMessage: (m) => { answer = m; } });
+  const answers: ElkSyncAnswer[] = [];
+  const dispatcher = new DispatcherCtor({ postMessage: (m) => answers.push(m) });
   const graphCopy = JSON.parse(JSON.stringify(graph)) as unknown;
   dispatcher.saveDispatch({ data: { id: 0, cmd: "layout", graph: graphCopy, layoutOptions: {}, options: {} } });
-  if (answer === null) {
+  const answer = answers[0];
+  if (answer === undefined) {
     throw new Error("elk sync dispatcher returned no answer");
   }
-  const a = answer as { id: number; data?: ElkResult; error?: { message?: string } };
-  if (a.error) {
-    throw new Error(a.error.message ?? "elk sync error");
+  if (answer.error) {
+    throw new Error(answer.error.message ?? "elk sync error");
   }
-  if (!a.data) {
+  if (!answer.data) {
     throw new Error("elk sync dispatcher returned no data");
   }
-  return a.data;
+  return answer.data;
 }
 
 // [LAYOUT-SHARED] Produces the ElkGraph + projection pieces used by BOTH sync and async.

@@ -1,26 +1,20 @@
-<!-- agent-pmo:2efd847 -->
-
 # typeDiagram — Agent Instructions
 
-> Read this file in full. Rules below are NON-NEGOTIABLE — violations are rejected in review.
+Read this file in full. Rules below are NON-NEGOTIABLE — violations are rejected in review.
+
+<!-- agent-pmo:2efd847 -->
 
 ⚠️ **TOKEN ECONOMICS DISCIPLINE.** Check file size first. `Grep` over `Read`. Use `offset`/`limit`.
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
 Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
-
-⚠️ DON'T ASK THE USER QUESTIONS!!! 
-- DO YOUR JOB. 
-- NEVER say things like "Open questions before I start"
-- USE YOUR JDUGMENT! ⚠️ 
+⚠️ DON'T ASK THE USER QUESTIONS!!!
+- DO YOUR JOB and don't say things like "Open questions before I start"
+- USE YOUR JUDGEMENT! ⚠️
+⚠️ NEVER KILL ANY VSCODE PROCESS ⚠️
 
 ## Project Overview
 
 typeDiagram is a small DSL for diagramming algebraic data types (records + tagged unions). Language-neutral, no methods. Includes a parser, model, layout engine, SVG renderer, and markdown support. Ships as an npm library, CLI tool, VS Code extension, and web playground.
-
-**Primary language(s):** TypeScript
-**Build command:** `make ci`
-**Test command:** `make test`
-**Lint command:** `make lint`
 
 ## Too Many Cooks (Multi-Agent Coordination)
 

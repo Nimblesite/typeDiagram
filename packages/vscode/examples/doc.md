@@ -1,6 +1,5 @@
 Something
 
-
 ```typediagram
 typeDiagram
 

@@ -338,6 +338,36 @@ describe("[VSCODE-EXT] activate", () => {
     await runTapScenario(2);
   });
 
+  it("[VSCODE-MD-EXTEND] extendMarkdownIt returns the md instance with fence rule installed", async () => {
+    const { extendMarkdownIt } = await import("../src/extension.js");
+    let installedFence: unknown;
+    const md = {
+      renderer: {
+        rules: {
+          get fence() {
+            return installedFence as never;
+          },
+          set fence(v: unknown) {
+            installedFence = v;
+          },
+        },
+      },
+    };
+    const result = extendMarkdownIt(md as never);
+    expect(result).toBe(md);
+    expect(typeof installedFence).toBe("function");
+  });
+
+  it("[VSCODE-MD-EXTEND] extendMarkdownIt schedules a preview refresh after warmup", async () => {
+    const { extendMarkdownIt } = await import("../src/extension.js");
+    const md = { renderer: { rules: {} as Record<string, unknown> } };
+    extendMarkdownIt(md as never);
+    // Wait for the warmup microtask chain. Warmup calls into elk which takes ~30-200ms.
+    // We give it a reasonable window.
+    await new Promise((r) => setTimeout(r, 300));
+    expect(mock.commands.executeCommand).toHaveBeenCalledWith("markdown.preview.refresh");
+  });
+
   it("cleans up panel reference when webview is disposed", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();

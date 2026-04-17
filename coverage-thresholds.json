@@ -6,7 +6,7 @@
     "packages/typediagram": {
       "statements": 95,
       "branches": 90.47,
-      "functions": 98.41,
+      "functions": 98.46,
       "lines": 95
     },
     "packages/cli": {
@@ -23,7 +23,7 @@
     },
     "packages/vscode": {
       "statements": 99,
-      "branches": 96.77,
+      "branches": 97.33,
       "functions": 99,
       "lines": 99
     }
