@@ -170,7 +170,9 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
     });
 
     it("every fenced block produces at least one Prism token span", () => {
-      const fenceCount = (readFileSync(resolve(DOCS_DIR, "multi-language-pipeline.md"), "utf-8").match(/```[a-z]+/g) ?? []).length;
+      const fenceCount = (
+        readFileSync(resolve(DOCS_DIR, "multi-language-pipeline.md"), "utf-8").match(/```[a-z]+/g) ?? []
+      ).length;
       expect(fenceCount).toBeGreaterThan(5);
       const tokenCount = (page.match(/<span class="token/g) ?? []).length;
       expect(tokenCount).toBeGreaterThan(fenceCount * 3); // every fenced block must have several tokens
@@ -178,7 +180,14 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
   });
 
   describe("every handwritten doc that has code fences gets highlighted", () => {
-    const handwrittenSlugs = ["getting-started", "language-reference", "cli", "multi-language-pipeline", "converters", "api"];
+    const handwrittenSlugs = [
+      "getting-started",
+      "language-reference",
+      "cli",
+      "multi-language-pipeline",
+      "converters",
+      "api",
+    ];
     it.each(handwrittenSlugs)("%s: fenced blocks produce Prism (or typediagram) token spans", (slug) => {
       const doc = byslug(slug);
       const srcMd = readFileSync(resolve(DOCS_DIR, `${slug}.md`), "utf-8");
@@ -209,13 +218,7 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
       const path = resolve(ELEVENTY_OUT, "docs/multi-language-pipeline.html");
       expect(existsSync(path)).toBe(true);
       const html = readFileSync(path, "utf-8");
-      for (const cls of [
-        "language-rust",
-        "language-yaml",
-        "language-json",
-        "language-bash",
-        "language-typescript",
-      ]) {
+      for (const cls of ["language-rust", "language-yaml", "language-json", "language-bash", "language-typescript"]) {
         // typescript may be absent if the doc has no TS fence; rust/yaml/json/bash must be present.
         if (cls === "language-typescript") continue;
         expect(html, `${cls} missing from built page`).toContain(cls);

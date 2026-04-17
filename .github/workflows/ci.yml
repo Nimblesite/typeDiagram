@@ -1,4 +1,4 @@
-# agent-pmo:2efd847
+# agent-pmo:02a321a
 name: CI
 
 on:
@@ -18,6 +18,7 @@ jobs:
   ci:
     name: CI (Node ${{ matrix.node-version }})
     runs-on: ubuntu-latest
+    # TIMEOUT EXCEPTION: vitest + bundle-size + eslint across 4 workspaces exceeds 10 min on cold npm cache.
     timeout-minutes: 15
     strategy:
       # fail-fast: cancel the other matrix leg the moment any leg fails.
@@ -35,22 +36,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Each gate is its own step so failures surface clearly in the GitHub UI.
-      # Order matches `make ci`: fmt-check -> lint -> test -> build -> bundle-size.
-      - name: Format check (make fmt-check)
-        run: make fmt-check
-
-      - name: Lint (make lint)
-        run: make lint
-
-      - name: Test + coverage (make test)
-        run: make test
-
-      - name: Build (make build)
-        run: make build
-
-      - name: Bundle-size budget (make bundle-size)
-        run: make bundle-size
+      # Single `make ci` step runs the full pipeline (fmt-check -> lint -> test -> build -> bundle-size).
+      - name: CI (make ci)
+        run: make ci
 
       - name: Upload coverage
         uses: actions/upload-artifact@v4

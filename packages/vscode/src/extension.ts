@@ -7,9 +7,11 @@ import { getLogger, initLogger } from "./logger.js";
 
 let extendCallCount = 0;
 
-// [VSCODE-MD-EXTEND] Required export for VS Code's markdown preview plugin API.
-// VS Code calls this with its markdown-it instance so we can augment it.
-// See: https://code.visualstudio.com/api/extension-guides/markdown-extension
+// [VSCODE-MD-EXTEND] Canonical pattern from mjbvz/vscode-markdown-mermaid: VS Code
+// reads `extendMarkdownIt` off the OBJECT RETURNED BY `activate()`, not from top-level
+// module exports. Previously we exported a named `extendMarkdownIt` — VS Code ignored it,
+// which is why the preview kept showing plain fenced code.
+// https://github.com/mjbvz/vscode-markdown-mermaid/blob/master/src/vscode-extension/index.ts
 export const extendMarkdownIt = (md: MarkdownIt): MarkdownIt => {
   const log = getLogger().child({ scope: "extendMarkdownIt" });
   extendCallCount += 1;
@@ -25,20 +27,31 @@ export const extendMarkdownIt = (md: MarkdownIt): MarkdownIt => {
           elapsedMs: Date.now() - startedAt,
         });
         void vscode.commands.executeCommand("markdown.preview.refresh").then(
-          () => log.info("markdown.preview.refresh resolved"),
-          (err: unknown) => log.error("markdown.preview.refresh failed", { err: String(err) })
+          () => {
+            log.info("markdown.preview.refresh resolved");
+          },
+          (err: unknown) => {
+            log.error("markdown.preview.refresh failed", { err: String(err) });
+          }
         );
       },
-      (err: unknown) => log.error("warmup failed", { err: String(err) })
+      (err: unknown) => {
+        log.error("warmup failed", { err: String(err) });
+      }
     );
   }
   return typediagramMarkdownItPlugin(md);
 };
 
+interface ExtensionPackageJson {
+  version: string;
+}
+
 export const activate = (context: vscode.ExtensionContext) => {
   const log = initLogger(context).child({ scope: "activate" });
+  const pkg = context.extension.packageJSON as ExtensionPackageJson;
   log.info("extension activating", {
-    version: context.extension.packageJSON.version as string,
+    version: pkg.version,
     extensionPath: context.extensionPath,
   });
   setPluginLogger(getLogger());
@@ -128,6 +141,12 @@ export const activate = (context: vscode.ExtensionContext) => {
   });
 
   context.subscriptions.push(cmd, openAsDiagram, onOpen, onActive, onVisible, onChange, onClose);
+
+  // [VSCODE-MD-EXTEND-RETURN] VS Code reads extendMarkdownIt off THIS return value —
+  // NOT off the top-level module exports. This is the critical wiring per the official
+  // Markdown Preview Mermaid Support extension (bierner.markdown-mermaid).
+  log.info("activate returning extendMarkdownIt contribution");
+  return { extendMarkdownIt };
 };
 
 export const deactivate = () => {};

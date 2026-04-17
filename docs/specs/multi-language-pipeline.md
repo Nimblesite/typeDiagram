@@ -245,4 +245,3 @@ npx chokidar-cli "schemas/**/*.td" -c "make codegen"
 - [ ] Pre-commit hook or watch task keeps local dev in sync.
 
 Follow this pattern and your TypeScript frontend, Rust backend, and any future services all build from the same schema. Change a field once; every language picks it up on the next build.
-

@@ -2,15 +2,16 @@
 
 Read this file in full. Rules below are NON-NEGOTIABLE — violations are rejected in review.
 
-<!-- agent-pmo:2efd847 -->
+<!-- agent-pmo:02a321a -->
 
 ⚠️ **TOKEN ECONOMICS DISCIPLINE.** Check file size first. `Grep` over `Read`. Use `offset`/`limit`.
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
 Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
 ⚠️ DON'T ASK THE USER QUESTIONS!!!
+
 - DO YOUR JOB and don't say things like "Open questions before I start"
 - USE YOUR JUDGEMENT! ⚠️
-⚠️ NEVER KILL ANY VSCODE PROCESS ⚠️
+  ⚠️ NEVER KILL ANY VSCODE PROCESS ⚠️
 
 ## Project Overview
 
@@ -76,7 +77,6 @@ CSS BUDGET = 1.5 LOC - HARD CEILING.
 - **NEVER log PII** (names, emails, phone, IPs unless audit with consent).
 - **NEVER log secrets.** Log `"key: present"` or a truncated hash, never the value.
 
-
 ## Too Many Cooks (Multi-Agent Coordination)
 
 If the TMC server is available: register on start (name, intent, files), lock files before editing, broadcast your plan, check messages periodically, release locks when done. Never edit a locked file — wait or take another approach.
@@ -113,7 +113,7 @@ make ci      # lint + test + build (full CI simulation)
 make setup   # post-create dev environment setup
 ```
 
-**Custom rules must be separated by a line after the core AgentPMO males** `make test` runs the test runner with its fail-fast flag, collects coverage, asserts measured >= threshold from `coverage-thresholds.json`, and exits non-zero on any failure. To debug a single test, invoke the runner directly — that is not a Makefile target.
+Only those 7 public targets are standard (see REPO-STANDARDS-SPEC [MAKE-TARGETS]). Repo-specific targets live below them in the `Repo Specific Targets` section. `make test` runs the test runner with its fail-fast flag, collects coverage, asserts measured >= threshold from `coverage-thresholds.json`, and exits non-zero on any failure. To debug a single test, invoke the runner directly — that is not a Makefile target.
 
 **`make fmt`** formats code in-place. **`make lint`** runs linters/analyzers (read-only, no formatting). **`make test`** runs tests with coverage. Three separate targets — no overlap.
 

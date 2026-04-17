@@ -83,14 +83,15 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
       trace: () => {},
       debug: (msg: string, fields?: Record<string, unknown>) =>
         entries.push({ level: "debug", msg, fields: fields ?? {} }),
-      info: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "info", msg, fields: fields ?? {} }),
-      warn: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "warn", msg, fields: fields ?? {} }),
+      info: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "info", msg, fields: fields ?? {} }),
+      warn: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "warn", msg, fields: fields ?? {} }),
       error: (msg: string, fields?: Record<string, unknown>) =>
         entries.push({ level: "error", msg, fields: fields ?? {} }),
       child: () => capture,
     };
-    // setPluginLogger expects a Logger; our capture matches the interface.
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     setPluginLogger(capture as never);
     render("```typediagram\ntype X { a: Int }\n```");
     const renderLog = entries.find((e) => e.msg === "rendered typediagram fence to SVG");
@@ -104,19 +105,38 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
     expect(invokeLog?.fields["info"]).toBe("typediagram");
   });
 
+  it("uses the overridden plugin logger after setPluginLogger", () => {
+    const entries: Array<{ msg: string }> = [];
+    const capture = {
+      trace: () => {},
+      debug: (msg: string) => entries.push({ msg }),
+      info: (msg: string) => entries.push({ msg }),
+      warn: (msg: string) => entries.push({ msg }),
+      error: (msg: string) => entries.push({ msg }),
+      child: () => capture,
+    };
+    setPluginLogger(capture as never);
+    render("```typediagram\ntype Z { a: Int }\n```");
+    // The overridden capture logger received logs (not the lazy channel one)
+    expect(entries.some((e) => e.msg === "plugin installed on markdown-it instance")).toBe(true);
+    expect(entries.some((e) => e.msg === "rendered typediagram fence to SVG")).toBe(true);
+  });
+
   it("logs an error event when a fence fails to render", () => {
     const entries: Array<{ level: string; msg: string; fields: Record<string, unknown> }> = [];
     const capture = {
       trace: () => {},
       debug: (msg: string, fields?: Record<string, unknown>) =>
         entries.push({ level: "debug", msg, fields: fields ?? {} }),
-      info: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "info", msg, fields: fields ?? {} }),
-      warn: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "warn", msg, fields: fields ?? {} }),
+      info: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "info", msg, fields: fields ?? {} }),
+      warn: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "warn", msg, fields: fields ?? {} }),
       error: (msg: string, fields?: Record<string, unknown>) =>
         entries.push({ level: "error", msg, fields: fields ?? {} }),
       child: () => capture,
     };
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+
     setPluginLogger(capture as never);
     render("```typediagram\ntype X { @bad }\n```");
     const errLog = entries.find((e) => e.msg === "typediagram render failed");
@@ -126,9 +146,12 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
   });
 
   it("logs via lazy Output Channel when setPluginLogger was never called", async () => {
-    // Reset modules so there's no override AND no global logger state.
+    // Reset modules so the plugin has no override logger AND the logger module is fresh.
     vi.resetModules();
     mock.mockOutputChannel.appendLine.mockClear();
+    // Re-import BOTH: the fresh plugin AND a fresh core so we warm the new core instance.
+    const freshCore = await import("typediagram-core");
+    await freshCore.warmupSyncRender();
     const freshPlugin = await import("../src/markdown-it-plugin.js");
     const md = new MarkdownIt();
     freshPlugin.typediagramMarkdownItPlugin(md as unknown as MdShape);
@@ -138,6 +161,8 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
     expect(lines.some((l) => l.includes("plugin installed on markdown-it instance"))).toBe(true);
     expect(lines.some((l) => l.includes("fence rule invoked"))).toBe(true);
     expect(lines.some((l) => l.includes("rendered typediagram fence to SVG"))).toBe(true);
+    // Scope binding from getLogger().child({ scope: "md-plugin" }) must be present
+    expect(lines.some((l) => l.includes('"scope":"md-plugin"'))).toBe(true);
   });
 
   it("handles missing previous fence rule gracefully (emits empty string)", () => {

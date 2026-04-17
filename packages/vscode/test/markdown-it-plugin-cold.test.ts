@@ -2,6 +2,9 @@
 // not yet warm. Mocks typediagram-core so isSyncRenderReady returns false.
 import { describe, expect, it, vi } from "vitest";
 import MarkdownIt from "markdown-it";
+import * as mock from "./vscode-mock.js";
+
+vi.mock("vscode", () => mock);
 
 vi.mock("typediagram-core", () => ({
   isSyncRenderReady: () => false,

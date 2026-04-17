@@ -1,10 +1,10 @@
-# agent-pmo:2efd847
+# agent-pmo:02a321a
 # =============================================================================
 # Standard Makefile — typeDiagram
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt fmt-check clean ci setup install-vsix eslint banned-deps bundle-size
+.PHONY: build test lint fmt clean ci setup install-vsix
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -30,7 +30,7 @@ endif
 COVERAGE_THRESHOLDS_FILE := coverage-thresholds.json
 
 # =============================================================================
-# Standard Targets
+# Standard Targets (exactly 7 — see REPO-STANDARDS-SPEC [MAKE-TARGETS])
 # =============================================================================
 
 ## build: Compile/assemble all artifacts
@@ -53,39 +53,19 @@ test:
 	node scripts/ratchet-coverage.mjs
 
 ## lint: Run all linters/analyzers (read-only). Does NOT format. Fails fast on first error.
-## Builds typediagram-core first so consumer packages can resolve its types.
+##       Chains: typecheck -> eslint -> banned-deps.
 lint:
 	@echo "==> Pre-building typediagram-core (needed for consumer typecheck)..."
 	npm run -w typediagram-core build
 	@echo "==> Typechecking..."
 	npm run -ws --if-present typecheck
-	@$(MAKE) eslint
-	@$(MAKE) banned-deps
+	@$(MAKE) _eslint
+	@$(MAKE) _banned_deps
 
 ## fmt: Format all code in-place.
 fmt:
 	@echo "==> Formatting (write)..."
 	npx prettier --write .
-
-## fmt-check: Read-only format check (CI-safe). Fails if any file is misformatted.
-fmt-check:
-	@echo "==> Format check..."
-	npx prettier --check .
-
-## eslint: Run ESLint across the repo. Fails on any rule violation.
-eslint:
-	@echo "==> ESLint..."
-	npx eslint .
-
-## banned-deps: Verify no banned dependencies have leaked in.
-banned-deps:
-	@echo "==> Banned-deps check..."
-	npm run check-banned-deps --workspace=packages/typediagram
-
-## bundle-size: Enforce the published bundle-size budget.
-bundle-size:
-	@echo "==> Bundle-size budget..."
-	npm run bundle-size --workspace=packages/typediagram
 
 ## clean: Remove all build artifacts
 clean:
@@ -93,8 +73,13 @@ clean:
 	$(RM) packages/typediagram/dist packages/cli/dist packages/web/dist packages/vscode/dist coverage
 
 ## ci: full CI simulation. Fail-fast on every gate, in order:
-##     fmt-check -> lint (typecheck + eslint + banned-deps) -> test+coverage -> build -> bundle-size
-ci: fmt-check lint test build bundle-size
+##     fmt-check -> lint -> test+coverage -> build -> bundle-size
+ci:
+	@$(MAKE) _fmt_check
+	@$(MAKE) lint
+	@$(MAKE) test
+	@$(MAKE) build
+	@$(MAKE) _bundle_size
 
 ## setup: Post-create dev environment setup (used by devcontainer)
 setup:
@@ -105,7 +90,7 @@ setup:
 
 
 # =============================================================================
-# Internal Targets (not public)
+# Internal Targets (private — not public API, must not appear in .PHONY)
 # =============================================================================
 
 _coverage_check:
@@ -115,9 +100,25 @@ _coverage_check:
 	@jq -r '.projects | to_entries[] | "  \(.key): stmts=\(.value.statements)% branch=\(.value.branches)% fn=\(.value.functions)% lines=\(.value.lines)%"' "$(COVERAGE_THRESHOLDS_FILE)"
 	@echo "If tests passed, coverage is above thresholds. vitest exits non-zero on breach."
 
+_fmt_check:
+	@echo "==> Format check (read-only)..."
+	npx prettier --check .
+
+_eslint:
+	@echo "==> ESLint..."
+	npx eslint .
+
+_banned_deps:
+	@echo "==> Banned-deps check..."
+	npm run check-banned-deps --workspace=packages/typediagram
+
+_bundle_size:
+	@echo "==> Bundle-size budget..."
+	npm run bundle-size --workspace=packages/typediagram
+
 
 # =============================================================================
-# Repo Specific Targets (not AgentPMORelated)
+# Repo-Specific Targets (not part of the 7 standard targets)
 # =============================================================================
 
 ## install-vsix: Package the VS Code extension to the repo root and install it into the local VS Code.

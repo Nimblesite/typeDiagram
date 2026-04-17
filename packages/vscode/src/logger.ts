@@ -52,11 +52,21 @@ function writeLine(state: LoggerState, level: Level, msg: string, fields?: Recor
 
 function makeLogger(state: LoggerState): Logger {
   return {
-    trace: (msg, fields) => writeLine(state, "trace", msg, fields),
-    debug: (msg, fields) => writeLine(state, "debug", msg, fields),
-    info: (msg, fields) => writeLine(state, "info", msg, fields),
-    warn: (msg, fields) => writeLine(state, "warn", msg, fields),
-    error: (msg, fields) => writeLine(state, "error", msg, fields),
+    trace: (msg, fields) => {
+      writeLine(state, "trace", msg, fields);
+    },
+    debug: (msg, fields) => {
+      writeLine(state, "debug", msg, fields);
+    },
+    info: (msg, fields) => {
+      writeLine(state, "info", msg, fields);
+    },
+    warn: (msg, fields) => {
+      writeLine(state, "warn", msg, fields);
+    },
+    error: (msg, fields) => {
+      writeLine(state, "error", msg, fields);
+    },
     child: (bindings) => makeLogger({ ...state, bindings: { ...state.bindings, ...bindings } }),
   };
 }
@@ -72,10 +82,9 @@ export function initLogger(context: vscode.ExtensionContext): Logger {
     globalState = { channel: ensureChannel(), filePath: null, minLevel: "trace", bindings: {} };
     context.subscriptions.push(globalState.channel);
   }
-  const storage = context.logUri ?? context.globalStorageUri;
   try {
-    mkdirSync(storage.fsPath, { recursive: true });
-    globalState.filePath = `${storage.fsPath}/typediagram.log.jsonl`;
+    mkdirSync(context.logUri.fsPath, { recursive: true });
+    globalState.filePath = `${context.logUri.fsPath}/typediagram.log.jsonl`;
   } catch {
     globalState.filePath = null;
   }
@@ -87,9 +96,7 @@ export function initLogger(context: vscode.ExtensionContext): Logger {
 // need logging even without a context. Return a best-effort logger that writes to a
 // lazy-created channel when no global state exists.
 export function getLogger(): Logger {
-  if (globalState === null) {
-    globalState = { channel: ensureChannel(), filePath: null, minLevel: "trace", bindings: {} };
-  }
+  globalState ??= { channel: ensureChannel(), filePath: null, minLevel: "trace", bindings: {} };
   return makeLogger(globalState);
 }
 

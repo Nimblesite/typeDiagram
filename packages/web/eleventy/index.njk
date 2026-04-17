@@ -21,8 +21,6 @@ stylesHref: /src/styles.css
     </p>
   </header>
 
-  {% include "intro.njk" %}
-
   <!-- ===== Split Pane Editor ===== -->
   <section class="playground-section" id="playground">
     <div class="playground-embed">
@@ -47,29 +45,61 @@ stylesHref: /src/styles.css
   <!-- ===== Feature Grid ===== -->
   <section class="features" id="features">
     <div class="features-inner">
+      <h2 class="section-title">Define your types once. Generate code and diagrams everywhere.</h2>
+      <p class="section-lede">
+        typeDiagram is a tiny, language-neutral DSL for describing <strong>algebraic data types</strong> — records,
+        tagged unions, generics, aliases. From one <code>.td</code> file, you get:
+      </p>
       <div class="features-grid">
         <div class="feature-card feature-card--record">
-          <span class="material-symbols-outlined feature-icon feature-icon--record">terminal</span>
-          <h4 class="feature-title">Monospace First</h4>
+          <span class="material-symbols-outlined feature-icon feature-icon--record">code</span>
+          <h4 class="feature-title">Source code, 5 languages</h4>
           <p class="feature-desc">
-            Designed for engineers who think in code. Every interaction respects the precision of a technical IDE.
+            TypeScript, Python, Rust, Go, and C# — DTOs, data classes, discriminated unions, pattern-matchable
+            enums — generated from the same definition, always in sync.
           </p>
         </div>
 
         <div class="feature-card feature-card--union">
-          <span class="material-symbols-outlined feature-icon feature-icon--union">hub</span>
-          <h4 class="feature-title">Semantic Logic</h4>
+          <span class="material-symbols-outlined feature-icon feature-icon--union">schema</span>
+          <h4 class="feature-title">SVG diagrams</h4>
           <p class="feature-desc">
-            Beyond boxes and arrows. typeDiagram understands your data structures and suggests architectural
-            patterns.
+            Automatic orthogonal layout — no dragging, no fiddling. Versionable in git and rendered the same on
+            every machine.
           </p>
         </div>
 
         <div class="feature-card feature-card--alias">
-          <span class="material-symbols-outlined feature-icon feature-icon--alias">auto_fix_high</span>
-          <h4 class="feature-title">Instant Blueprints</h4>
+          <span class="material-symbols-outlined feature-icon feature-icon--alias">swap_horiz</span>
+          <h4 class="feature-title">Round-trip conversion</h4>
           <p class="feature-desc">
-            No manual dragging. Our auto-layout engine handles the geometry while you focus on the architecture.
+            Convert existing TypeScript, Python, Rust, Go, or C# types back to the DSL. Retrofit an existing
+            codebase without rewriting it.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Why this matters ===== -->
+  <section class="features" id="why">
+    <div class="features-inner">
+      <div class="features-grid features-grid--2">
+        <div class="feature-card feature-card--record">
+          <span class="material-symbols-outlined feature-icon feature-icon--record">hub</span>
+          <h4 class="feature-title">A shared schema, not a diagramming tool</h4>
+          <p class="feature-desc">
+            Unlike Mermaid or PlantUML, the diagram is a side effect — not the goal. The primary output is code, in
+            as many languages as you need, kept strictly in sync by construction.
+          </p>
+        </div>
+
+        <div class="feature-card feature-card--union">
+          <span class="material-symbols-outlined feature-icon feature-icon--union">sync</span>
+          <h4 class="feature-title">One definition, N outputs</h4>
+          <p class="feature-desc">
+            Python backend, Swift/Kotlin mobile app, TypeScript web client, Rust data pipeline — keeping DTOs
+            aligned across five languages is a full-time job. Change a field, regenerate, done.
           </p>
         </div>
       </div>

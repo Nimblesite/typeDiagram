@@ -394,6 +394,63 @@ describe("[VSCODE-EXT] activate", () => {
     expect(sawWarmupDone || sawAlreadyWarm).toBe(true);
   });
 
+  it("[VSCODE-MD-EXTEND-REFRESH-ERR] extendMarkdownIt logs when markdown.preview.refresh fails", async () => {
+    // Reset modules + stub core so warmup is un-warm, resolves immediately.
+    vi.resetModules();
+    vi.doMock("typediagram-core", () => ({
+      warmupSyncRender: async () => {
+        await Promise.resolve();
+      },
+      isSyncRenderReady: () => false,
+      renderToStringSync: () => ({ ok: false, error: [] }),
+    }));
+    mock.mockOutputChannel.appendLine.mockClear();
+    mock.commands.executeCommand.mockRejectedValueOnce(new Error("refresh boom"));
+    const { extendMarkdownIt } = await import("../src/extension.js");
+    const md = { renderer: { rules: {} as Record<string, unknown> } };
+    extendMarkdownIt(md as never);
+    await new Promise((r) => setTimeout(r, 400));
+    const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    expect(lines.some((l) => l.includes("markdown.preview.refresh failed") && l.includes("refresh boom"))).toBe(true);
+    vi.doUnmock("typediagram-core");
+  });
+
+  it("[VSCODE-MD-EXTEND-WARMUP-ERR] extendMarkdownIt logs when warmup rejects", async () => {
+    // Mock the core to reject warmup just for this test
+    vi.resetModules();
+    mock.mockOutputChannel.appendLine.mockClear();
+    vi.doMock("typediagram-core", () => ({
+      warmupSyncRender: async () => {
+        await Promise.resolve();
+        throw new Error("elk blew up");
+      },
+      isSyncRenderReady: () => false,
+      renderToStringSync: () => ({ ok: false, error: [] }),
+    }));
+    const { extendMarkdownIt } = await import("../src/extension.js");
+    const md = { renderer: { rules: {} as Record<string, unknown> } };
+    extendMarkdownIt(md as never);
+    await new Promise((r) => setTimeout(r, 300));
+    const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    expect(lines.some((l) => l.includes("warmup failed") && l.includes("elk blew up"))).toBe(true);
+    vi.doUnmock("typediagram-core");
+  });
+
+  it("[VSCODE-MD-EXTEND-RETURN] activate returns an object containing extendMarkdownIt (the canonical Mermaid pattern)", async () => {
+    const { activate, extendMarkdownIt } = await import("../src/extension.js");
+    const ctx = makeContext();
+    const api = activate(ctx as never);
+    expect(api).toBeDefined();
+    expect(api).toHaveProperty("extendMarkdownIt");
+    // Must be the SAME function reference as the named export (double-wired intentionally)
+    expect(api?.extendMarkdownIt).toBe(extendMarkdownIt);
+    // Invoking what VS Code will receive must actually plug into markdown-it
+    const md = { renderer: { rules: {} as Record<string, unknown> } };
+    const returned = api?.extendMarkdownIt?.(md as never);
+    expect(returned).toBe(md);
+    expect(typeof md.renderer.rules["fence"]).toBe("function");
+  });
+
   it("[VSCODE-ACTIVATE-LOG] activate logs version + path", async () => {
     mock.mockOutputChannel.appendLine.mockClear();
     const { activate } = await import("../src/extension.js");

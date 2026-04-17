@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as mock from "./vscode-mock.js";
 import { readFileSync, existsSync, rmSync, mkdirSync } from "node:fs";
+import type * as fsModule from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
@@ -118,7 +119,9 @@ describe("[VSCODE-LOGGER] structured logger", () => {
     const { initLogger } = await import("../src/logger.js");
     const log = initLogger({ subscriptions: [], logUri: { fsPath: "/nonexistent/cannot/create" } } as never);
     // Should NOT throw even though file path is invalid
-    expect(() => log.info("still-works")).not.toThrow();
+    expect(() => {
+      log.info("still-works");
+    }).not.toThrow();
     expect(mock.mockOutputChannel.appendLine).toHaveBeenCalled();
   });
 
@@ -126,7 +129,9 @@ describe("[VSCODE-LOGGER] structured logger", () => {
     vi.resetModules();
     const { getLogger } = await import("../src/logger.js");
     const log = getLogger();
-    expect(() => log.info("pre-init event", { phase: "extend" })).not.toThrow();
+    expect(() => {
+      log.info("pre-init event", { phase: "extend" });
+    }).not.toThrow();
     expect(mock.window.createOutputChannel).toHaveBeenCalledWith("TypeDiagram");
     const line = mock.mockOutputChannel.appendLine.mock.calls[0]?.[0] as string;
     expect(line).toContain("pre-init event");
@@ -146,7 +151,9 @@ describe("[VSCODE-LOGGER] structured logger", () => {
   it("_setMinLevelForTesting is a no-op before init (doesn't throw)", async () => {
     vi.resetModules();
     const { _setMinLevelForTesting } = await import("../src/logger.js");
-    expect(() => _setMinLevelForTesting("warn")).not.toThrow();
+    expect(() => {
+      _setMinLevelForTesting("warn");
+    }).not.toThrow();
   });
 
   it("filters out levels below minLevel", async () => {
@@ -170,7 +177,7 @@ describe("[VSCODE-LOGGER] structured logger", () => {
     vi.resetModules();
     // Mock node:fs so appendFileSync throws. Must mock BEFORE importing the logger.
     vi.doMock("node:fs", async (importOriginal) => {
-      const actual = await importOriginal<typeof import("node:fs")>();
+      const actual = await importOriginal<typeof fsModule>();
       return {
         ...actual,
         appendFileSync: () => {
@@ -180,7 +187,9 @@ describe("[VSCODE-LOGGER] structured logger", () => {
     });
     const { initLogger } = await import("../src/logger.js");
     const log = initLogger(makeCtx() as never);
-    expect(() => log.info("will-swallow")).not.toThrow();
+    expect(() => {
+      log.info("will-swallow");
+    }).not.toThrow();
     // Channel still received the line — file failure doesn't kill console output
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("will-swallow"))).toBe(true);

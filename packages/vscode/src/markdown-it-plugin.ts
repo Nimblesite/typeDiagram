@@ -56,16 +56,17 @@ export function typediagramMarkdownItPlugin(md: MarkdownIt): MarkdownIt {
     hadPreviousFence: typeof previousFence === "function",
   });
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
-    const token = tokens[idx];
-    const info = token?.info.trim() ?? "";
-    const matches = token !== undefined && LANG_RE.test(info);
+    // markdown-it's fence rule is always invoked with a valid token at idx.
+    const token = tokens[idx] as MdToken;
+    const info = token.info.trim();
+    const matches = LANG_RE.test(info);
     log().debug("fence rule invoked", {
       idx,
       info,
       matches,
-      contentLength: token?.content.length ?? 0,
+      contentLength: token.content.length,
     });
-    if (token && matches) {
+    if (matches) {
       if (!isSyncRenderReady()) {
         log().warn("sync renderer not warm — emitting placeholder", {
           contentPreview: token.content.slice(0, 80),
