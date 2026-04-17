@@ -10,6 +10,14 @@ If it fails, the output tells you what broke. Fix, re-run, push.
 
 ---
 
+## Writing the PR description
+
+> **Base the PR description on the ACTUAL DIFF — nothing else.** Not the git log, not the branch name, not the chat you had with your agent, not what you intended to do. The diff.
+
+If you're using and agent, run the [`/submit-pr` skill](.claude/skills/submit-pr/SKILL.md) — it reads the real diff and writes the description from that. AI-generated PR summaries drawn from surrounding context (commit messages, conversation history) routinely describe things the diff doesn't actually contain. Reviewers rely on the description being accurate.
+
+---
+
 ## File an issue first
 
 For any feature or non-trivial fix, **open an issue and get agreement on the approach before writing code.** Rejected PRs waste everyone's time.
