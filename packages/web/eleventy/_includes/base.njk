@@ -5,6 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{ title }}</title>
     {% if description %}<meta name="description" content="{{ description }}" />{% endif %}
+    {% set siteOrigin = "https://typediagram.dev" %}
+    {% set pageUrl = siteOrigin + (page.url | default("/")) %}
+    {% set ogImage = siteOrigin + (ogImage | default("/vscode-screenshot.png")) %}
+    {% set ogType = ogType | default("website") %}
+    <link rel="canonical" href="{{ pageUrl }}" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta property="og:site_name" content="typeDiagram" />
+    <meta property="og:type" content="{{ ogType }}" />
+    <meta property="og:url" content="{{ pageUrl }}" />
+    <meta property="og:title" content="{{ title }}" />
+    {% if description %}<meta property="og:description" content="{{ description }}" />{% endif %}
+    <meta property="og:image" content="{{ ogImage }}" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="{{ title }}" />
+    {% if description %}<meta name="twitter:description" content="{{ description }}" />{% endif %}
+    <meta name="twitter:image" content="{{ ogImage }}" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap"
       rel="stylesheet"
@@ -14,6 +34,9 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ stylesHref | default('./src/styles.css') }}" />
+    {% if structuredData %}
+      <script type="application/ld+json">{{ structuredData | dump | safe }}</script>
+    {% endif %}
   </head>
   <body>
     {% include "nav.njk" %}

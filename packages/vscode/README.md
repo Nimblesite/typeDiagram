@@ -1,6 +1,6 @@
 # TypeDiagram for VS Code
 
-**Type-safe diagrams from plain text — live inside VS Code.** Syntax highlighting and a live SVG preview for the [typeDiagram](https://typediagram.dev) DSL.
+**Type-safe diagrams and source code from one schema — live inside VS Code.** Syntax highlighting and a live SVG preview for the [typeDiagram](https://typediagram.dev) DSL.
 
 ## Features
 

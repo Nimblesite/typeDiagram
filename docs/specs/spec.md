@@ -404,6 +404,7 @@ Tree-sitter is **only** considered if/when LSP performance demands incremental r
 2. Markdown integration helper (`renderMarkdown(md)` that swaps ```typeDiagram fences for SVG).
 3. VS Code extension: TextMate grammar (highlighting), preview pane, LSP backed by our TS parser (hover, diagnostics, go-to-def).
 4. Live preview in markdown (mirror mermaid's VS Code experience).
+5. **PDF export with embedded vector diagrams.** Right-click a `.md` file in the explorer or editor title → generates `<basename>.pdf` next to the source, with every ` ```typediagram ` fence rendered as a vector SVG inside the PDF. Uses VS Code's bundled Electron via `webview.printToPDF`; no new runtime binaries. Full spec: [pdf-export.md](./pdf-export.md).
 
 ## Verification
 

@@ -1,7 +1,7 @@
 ---
 layout: base.njk
-title: typeDiagram — Type-safe diagrams from plain text
-description: Define types, unions, and aliases in plain text. Get beautiful diagrams instantly.
+title: typeDiagram — Type-safe diagrams and source code from one schema
+description: typeDiagram is an open-source DSL that turns one .td file into TypeScript, Python, Rust, Go, C# types and an SVG diagram. Keep DTOs in sync across languages.
 permalink: /index.html
 scriptSrc: /src/main.ts
 navLogoLink: false
@@ -10,14 +10,42 @@ navConverterHref: /converter.html
 navDocsHref: /docs/
 navBlogHref: /blog/
 stylesHref: /src/styles.css
+structuredData:
+  "@context": "https://schema.org"
+  "@graph":
+    - "@type": "Organization"
+      "@id": "https://typediagram.dev/#organization"
+      name: "typeDiagram"
+      url: "https://typediagram.dev/"
+      logo: "https://typediagram.dev/vscode-screenshot.png"
+      sameAs:
+        - "https://github.com/Nimblesite/typeDiagram"
+        - "https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram"
+    - "@type": "WebSite"
+      "@id": "https://typediagram.dev/#website"
+      url: "https://typediagram.dev/"
+      name: "typeDiagram"
+      publisher:
+        "@id": "https://typediagram.dev/#organization"
+    - "@type": "SoftwareApplication"
+      name: "typeDiagram"
+      operatingSystem: "Cross-platform (Node.js, VS Code, Web)"
+      applicationCategory: "DeveloperApplication"
+      description: "Language-neutral DSL that generates TypeScript, Python, Rust, Go, and C# types plus SVG diagrams from a single .td file."
+      url: "https://typediagram.dev/"
+      downloadUrl: "https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram"
+      offers:
+        "@type": "Offer"
+        price: "0"
+        priceCurrency: "USD"
 ---
 <!-- ===== Hero ===== -->
 <main class="main-content">
   <header class="hero">
-    <h1 class="hero-title">Type-safe diagrams from <span class="hero-accent">plain text.</span></h1>
+    <h1 class="hero-title">Type-safe diagrams and source code from <span class="hero-accent">one schema.</span></h1>
     <p class="hero-sub">
-      Define your domain logic with engineering precision. Generate high-fidelity architectural blueprints
-      automatically.
+      Define your domain once. Generate types for TypeScript, Python, Rust, Go, C#, and F# —
+      and an auto-laid-out SVG diagram — from the same source.
     </p>
   </header>
 
@@ -45,15 +73,15 @@ stylesHref: /src/styles.css
   <!-- ===== Feature Grid ===== -->
   <section class="features" id="features">
     <div class="features-inner">
-      <h2 class="section-title">Define your types once. Generate code and diagrams everywhere.</h2>
+      <h2 class="section-title">One <code>.td</code> file in. Three outputs out.</h2>
       <p class="section-lede">
         typeDiagram is a tiny, language-neutral DSL for describing <strong>algebraic data types</strong> — records,
-        tagged unions, generics, aliases. From one <code>.td</code> file, you get:
+        tagged unions, generics, aliases.
       </p>
       <div class="features-grid">
         <div class="feature-card feature-card--record">
           <span class="material-symbols-outlined feature-icon feature-icon--record">code</span>
-          <h4 class="feature-title">Source code, 5 languages</h4>
+          <h3 class="feature-title">Source code, 5 languages</h3>
           <p class="feature-desc">
             TypeScript, Python, Rust, Go, and C# — DTOs, data classes, discriminated unions, pattern-matchable
             enums — generated from the same definition, always in sync.
@@ -62,7 +90,7 @@ stylesHref: /src/styles.css
 
         <div class="feature-card feature-card--union">
           <span class="material-symbols-outlined feature-icon feature-icon--union">schema</span>
-          <h4 class="feature-title">SVG diagrams</h4>
+          <h3 class="feature-title">SVG diagrams</h3>
           <p class="feature-desc">
             Automatic orthogonal layout — no dragging, no fiddling. Versionable in git and rendered the same on
             every machine.
@@ -71,7 +99,7 @@ stylesHref: /src/styles.css
 
         <div class="feature-card feature-card--alias">
           <span class="material-symbols-outlined feature-icon feature-icon--alias">swap_horiz</span>
-          <h4 class="feature-title">Round-trip conversion</h4>
+          <h3 class="feature-title">Round-trip conversion</h3>
           <p class="feature-desc">
             Convert existing TypeScript, Python, Rust, Go, or C# types back to the DSL. Retrofit an existing
             codebase without rewriting it.
@@ -87,7 +115,7 @@ stylesHref: /src/styles.css
       <div class="features-grid features-grid--2">
         <div class="feature-card feature-card--record">
           <span class="material-symbols-outlined feature-icon feature-icon--record">hub</span>
-          <h4 class="feature-title">A shared schema, not a diagramming tool</h4>
+          <h3 class="feature-title">A shared schema, not a diagramming tool</h3>
           <p class="feature-desc">
             Unlike Mermaid or PlantUML, the diagram is a side effect — not the goal. The primary output is code, in
             as many languages as you need, kept strictly in sync by construction.
@@ -96,7 +124,7 @@ stylesHref: /src/styles.css
 
         <div class="feature-card feature-card--union">
           <span class="material-symbols-outlined feature-icon feature-icon--union">sync</span>
-          <h4 class="feature-title">One definition, N outputs</h4>
+          <h3 class="feature-title">One definition, N outputs</h3>
           <p class="feature-desc">
             Python backend, Swift/Kotlin mobile app, TypeScript web client, Rust data pipeline — keeping DTOs
             aligned across five languages is a full-time job. Change a field, regenerate, done.
@@ -111,17 +139,19 @@ stylesHref: /src/styles.css
     <div class="cta-card">
       <div class="cta-gradient"></div>
       <div class="cta-content" style="max-width: none">
-        <span class="cta-eyebrow">VS Code Extension ★★★★★</span>
+        <span class="cta-eyebrow">VS Code Extension</span>
         <h2 class="cta-title">Live preview in your editor.</h2>
         <p class="cta-desc">
-          Syntax highlighting, hover docs, and a side-by-side SVG preview that updates as you type. Rated 5 stars on
-          the Visual Studio Marketplace.
+          Syntax highlighting, hover docs, and a side-by-side SVG preview that updates as you type. Available free
+          on the Visual Studio Marketplace.
         </p>
         <a href="/vscode-screenshot.png">
           <img
             src="/vscode-screenshot.png"
-            alt="TypeDiagram VS Code extension showing live SVG preview of a chat-model schema"
+            alt="typeDiagram VS Code extension showing live SVG preview of a chat-model schema alongside .td source code"
             loading="lazy"
+            width="1564"
+            height="1061"
             style="width: 100%; height: auto; border-radius: 0.5rem; margin-bottom: var(--td-space-2xl)"
           />
         </a>
@@ -130,11 +160,6 @@ stylesHref: /src/styles.css
             class="btn btn-primary"
             href="https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram"
             >Install from Marketplace</a
-          >
-          <a
-            class="btn btn-outline"
-            href="https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram&amp;ssr=false#review-details"
-            >Rate it ★★★★★</a
           >
           <a class="btn btn-outline" href="/typediagram.vsix" download>Download .vsix</a>
         </div>
@@ -166,8 +191,8 @@ stylesHref: /src/styles.css
             versionable and strictly typed.
           </p>
           <div class="cta-buttons">
-            <button class="btn btn-primary">Get Started Free</button>
-            <button class="btn btn-outline">View Demo</button>
+            <a class="btn btn-primary" href="/docs/">Get started</a>
+            <a class="btn btn-outline" href="#playground">Try the playground</a>
           </div>
         </div>
       </div>

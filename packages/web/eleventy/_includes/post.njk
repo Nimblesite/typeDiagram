@@ -6,8 +6,25 @@ navPlaygroundHref: /#playground
 navConverterHref: /converter.html
 navDocsHref: /docs/
 navBlogHref: /blog/
+ogType: article
 eleventyComputed:
   title: "{{ title }} — typeDiagram Blog"
+  description: "{{ description | default(title + ' — on the typeDiagram blog.') }}"
+  structuredData:
+    "@context": "https://schema.org"
+    "@type": "BlogPosting"
+    headline: "{{ title }}"
+    datePublished: "{{ page.date | isoDate }}"
+    dateModified: "{{ page.date | isoDate }}"
+    author:
+      "@type": "Organization"
+      name: "{{ author | default('typeDiagram') }}"
+    publisher:
+      "@type": "Organization"
+      name: "typeDiagram"
+      url: "https://typediagram.dev/"
+    mainEntityOfPage: "https://typediagram.dev{{ page.url }}"
+    inLanguage: "en"
 ---
 <main class="docs-layout">
   <aside class="docs-sidebar">
@@ -18,7 +35,7 @@ eleventyComputed:
   <article class="docs-content">
     <header>
       <h1>{{ title }}</h1>
-      <p><small>{{ date | isoDate }}{% if author %} · {{ author }}{% endif %}</small></p>
+      <p><small><time datetime="{{ page.date | isoDate }}">{{ page.date | isoDate }}</time>{% if author %} · {{ author }}{% endif %}</small></p>
     </header>
     {{ content | safe }}
   </article>

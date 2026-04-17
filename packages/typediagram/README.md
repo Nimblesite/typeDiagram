@@ -1,6 +1,6 @@
 # typediagram-core
 
-**Type-safe diagrams from plain text.** Parse a tiny DSL (records, tagged unions, aliases) into a model, lay it out, and render SVG. Round-trip with TypeScript, Python, Rust, Go, C#, and F#.
+**Type-safe diagrams and source code from one schema.** Parse a tiny DSL (records, tagged unions, aliases) into a model, then generate SVG diagrams and round-trip types for TypeScript, Python, Rust, Go, C#, and F#.
 
 **Live demo:** [typediagram.dev](https://typediagram.dev)
 

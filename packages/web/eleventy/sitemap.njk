@@ -1,0 +1,16 @@
+---
+permalink: /sitemap.xml
+eleventyExcludeFromCollections: true
+---
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  {%- set siteOrigin = "https://typediagram.dev" -%}
+  {%- for item in collections.all -%}
+    {%- if item.url and not item.data.eleventyExcludeFromCollections -%}
+  <url>
+    <loc>{{ siteOrigin }}{{ item.url }}</loc>
+    {% if item.date %}<lastmod>{{ item.date | isoDate }}</lastmod>{% endif %}
+  </url>
+    {%- endif -%}
+  {%- endfor %}
+</urlset>

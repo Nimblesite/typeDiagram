@@ -90,6 +90,21 @@ export { ok, err, isOk, isErr, map, mapErr, andThen, andThenAsync, unwrap } from
 
 // Common types most consumers want at the top level
 export type { Diagnostic } from "./parser/diagnostics.js";
+export type {
+  RenderHooks,
+  BaseCtx,
+  DefsCtx,
+  BackgroundCtx,
+  NodeCtx,
+  RowCtx,
+  EdgeCtx,
+  PostCtx,
+  HookPhase,
+  HookError,
+  HookErrorReporter,
+  SafeSvg,
+} from "./render-svg/index.js";
+export { svg, raw } from "./render-svg/index.js";
 
 // keep imports from being tree-shaken away in odd configurations
 void andThenAsync;

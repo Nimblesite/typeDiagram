@@ -1,7 +1,7 @@
 ---
 layout: base.njk
-title: Converter — typeDiagram
-description: Paste TypeScript, Rust, Python, Go, or C# code and instantly convert it to typeDiagram source and SVG diagrams.
+title: Convert TypeScript, Python, Rust, Go & C# to Diagrams — typeDiagram
+description: Paste TypeScript, Rust, Python, Go, or C# code and instantly convert it to typeDiagram DSL plus an SVG diagram. Free online converter, no signup.
 permalink: /converter.html
 scriptSrc: /src/converter-main.ts
 activeNav: converter
@@ -11,6 +11,18 @@ navConverterHref: /converter.html
 navDocsHref: /docs/
 navBlogHref: /blog/
 stylesHref: /src/styles.css
+structuredData:
+  "@context": "https://schema.org"
+  "@type": "WebApplication"
+  name: "typeDiagram Converter"
+  url: "https://typediagram.dev/converter.html"
+  description: "Convert TypeScript, Python, Rust, Go, or C# type definitions into typeDiagram DSL and an SVG diagram."
+  applicationCategory: "DeveloperApplication"
+  operatingSystem: "Any (browser)"
+  offers:
+    "@type": "Offer"
+    price: "0"
+    priceCurrency: "USD"
 ---
 <!-- ===== Converter ===== -->
 <main class="converter-page">

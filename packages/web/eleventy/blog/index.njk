@@ -2,14 +2,21 @@
 layout: base.njk
 tags: []
 permalink: /blog/index.html
-title: "Blog — typeDiagram"
-description: "Updates, deep dives, and release notes from the typeDiagram team."
+title: "typeDiagram Blog — Release Notes, Deep Dives, and Tips"
+description: "typeDiagram release notes, deep dives on the parser, layout engine and SVG renderer, and tips for modelling algebraic data types in plain text."
 stylesHref: /src/styles.css
 navLogoLink: /
 navPlaygroundHref: /#playground
 navConverterHref: /converter.html
 navDocsHref: /docs/
 navBlogHref: /blog/
+structuredData:
+  "@context": "https://schema.org"
+  "@type": "Blog"
+  name: "typeDiagram Blog"
+  url: "https://typediagram.dev/blog/"
+  description: "Release notes, deep dives, and tips for typeDiagram."
+  inLanguage: "en"
 ---
 <main class="main-content">
   <header class="hero">
@@ -23,7 +30,7 @@ navBlogHref: /blog/
           {% if post.url != page.url %}
             <li>
               <a href="{{ post.url }}">{{ post.data.title }}</a>
-              <small> — {{ post.date | isoDate }}</small>
+              <small> — <time datetime="{{ post.date | isoDate }}">{{ post.date | isoDate }}</time></small>
             </li>
           {% endif %}
         {% endfor %}

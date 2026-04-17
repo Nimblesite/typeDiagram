@@ -7,6 +7,14 @@ pagination:
 permalink: "/docs/{{ doc.slug }}.html"
 eleventyComputed:
   title: "{{ doc.title }} — typeDiagram"
+  description: "{{ doc.title }} — typeDiagram documentation. Language-neutral DSL for describing algebraic data types and generating code in TypeScript, Python, Rust, Go, and C#."
+  structuredData:
+    "@context": "https://schema.org"
+    "@type": "TechArticle"
+    headline: "{{ doc.title }}"
+    description: "{{ doc.title }} — typeDiagram documentation."
+    url: "https://typediagram.dev/docs/{{ doc.slug }}.html"
+    inLanguage: "en"
 stylesHref: /src/styles.css
 navLogoLink: /
 navPlaygroundHref: /#playground
