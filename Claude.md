@@ -8,7 +8,6 @@ Read this file in full. Rules below are NON-NEGOTIABLE — violations are reject
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
 Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
 ⚠️ DON'T ASK THE USER QUESTIONS!!!
-
 - DO YOUR JOB and don't say things like "Open questions before I start"
 - USE YOUR JUDGEMENT! ⚠️
   ⚠️ NEVER KILL ANY VSCODE PROCESS ⚠️

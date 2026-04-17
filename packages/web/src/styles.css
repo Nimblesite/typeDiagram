@@ -1022,11 +1022,13 @@ body {
 
 .docs-content {
   padding: var(--td-space-3xl) var(--td-space-4xl);
-  max-width: 896px;
-  margin: 0 auto;
   line-height: 1.7;
   color: var(--td-on-surface);
   background: var(--td-surface);
+}
+
+.docs-content > * {
+  max-width: 896px;
 }
 
 .docs-content h1 {
