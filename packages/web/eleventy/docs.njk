@@ -1,0 +1,36 @@
+---
+layout: base.njk
+pagination:
+  data: docs
+  size: 1
+  alias: doc
+permalink: "/docs/{{ doc.slug }}.html"
+eleventyComputed:
+  title: "{{ doc.title }} — typeDiagram"
+stylesHref: /src/styles.css
+navLogoLink: /
+navPlaygroundHref: /#playground
+navConverterHref: /converter.html
+navDocsHref: /docs/
+navBlogHref: /blog/
+---
+<div class="docs-layout">
+  <aside class="docs-sidebar">
+    <ul class="docs-nav">
+      {% for d in docs %}
+        {% if "api/" not in d.slug %}
+          <li><a href="/docs/{{ d.slug }}.html" class="{% if d.slug == doc.slug %}active{% endif %}">{{ d.label }}</a></li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+    <h4 style="margin-top: 1.5rem; font-family: var(--td-font-mono); font-size: 0.85rem; color: var(--td-outline); text-transform: uppercase; letter-spacing: 0.05em;">API Reference</h4>
+    <ul class="docs-nav">
+      {% for d in docs %}
+        {% if "api/" in d.slug and d.isTopLevel %}
+          <li><a href="/docs/{{ d.slug }}.html" class="{% if d.slug == doc.slug %}active{% endif %}">{{ d.label }}</a></li>
+        {% endif %}
+      {% endfor %}
+    </ul>
+  </aside>
+  <main class="docs-content">{{ doc.html | safe }}</main>
+</div>

@@ -1,0 +1,25 @@
+---
+layout: base.njk
+stylesHref: /src/styles.css
+navLogoLink: /
+navPlaygroundHref: /#playground
+navConverterHref: /converter.html
+navDocsHref: /docs/
+navBlogHref: /blog/
+eleventyComputed:
+  title: "{{ title }} — typeDiagram Blog"
+---
+<main class="docs-layout">
+  <aside class="docs-sidebar">
+    <ul class="docs-nav">
+      <li><a href="/blog/">← All posts</a></li>
+    </ul>
+  </aside>
+  <article class="docs-content">
+    <header>
+      <h1>{{ title }}</h1>
+      <p><small>{{ date | isoDate }}{% if author %} · {{ author }}{% endif %}</small></p>
+    </header>
+    {{ content | safe }}
+  </article>
+</main>

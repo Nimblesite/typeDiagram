@@ -1,0 +1,24 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": [
+    "../typediagram/src/index.ts",
+    "../typediagram/src/markdown.ts",
+    "../typediagram/src/parser/index.ts",
+    "../typediagram/src/model/index.ts",
+    "../typediagram/src/layout/index.ts",
+    "../typediagram/src/render-svg/index.ts",
+    "../typediagram/src/result.ts"
+  ],
+  "tsconfig": "../typediagram/tsconfig.json",
+  "out": ".typedoc-out",
+  "plugin": ["typedoc-plugin-markdown"],
+  "readme": "none",
+  "hideBreadcrumbs": true,
+  "hidePageHeader": true,
+  "entryFileName": "index.md",
+  "skipErrorChecking": true,
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "githubPages": false,
+  "useCodeBlocks": true
+}

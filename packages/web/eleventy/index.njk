@@ -1,0 +1,144 @@
+---
+layout: base.njk
+title: typeDiagram — Type-safe diagrams from plain text
+description: Define types, unions, and aliases in plain text. Get beautiful diagrams instantly.
+permalink: /index.html
+scriptSrc: /src/main.ts
+navLogoLink: false
+navPlaygroundHref: "#playground"
+navConverterHref: /converter.html
+navDocsHref: /docs/
+navBlogHref: /blog/
+stylesHref: /src/styles.css
+---
+<!-- ===== Hero ===== -->
+<main class="main-content">
+  <header class="hero">
+    <h1 class="hero-title">Type-safe diagrams from <span class="hero-accent">plain text.</span></h1>
+    <p class="hero-sub">
+      Define your domain logic with engineering precision. Generate high-fidelity architectural blueprints
+      automatically.
+    </p>
+  </header>
+
+  <!-- ===== Split Pane Editor ===== -->
+  <section class="playground-section" id="playground">
+    <div class="playground-embed">
+      <div class="editor-header">
+        <div class="editor-header-left">
+          <div class="traffic-lights">
+            <span class="dot dot--red"></span>
+            <span class="dot dot--yellow"></span>
+            <span class="dot dot--green"></span>
+          </div>
+          <span class="file-tab">Schema.td</span>
+        </div>
+        <div class="editor-header-right">
+          <span class="sync-label">Live Preview: Syncing</span>
+          <span class="material-symbols-outlined share-icon">share</span>
+        </div>
+      </div>
+      <div id="playground-mount" class="playground-mount"></div>
+    </div>
+  </section>
+
+  <!-- ===== Feature Grid ===== -->
+  <section class="features" id="features">
+    <div class="features-inner">
+      <div class="features-grid">
+        <div class="feature-card feature-card--record">
+          <span class="material-symbols-outlined feature-icon feature-icon--record">terminal</span>
+          <h4 class="feature-title">Monospace First</h4>
+          <p class="feature-desc">
+            Designed for engineers who think in code. Every interaction respects the precision of a technical IDE.
+          </p>
+        </div>
+
+        <div class="feature-card feature-card--union">
+          <span class="material-symbols-outlined feature-icon feature-icon--union">hub</span>
+          <h4 class="feature-title">Semantic Logic</h4>
+          <p class="feature-desc">
+            Beyond boxes and arrows. typeDiagram understands your data structures and suggests architectural
+            patterns.
+          </p>
+        </div>
+
+        <div class="feature-card feature-card--alias">
+          <span class="material-symbols-outlined feature-icon feature-icon--alias">auto_fix_high</span>
+          <h4 class="feature-title">Instant Blueprints</h4>
+          <p class="feature-desc">
+            No manual dragging. Our auto-layout engine handles the geometry while you focus on the architecture.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== VS Code Extension ===== -->
+  <section class="cta-section" id="vscode">
+    <div class="cta-card">
+      <div class="cta-gradient"></div>
+      <div class="cta-content" style="max-width: none">
+        <span class="cta-eyebrow">VS Code Extension ★★★★★</span>
+        <h2 class="cta-title">Live preview in your editor.</h2>
+        <p class="cta-desc">
+          Syntax highlighting, hover docs, and a side-by-side SVG preview that updates as you type. Rated 5 stars on
+          the Visual Studio Marketplace.
+        </p>
+        <a href="/vscode-screenshot.png">
+          <img
+            src="/vscode-screenshot.png"
+            alt="TypeDiagram VS Code extension showing live SVG preview of a chat-model schema"
+            loading="lazy"
+            style="width: 100%; height: auto; border-radius: 0.5rem; margin-bottom: var(--td-space-2xl)"
+          />
+        </a>
+        <div class="cta-buttons" style="flex-wrap: wrap">
+          <a
+            class="btn btn-primary"
+            href="https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram"
+            >Install from Marketplace</a
+          >
+          <a
+            class="btn btn-outline"
+            href="https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram&amp;ssr=false#review-details"
+            >Rate it ★★★★★</a
+          >
+          <a class="btn btn-outline" href="/typediagram.vsix" download>Download .vsix</a>
+        </div>
+        <details style="margin-top: var(--td-space-2xl)">
+          <summary style="cursor: pointer; color: var(--td-primary); font-family: var(--td-font-mono)">
+            Install the .vsix manually
+          </summary>
+          <ol style="color: var(--td-outline); line-height: 1.7; margin-top: var(--td-space-lg)">
+            <li>Download <code>typediagram.vsix</code> above.</li>
+            <li>Open VS Code and press <code>Ctrl+Shift+P</code> (<code>Cmd+Shift+P</code> on macOS).</li>
+            <li>Run <strong>Extensions: Install from VSIX…</strong> and select the downloaded file.</li>
+            <li>Or from the terminal: <code>code --install-extension typediagram.vsix</code></li>
+          </ol>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== CTA / Glassmorphism ===== -->
+  <section class="cta-section">
+    <div class="cta-card">
+      <div class="cta-gradient"></div>
+      <div class="cta-content">
+        <div class="cta-text">
+          <span class="cta-eyebrow">Engineered for Scale</span>
+          <h2 class="cta-title">Complex diagrams, simplified by code.</h2>
+          <p class="cta-desc">
+            Stop fighting with drag-and-drop tools. typeDiagram treats your architecture as a living document,
+            versionable and strictly typed.
+          </p>
+          <div class="cta-buttons">
+            <button class="btn btn-primary">Get Started Free</button>
+            <button class="btn btn-outline">View Demo</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>

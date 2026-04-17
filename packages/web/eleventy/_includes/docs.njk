@@ -1,0 +1,13 @@
+---
+layout: base.njk
+---
+<div class="docs-layout">
+  <aside class="docs-sidebar">
+    <ul class="docs-nav">
+      {% for d in docOrder %}
+        <li><a href="{{ base }}docs/{{ d.slug }}.html" class="{% if d.slug == slug %}active{% endif %}">{{ d.label }}</a></li>
+      {% endfor %}
+    </ul>
+  </aside>
+  <main class="docs-content">{{ content | safe }}</main>
+</div>

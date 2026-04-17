@@ -73,3 +73,12 @@ build/
 # =============================================================================
 packages/typediagram/logs/
 .ruff_cache/
+
+
+node_modules/
+packages/web/.eleventy-out/
+
+packages/web/.typedoc-out/
+
+
+/*.png

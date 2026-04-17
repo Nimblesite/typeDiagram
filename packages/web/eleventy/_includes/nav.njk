@@ -1,0 +1,15 @@
+<!-- ===== Nav ===== -->
+<nav class="nav">
+  <div class="nav-inner">
+    {% if navLogoLink %}<a href="{{ navLogoLink }}" class="nav-logo"><span class="nav-logo-accent">type</span>Diagram</a>{% else %}<span class="nav-logo"><span class="nav-logo-accent">type</span>Diagram</span>{% endif %}
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" aria-label="Toggle navigation" />
+    <label class="nav-burger" for="nav-toggle" aria-hidden="true"><span></span><span></span><span></span></label>
+    <div class="nav-links">
+      <a href="{{ navPlaygroundHref | default('#playground') }}">Playground</a>
+      <a href="{{ navConverterHref | default('./converter.html') }}"{% if activeNav == 'converter' %} class="nav-link--active"{% endif %}>Converter</a>
+      <a href="{{ navDocsHref | default('./docs/') }}">Docs</a>
+      <a href="{{ navBlogHref | default('./blog/') }}">Blog</a>
+      <a href="https://github.com/Nimblesite/typeDiagram">GitHub</a>
+    </div>
+  </div>
+</nav>
