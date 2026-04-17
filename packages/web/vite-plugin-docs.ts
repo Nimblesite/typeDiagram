@@ -5,7 +5,7 @@ import { Marked } from "marked";
 import type { Plugin, ResolvedConfig } from "vite";
 import { highlight } from "./src/highlight.js";
 
-const DOCS_DIR = resolve(__dirname, "../../docs");
+const DOCS_DIR = resolve(__dirname, "../../docs/specs");
 
 // Languages where our typeDiagram highlighter applies
 const TD_LANGS = new Set(["", "td", "typediagram"]);
