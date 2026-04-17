@@ -1,6 +1,6 @@
 # typeDiagram
 
-**Type-safe diagrams from plain text.** Define records, tagged unions, and aliases in a tiny DSL — get beautiful, auto-laid-out SVG diagrams instantly. Round-trip between the DSL and TypeScript, Python, Rust, Go, and C#.
+**Type-safe diagrams from plain text.** Define records, tagged unions, and aliases in a tiny DSL — get beautiful, auto-laid-out SVG diagrams instantly and generate source in any language. Round-trip between the DSL and TypeScript, Python, Rust, Go, and C#.
 
 ## 🚀 Try it live — no install
 
@@ -36,7 +36,9 @@ npm install -g typediagram
 npm install typediagram-core
 
 # VS Code extension
-# search "TypeDiagram" by nimblesite in the Marketplace
+code --install-extension Nimblesite.typediagram
+# or search "TypeDiagram" by Nimblesite in the Marketplace:
+# https://marketplace.visualstudio.com/items?itemName=Nimblesite.typediagram
 ```
 
 ## The language
@@ -81,11 +83,12 @@ Full reference at [typediagram.dev/docs/](https://typediagram.dev/docs/).
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, repo layout, and rules. **Always run `make ci` before opening a PR** — it runs exactly what CI runs.
+
 ```sh
-make setup   # install deps + build framework
-make dev     # web playground at localhost:5173
-make test    # run all tests (fail-fast + coverage)
-make ci      # full CI simulation
+make setup   # install deps + build framework (first time only)
+make fmt     # auto-format your changes
+make ci      # full CI simulation — MUST pass before you push
 ```
 
 MIT © [Nimblesite](https://nimblesite.co)
