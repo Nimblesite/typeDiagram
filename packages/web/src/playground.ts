@@ -7,6 +7,8 @@ import { createViewport, setViewportContent } from "./viewport.js";
 import { initHighlight } from "./highlight.js";
 import { initEditorZoom } from "./editor-zoom.js";
 import { createZoomControls } from "./zoom-controls.js";
+import { createHookChips } from "./hook-chips.js";
+import { mergePresets } from "./hook-presets.js";
 
 const INITIAL = `typeDiagram
 
@@ -84,7 +86,10 @@ const buildDom = (container: HTMLElement) => {
     </section>
     <div class="splitter" id="splitter"></div>
     <section class="pane pane-preview">
-      <label class="pane-label">preview</label>
+      <div class="pane-head">
+        <label class="pane-label">preview</label>
+        <div class="pane-head-slot" id="chips-slot"></div>
+      </div>
       <div id="preview"></div>
     </section>`;
 
@@ -101,11 +106,12 @@ const buildDom = (container: HTMLElement) => {
     splitter: q("#splitter") as HTMLElement,
     backdrop: q("#backdrop") as HTMLElement,
     editorWrap: q(".editor-wrap") as HTMLElement,
+    chipsSlot: q("#chips-slot") as HTMLElement,
   };
 };
 
 export const mountPlayground = (container: HTMLElement) => {
-  const { editor, preview, splitter, backdrop, editorWrap } = buildDom(container);
+  const { editor, preview, splitter, backdrop, editorWrap, chipsSlot } = buildDom(container);
   initSplitter(container, splitter);
   const vp = createViewport(preview);
   createZoomControls(preview, vp);
@@ -114,8 +120,13 @@ export const mountPlayground = (container: HTMLElement) => {
   initHighlight(editor, backdrop);
   initEditorZoom(editorWrap, editor, backdrop);
 
-  const run = async () => {
-    const html = await renderPane(editor.value);
+  let run: () => Promise<void> = async () => {};
+  const chips = createHookChips(() => {
+    void run();
+  });
+  chipsSlot.appendChild(chips.container);
+  run = async () => {
+    const html = await renderPane(editor.value, mergePresets(chips.selected()));
     setViewportContent(preview, html);
   };
   const debounced = debounce(() => {

@@ -2,18 +2,29 @@
 import { describe, expect, it, beforeEach, vi } from "vitest";
 
 // Mock typediagram to avoid pulling the full framework in this DOM-focused test.
+// svg / raw must still work so hook-presets.ts (imported by playground) can load.
+const { renderToStringMock } = vi.hoisted(() => ({
+  renderToStringMock: vi.fn().mockResolvedValue({ ok: true, value: "<svg>mock</svg>" }),
+}));
 vi.mock("typediagram-core", () => ({
-  renderToString: vi.fn().mockResolvedValue({ ok: true, value: "<svg>mock</svg>" }),
+  renderToString: renderToStringMock,
   parser: { formatDiagnostics: (d: unknown[]) => d.map(String).join("\n") },
+  svg: (strings: TemplateStringsArray, ..._values: unknown[]) => ({
+    __brand: "SafeSvg",
+    value: strings.join(""),
+  }),
+  raw: (s: string) => ({ __brand: "SafeSvg", value: s }),
 }));
 
 import { mountPlayground } from "../src/playground.js";
+import { PRESETS } from "../src/hook-presets.js";
 
 describe("[WEB-PLAYGROUND]", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
     localStorage.clear();
+    renderToStringMock.mockClear();
     container = document.createElement("div");
     document.body.innerHTML = "";
     document.body.appendChild(container);
@@ -80,5 +91,89 @@ describe("[WEB-PLAYGROUND]", () => {
     expect(labels.length).toBe(2);
     expect(labels[0]?.textContent).toBe("source");
     expect(labels[1]?.textContent).toBe("preview");
+  });
+});
+
+describe("[WEB-PLAYGROUND-HOOK-CHIPS] hook preset chips", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    localStorage.clear();
+    renderToStringMock.mockClear();
+    container = document.createElement("div");
+    document.body.innerHTML = "";
+    document.body.appendChild(container);
+  });
+
+  it("renders one chip per registered preset", () => {
+    mountPlayground(container);
+    const chips = container.querySelectorAll(".hook-chip");
+    expect(chips.length).toBe(PRESETS.length);
+    for (const p of PRESETS) {
+      const chip = container.querySelector(`.hook-chip[data-preset-id="${p.id}"]`);
+      expect(chip).not.toBeNull();
+      expect(chip?.textContent).toBe(p.label);
+    }
+  });
+
+  it("chips start unselected — initial render passes NO hooks (hooks are optional)", async () => {
+    mountPlayground(container);
+    await new Promise((r) => setTimeout(r, 50));
+    expect(renderToStringMock).toHaveBeenCalled();
+    const lastCall = renderToStringMock.mock.calls[renderToStringMock.mock.calls.length - 1];
+    const opts = lastCall?.[1] as { hooks?: unknown } | undefined;
+    expect(opts?.hooks).toBeUndefined();
+  });
+
+  it("clicking a chip re-renders WITH a hooks option", async () => {
+    mountPlayground(container);
+    await new Promise((r) => setTimeout(r, 50));
+    renderToStringMock.mockClear();
+    const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="drop-shadow"]`);
+    expect(chip).not.toBeNull();
+    chip?.click();
+    await new Promise((r) => setTimeout(r, 20));
+    expect(renderToStringMock).toHaveBeenCalled();
+    const lastCall = renderToStringMock.mock.calls[renderToStringMock.mock.calls.length - 1];
+    const opts = lastCall?.[1] as { hooks?: Record<string, unknown> } | undefined;
+    expect(opts?.hooks).toBeDefined();
+    // drop-shadow preset supplies defs + node hooks
+    expect(opts?.hooks?.defs).toBeTypeOf("function");
+    expect(opts?.hooks?.node).toBeTypeOf("function");
+  });
+
+  it("toggling a chip OFF reverts to no-hooks render", async () => {
+    mountPlayground(container);
+    await new Promise((r) => setTimeout(r, 50));
+    const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="drop-shadow"]`);
+    chip?.click();
+    await new Promise((r) => setTimeout(r, 20));
+    chip?.click();
+    await new Promise((r) => setTimeout(r, 20));
+    const lastCall = renderToStringMock.mock.calls[renderToStringMock.mock.calls.length - 1];
+    const opts = lastCall?.[1] as { hooks?: unknown } | undefined;
+    expect(opts?.hooks).toBeUndefined();
+  });
+
+  it("chip toggles aria-pressed and td-chip--on class", () => {
+    mountPlayground(container);
+    const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="grid-bg"]`);
+    expect(chip).not.toBeNull();
+    expect(chip?.getAttribute("aria-pressed")).toBe("false");
+    expect(chip?.classList.contains("hook-chip--on")).toBe(false);
+    chip?.click();
+    expect(chip?.getAttribute("aria-pressed")).toBe("true");
+    expect(chip?.classList.contains("hook-chip--on")).toBe(true);
+    chip?.click();
+    expect(chip?.getAttribute("aria-pressed")).toBe("false");
+    expect(chip?.classList.contains("hook-chip--on")).toBe(false);
+  });
+
+  it("every chip has a tooltip (title) matching its blurb", () => {
+    mountPlayground(container);
+    for (const p of PRESETS) {
+      const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="${p.id}"]`);
+      expect(chip?.title).toBe(p.blurb);
+    }
   });
 });

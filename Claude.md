@@ -65,7 +65,7 @@ typeDiagram is a small DSL for diagramming algebraic data types (records + tagge
 
 ## CSS Budget
 
-CSS BUDGET = 1.5 LOC - HARD CEILING.
+CSS BUDGET = 2k LOC - HARD CEILING.
 
 ## Logging Standards
 

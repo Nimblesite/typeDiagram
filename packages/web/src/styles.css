@@ -367,6 +367,55 @@ body {
   user-select: none;
 }
 
+.pane-head {
+  display: flex;
+  align-items: stretch;
+  background: var(--td-surface-high);
+  border-bottom: 1px solid rgba(62, 72, 79, 0.1);
+}
+.pane-head .pane-label {
+  background: transparent;
+  border-bottom: 0;
+}
+.pane-head-slot {
+  flex: 1;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding-right: var(--td-space-sm);
+  gap: 4px;
+}
+.hook-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+.hook-chip {
+  font-family: var(--td-font-mono);
+  font-size: var(--td-size-label);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--td-outline-variant);
+  background: transparent;
+  color: var(--td-outline);
+  cursor: pointer;
+  transition:
+    color var(--td-ease),
+    border-color var(--td-ease),
+    background var(--td-ease);
+}
+.hook-chip:hover {
+  color: var(--td-on-surface);
+  border-color: var(--td-primary);
+}
+.hook-chip--on {
+  color: var(--td-on-primary);
+  background: var(--td-primary);
+  border-color: var(--td-primary);
+}
+
 /* — Splitter — */
 
 .splitter {

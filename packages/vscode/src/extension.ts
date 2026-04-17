@@ -4,6 +4,7 @@ import { warmupSyncRender, isSyncRenderReady } from "typediagram-core";
 import { openPreview } from "./preview-panel.js";
 import { typediagramMarkdownItPlugin, type MarkdownIt, setPluginLogger } from "./markdown-it-plugin.js";
 import { getLogger, initLogger } from "./logger.js";
+import { exportPdf, type ExportPdfDeps } from "./export-pdf.js";
 
 let extendCallCount = 0;
 
@@ -140,7 +141,35 @@ export const activate = (context: vscode.ExtensionContext) => {
     diagramOnly.delete(key);
   });
 
-  context.subscriptions.push(cmd, openAsDiagram, onOpen, onActive, onVisible, onChange, onClose);
+  // [PDF] Export a markdown file to PDF next to the source. No prompts.
+  const exportPdfCmd = vscode.commands.registerCommand(
+    "typediagram.exportMarkdownPdf",
+    async (uri?: vscode.Uri) => {
+      const target = uri ?? vscode.window.activeTextEditor?.document.uri;
+      if (!target) {
+        return;
+      }
+      const cfg = vscode.workspace.getConfiguration("typediagram");
+      const theme = cfg.get<"light" | "dark">("pdfExport.theme", "light");
+      const deps: ExportPdfDeps = {
+        readFile: (u) => Promise.resolve(vscode.workspace.fs.readFile(u)).then((b) => new Uint8Array(b)),
+        writeFile: (u, data) => Promise.resolve(vscode.workspace.fs.writeFile(u, data)),
+        createWebviewPanel: (viewType, title, showOptions, opts) =>
+          vscode.window.createWebviewPanel(viewType, title, showOptions, opts) as never,
+        uriWithPath: (base, newPath) => base.with({ path: newPath }),
+        showInformationMessage: (msg, ...actions) =>
+          Promise.resolve(vscode.window.showInformationMessage(msg, ...actions)),
+        showErrorMessage: (msg) => {
+          void vscode.window.showErrorMessage(msg);
+        },
+        openExternal: (u) => Promise.resolve(vscode.env.openExternal(u)).then(Boolean),
+        executeCommand: (c, ...args) => Promise.resolve(vscode.commands.executeCommand(c, ...args)),
+      };
+      await exportPdf(target, { theme }, deps);
+    }
+  );
+
+  context.subscriptions.push(cmd, openAsDiagram, exportPdfCmd, onOpen, onActive, onVisible, onChange, onClose);
 
   // [VSCODE-MD-EXTEND-RETURN] VS Code reads extendMarkdownIt off THIS return value —
   // NOT off the top-level module exports. This is the critical wiring per the official
