@@ -1,14 +1,17 @@
 // [VSCODE-MD-PLUGIN-TEST] Verifies the markdown-it fence renderer swaps ```typediagram
 // blocks with inline SVG using the core sync renderer — same integration VS Code's
 // markdown preview uses at runtime.
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import MarkdownIt from "markdown-it";
 import { warmupSyncRender } from "typediagram-core";
-import { typediagramMarkdownItPlugin } from "../src/markdown-it-plugin.js";
+import * as mock from "./vscode-mock.js";
+import { typediagramMarkdownItPlugin, setPluginLogger } from "../src/markdown-it-plugin.js";
 import type { MarkdownIt as MdShape } from "../src/markdown-it-plugin.js";
+
+vi.mock("vscode", () => mock);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXAMPLE_DOC = resolve(__dirname, "../examples/doc.md");
@@ -72,6 +75,69 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
     const html = render("```typediagram\ntype A { x: Int }\n```\n\n```typediagram\ntype B { y: Int }\n```");
     const svgCount = (html.match(/<svg/g) ?? []).length;
     expect(svgCount).toBe(2);
+  });
+
+  it("logs a render event when a typediagram fence is processed", () => {
+    const entries: Array<{ level: string; msg: string; fields: Record<string, unknown> }> = [];
+    const capture = {
+      trace: () => {},
+      debug: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "debug", msg, fields: fields ?? {} }),
+      info: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "info", msg, fields: fields ?? {} }),
+      warn: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "warn", msg, fields: fields ?? {} }),
+      error: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "error", msg, fields: fields ?? {} }),
+      child: () => capture,
+    };
+    // setPluginLogger expects a Logger; our capture matches the interface.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    setPluginLogger(capture as never);
+    render("```typediagram\ntype X { a: Int }\n```");
+    const renderLog = entries.find((e) => e.msg === "rendered typediagram fence to SVG");
+    expect(renderLog).toBeDefined();
+    expect(renderLog?.level).toBe("info");
+    expect(renderLog?.fields["svgLength"]).toBeGreaterThan(100);
+    expect(typeof renderLog?.fields["elapsedMs"]).toBe("number");
+    const invokeLog = entries.find((e) => e.msg === "fence rule invoked");
+    expect(invokeLog).toBeDefined();
+    expect(invokeLog?.fields["matches"]).toBe(true);
+    expect(invokeLog?.fields["info"]).toBe("typediagram");
+  });
+
+  it("logs an error event when a fence fails to render", () => {
+    const entries: Array<{ level: string; msg: string; fields: Record<string, unknown> }> = [];
+    const capture = {
+      trace: () => {},
+      debug: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "debug", msg, fields: fields ?? {} }),
+      info: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "info", msg, fields: fields ?? {} }),
+      warn: (msg: string, fields?: Record<string, unknown>) => entries.push({ level: "warn", msg, fields: fields ?? {} }),
+      error: (msg: string, fields?: Record<string, unknown>) =>
+        entries.push({ level: "error", msg, fields: fields ?? {} }),
+      child: () => capture,
+    };
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
+    setPluginLogger(capture as never);
+    render("```typediagram\ntype X { @bad }\n```");
+    const errLog = entries.find((e) => e.msg === "typediagram render failed");
+    expect(errLog).toBeDefined();
+    expect(errLog?.level).toBe("error");
+    expect(typeof errLog?.fields["msg"]).toBe("string");
+  });
+
+  it("logs via lazy Output Channel when setPluginLogger was never called", async () => {
+    // Reset modules so there's no override AND no global logger state.
+    vi.resetModules();
+    mock.mockOutputChannel.appendLine.mockClear();
+    const freshPlugin = await import("../src/markdown-it-plugin.js");
+    const md = new MarkdownIt();
+    freshPlugin.typediagramMarkdownItPlugin(md as unknown as MdShape);
+    md.render("```typediagram\ntype X { a: Int }\n```");
+    // The plugin MUST log even without an explicit logger wire-up.
+    const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    expect(lines.some((l) => l.includes("plugin installed on markdown-it instance"))).toBe(true);
+    expect(lines.some((l) => l.includes("fence rule invoked"))).toBe(true);
+    expect(lines.some((l) => l.includes("rendered typediagram fence to SVG"))).toBe(true);
   });
 
   it("handles missing previous fence rule gracefully (emits empty string)", () => {

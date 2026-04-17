@@ -17,6 +17,10 @@ describe("[VSCODE-EXT] activate", () => {
 
   const makeContext = () => ({
     extensionUri: { path: "/ext" },
+    extensionPath: "/ext",
+    extension: { packageJSON: { version: "0.3.0-test" } },
+    logUri: { fsPath: "/tmp/td-log-test" },
+    globalStorageUri: { fsPath: "/tmp/td-log-test" },
     subscriptions: [] as { dispose: () => void }[],
   });
 
@@ -45,7 +49,11 @@ describe("[VSCODE-EXT] activate", () => {
     activate(ctx as never);
     expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.preview", expect.any(Function));
     expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.openAsDiagram", expect.any(Function));
-    expect(ctx.subscriptions.length).toBe(7);
+    // 7 original disposables + 1 Output Channel added by initLogger.
+    // The Output Channel may already have been added in a prior test (lazy ensureChannel),
+    // so we assert >= 7. Either way, both commands must be present.
+    expect(ctx.subscriptions.length).toBeGreaterThanOrEqual(7);
+    expect(mock.window.createOutputChannel).toHaveBeenCalledWith("TypeDiagram");
   });
 
   it("preview command does nothing without active typediagram editor", async () => {
@@ -364,8 +372,37 @@ describe("[VSCODE-EXT] activate", () => {
     extendMarkdownIt(md as never);
     // Wait for the warmup microtask chain. Warmup calls into elk which takes ~30-200ms.
     // We give it a reasonable window.
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 400));
     expect(mock.commands.executeCommand).toHaveBeenCalledWith("markdown.preview.refresh");
+  });
+
+  it("[VSCODE-MD-EXTEND-LOG] extendMarkdownIt writes lifecycle logs to the Output Channel", async () => {
+    mock.mockOutputChannel.appendLine.mockClear();
+    const { extendMarkdownIt } = await import("../src/extension.js");
+    const md = { renderer: { rules: {} as Record<string, unknown> } };
+    extendMarkdownIt(md as never);
+    const initialLines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    // Must have logged that VS Code called us
+    expect(initialLines.some((l) => l.includes("called by VS Code markdown preview"))).toBe(true);
+    // Must include scope binding
+    expect(initialLines.some((l) => l.includes('"scope":"extendMarkdownIt"'))).toBe(true);
+    await new Promise((r) => setTimeout(r, 400));
+    const allLines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    // Must have logged warmup completion OR (if warm already) at least one call
+    const sawWarmupDone = allLines.some((l) => l.includes("warmup complete"));
+    const sawAlreadyWarm = initialLines.some((l) => l.includes('"alreadyWarm":true'));
+    expect(sawWarmupDone || sawAlreadyWarm).toBe(true);
+  });
+
+  it("[VSCODE-ACTIVATE-LOG] activate logs version + path", async () => {
+    mock.mockOutputChannel.appendLine.mockClear();
+    const { activate } = await import("../src/extension.js");
+    const ctx = makeContext();
+    activate(ctx as never);
+    const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    expect(lines.some((l) => l.includes("extension activating"))).toBe(true);
+    expect(lines.some((l) => l.includes('"version":"0.3.0-test"'))).toBe(true);
+    expect(lines.some((l) => l.includes('"extensionPath":"/ext"'))).toBe(true);
   });
 
   it("cleans up panel reference when webview is disposed", async () => {

@@ -1,24 +1,47 @@
 // [VSCODE-EXT] Extension entry point — registers preview command, wires editor events.
 import * as vscode from "vscode";
-import { warmupSyncRender } from "typediagram-core";
+import { warmupSyncRender, isSyncRenderReady } from "typediagram-core";
 import { openPreview } from "./preview-panel.js";
-import { typediagramMarkdownItPlugin, type MarkdownIt } from "./markdown-it-plugin.js";
+import { typediagramMarkdownItPlugin, type MarkdownIt, setPluginLogger } from "./markdown-it-plugin.js";
+import { getLogger, initLogger } from "./logger.js";
+
+let extendCallCount = 0;
 
 // [VSCODE-MD-EXTEND] Required export for VS Code's markdown preview plugin API.
 // VS Code calls this with its markdown-it instance so we can augment it.
 // See: https://code.visualstudio.com/api/extension-guides/markdown-extension
 export const extendMarkdownIt = (md: MarkdownIt): MarkdownIt => {
-  // Kick off warmup (fire-and-forget). First preview render may show the placeholder;
-  // once warmup resolves we trigger a preview refresh so the SVG replaces it.
-  void warmupSyncRender().then(() => {
-    // [VSCODE-MD-REFRESH] After warmup, refresh any open markdown previews so placeholders
-    // become real SVGs. `markdown.preview.refresh` is a built-in VS Code command.
-    void vscode.commands.executeCommand("markdown.preview.refresh");
-  });
+  const log = getLogger().child({ scope: "extendMarkdownIt" });
+  extendCallCount += 1;
+  const alreadyWarm = isSyncRenderReady();
+  log.info("called by VS Code markdown preview", { callCount: extendCallCount, alreadyWarm });
+  setPluginLogger(getLogger());
+
+  if (!alreadyWarm) {
+    const startedAt = Date.now();
+    void warmupSyncRender().then(
+      () => {
+        log.info("warmup complete, triggering markdown.preview.refresh", {
+          elapsedMs: Date.now() - startedAt,
+        });
+        void vscode.commands.executeCommand("markdown.preview.refresh").then(
+          () => log.info("markdown.preview.refresh resolved"),
+          (err: unknown) => log.error("markdown.preview.refresh failed", { err: String(err) })
+        );
+      },
+      (err: unknown) => log.error("warmup failed", { err: String(err) })
+    );
+  }
   return typediagramMarkdownItPlugin(md);
 };
 
 export const activate = (context: vscode.ExtensionContext) => {
+  const log = initLogger(context).child({ scope: "activate" });
+  log.info("extension activating", {
+    version: context.extension.packageJSON.version as string,
+    extensionPath: context.extensionPath,
+  });
+  setPluginLogger(getLogger());
   const panels = new Map<string, vscode.WebviewPanel>();
   const diagramOnly = new Set<string>();
 

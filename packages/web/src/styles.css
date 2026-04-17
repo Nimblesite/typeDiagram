@@ -459,6 +459,67 @@ body {
   color: var(--td-on-surface-variant);
 }
 
+/* — Prism tokens (docs-page fenced code) — reuses the .hl-* palette so every
+   language renders with the same scheme as typeDiagram source. */
+code[class*="language-"],
+pre[class*="language-"] {
+  color: var(--td-on-surface);
+  background: transparent;
+}
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata {
+  color: var(--td-outline);
+  font-style: italic;
+}
+.token.punctuation {
+  color: var(--td-on-surface-variant);
+}
+.token.keyword,
+.token.selector,
+.token.important,
+.token.atrule,
+.token.rule {
+  color: var(--td-primary);
+  font-weight: 600;
+}
+.token.boolean,
+.token.number,
+.token.constant,
+.token.symbol {
+  color: var(--td-tertiary);
+}
+.token.string,
+.token.char,
+.token.attr-value,
+.token.regex {
+  color: var(--td-tertiary);
+}
+.token.class-name,
+.token.builtin,
+.token.namespace {
+  color: var(--td-secondary);
+}
+.token.function,
+.token.attr-name,
+.token.property,
+.token.tag {
+  color: var(--td-secondary);
+}
+.token.operator,
+.token.entity,
+.token.url,
+.token.variable {
+  color: var(--td-on-surface);
+}
+.token.deleted {
+  color: #ff6b6b;
+}
+.token.inserted {
+  color: #7ee787;
+}
+
 /* — Preview pane — */
 
 #preview {

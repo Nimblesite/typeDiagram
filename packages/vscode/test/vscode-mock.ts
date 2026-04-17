@@ -30,10 +30,21 @@ export class TabInputText {
 type Tab = { input: unknown };
 type TabGroup = { tabs: Tab[] };
 
+export const mockOutputChannel = {
+  appendLine: vi.fn(),
+  append: vi.fn(),
+  show: vi.fn(),
+  hide: vi.fn(),
+  clear: vi.fn(),
+  dispose: vi.fn(),
+  name: "TypeDiagram",
+};
+
 export const window = {
   activeTextEditor: undefined as { document: unknown } | undefined,
   visibleTextEditors: [] as { document: unknown }[],
   createWebviewPanel: vi.fn(() => mockPanel),
+  createOutputChannel: vi.fn(() => mockOutputChannel),
   tabGroups: {
     all: [] as TabGroup[],
     close: vi.fn((_tabs: Tab[], _preserveFocus?: boolean) => Promise.resolve(true)),
