@@ -20,14 +20,14 @@ This spec defines **Render Hooks**: a typed, phase-based extension API that lets
 
 Six phases, executed in this order for each `renderSvg` call:
 
-| ID                  | Phase         | When                                         | Input                                            | Output                                      |
-| ------------------- | ------------- | -------------------------------------------- | ------------------------------------------------ | ------------------------------------------- |
-| `[HOOK-DEFS]`       | `defs`        | Once, before nodes/edges                     | `DefsCtx`                                        | `SafeSvg \| undefined` (appended to `<defs>`) |
-| `[HOOK-NODE]`       | `node`        | Per node, replaces default `<g>` for node    | `NodeCtx`, `defaultSvg: SafeSvg`                 | `SafeSvg \| undefined`                        |
-| `[HOOK-ROW]`        | `row`         | Per row within a node (if `node` not used)   | `RowCtx`, `defaultSvg: SafeSvg`                  | `SafeSvg \| undefined`                        |
-| `[HOOK-EDGE]`       | `edge`        | Per edge, replaces default polyline + label  | `EdgeCtx`, `defaultSvg: SafeSvg`                 | `SafeSvg \| undefined`                        |
-| `[HOOK-BACKGROUND]` | `background`  | Once, after `<defs>`, before nodes           | `BackgroundCtx`                                  | `SafeSvg \| undefined` (drawn under nodes)    |
-| `[HOOK-POST]`       | `post`        | Once, final whole-document transform         | `PostCtx` (includes full `SafeSvg`)              | `SafeSvg`                                   |
+| ID                  | Phase        | When                                        | Input                               | Output                                        |
+| ------------------- | ------------ | ------------------------------------------- | ----------------------------------- | --------------------------------------------- |
+| `[HOOK-DEFS]`       | `defs`       | Once, before nodes/edges                    | `DefsCtx`                           | `SafeSvg \| undefined` (appended to `<defs>`) |
+| `[HOOK-NODE]`       | `node`       | Per node, replaces default `<g>` for node   | `NodeCtx`, `defaultSvg: SafeSvg`    | `SafeSvg \| undefined`                        |
+| `[HOOK-ROW]`        | `row`        | Per row within a node (if `node` not used)  | `RowCtx`, `defaultSvg: SafeSvg`     | `SafeSvg \| undefined`                        |
+| `[HOOK-EDGE]`       | `edge`       | Per edge, replaces default polyline + label | `EdgeCtx`, `defaultSvg: SafeSvg`    | `SafeSvg \| undefined`                        |
+| `[HOOK-BACKGROUND]` | `background` | Once, after `<defs>`, before nodes          | `BackgroundCtx`                     | `SafeSvg \| undefined` (drawn under nodes)    |
+| `[HOOK-POST]`       | `post`       | Once, final whole-document transform        | `PostCtx` (includes full `SafeSvg`) | `SafeSvg`                                     |
 
 **Ordering rationale**: `defs` first so subsequent phases can reference gradient/filter/pattern IDs. `background` after `defs` and before nodes so grid backgrounds / watermarks render underneath. `post` last so it can wrap the entire output (e.g. inject `<style>`, add a root `<g transform>`).
 
@@ -41,19 +41,20 @@ All contexts carry `theme: Theme`, `fontSize: number`, `padding: number`, and `g
 
 ```ts
 interface NodeCtx extends BaseCtx {
-  node: NodeBox;              // full layout box, read-only
-  x: number;                  // absolute top-left (node.x + padding)
+  node: NodeBox; // full layout box, read-only
+  x: number; // absolute top-left (node.x + padding)
   y: number;
-  width: number;              // node.width
-  height: number;             // node.height
-  accent: string;             // resolved accent color for declKind
+  width: number; // node.width
+  height: number; // node.height
+  accent: string; // resolved accent color for declKind
   isUnion: boolean;
   header: {
     text: string;
-    height: number;           // firstRow.y (or full height if no rows)
-    fill: string;             // resolved header fill
+    height: number; // firstRow.y (or full height if no rows)
+    fill: string; // resolved header fill
   };
-  badge?: {                   // union "ONE OF" badge geometry, unions only
+  badge?: {
+    // union "ONE OF" badge geometry, unions only
     y: number;
     height: number;
     fontSize: number;
@@ -65,16 +66,16 @@ interface NodeCtx extends BaseCtx {
 
 ```ts
 interface RowCtx extends BaseCtx {
-  node: NodeBox;              // parent node
+  node: NodeBox; // parent node
   row: NodeRow;
   rowIndex: number;
-  x: number;                  // absolute top-left of the row
+  x: number; // absolute top-left of the row
   y: number;
-  width: number;              // node.width
-  height: number;             // row.height
-  isUnionVariant: boolean;    // parent is a union
-  textX: number;              // where default renders the row text
-  textY: number;              // baseline for row text
+  width: number; // node.width
+  height: number; // row.height
+  isUnionVariant: boolean; // parent is a union
+  textX: number; // where default renders the row text
+  textY: number; // baseline for row text
 }
 ```
 
@@ -83,13 +84,13 @@ interface RowCtx extends BaseCtx {
 ```ts
 interface EdgeCtx extends BaseCtx {
   edge: EdgeRoute;
-  points: ReadonlyArray<{ x: number; y: number }>;   // absolute, padding-adjusted
-  midpoint: { x: number; y: number };                 // absolute
-  sourceNode: NodeBox;                                // resolved from sourceNodeId
+  points: ReadonlyArray<{ x: number; y: number }>; // absolute, padding-adjusted
+  midpoint: { x: number; y: number }; // absolute
+  sourceNode: NodeBox; // resolved from sourceNodeId
   targetNode: NodeBox;
-  stroke: string;                                     // resolved edge stroke
+  stroke: string; // resolved edge stroke
   strokeWidth: number;
-  dashArray?: string;                                 // present for genericArg
+  dashArray?: string; // present for genericArg
 }
 ```
 
@@ -98,13 +99,13 @@ interface EdgeCtx extends BaseCtx {
 ```ts
 interface DefsCtx extends BaseCtx {}
 interface BackgroundCtx extends BaseCtx {
-  width: number;              // total SVG width including padding
+  width: number; // total SVG width including padding
   height: number;
 }
 interface PostCtx extends BaseCtx {
   width: number;
   height: number;
-  svg: SafeSvg;               // the complete rendered document
+  svg: SafeSvg; // the complete rendered document
 }
 ```
 
@@ -115,7 +116,7 @@ interface BaseCtx {
   theme: Theme;
   fontSize: number;
   padding: number;
-  graph: LaidOutGraph;        // full graph for cross-referencing
+  graph: LaidOutGraph; // full graph for cross-referencing
 }
 ```
 
@@ -165,9 +166,11 @@ Hooks are exported from [`packages/typediagram/src/render-svg/index.ts`](../../p
 renderSvg(graph, {
   hooks: {
     row: (ctx, def) => {
-      const color = ctx.row.text.startsWith("id:") ? "#ffd400"
-                  : ctx.row.text.startsWith("email:") ? "#66ccff"
-                  : undefined;
+      const color = ctx.row.text.startsWith("id:")
+        ? "#ffd400"
+        : ctx.row.text.startsWith("email:")
+          ? "#66ccff"
+          : undefined;
       if (color === undefined) return undefined;
       return svg`${def}<rect x="${ctx.x}" y="${ctx.y}" width="3" height="${ctx.height}" fill="${color}"/>`;
     },
@@ -191,7 +194,8 @@ renderSvg(graph, {
 ```ts
 renderSvg(graph, {
   hooks: {
-    defs: () => svg`<pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0 L0 0 0 20" fill="none" stroke="#eee" stroke-width="0.5"/></pattern>`,
+    defs: () =>
+      svg`<pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M20 0 L0 0 0 20" fill="none" stroke="#eee" stroke-width="0.5"/></pattern>`,
     background: (ctx) => svg`<rect width="${ctx.width}" height="${ctx.height}" fill="url(#grid)"/>`,
   },
 });
@@ -212,7 +216,7 @@ renderSvg(graph, {
 
 A first-class demonstration of hook power: a **decoupled positioning system** for absolute or constraint-based node placement, layered over the type markup.
 
-- `[HOOK-POS-MOTIVATION]` The DSL describes *types and relationships*, not layout. Some diagrams need specific placement: "put `User` top-left, `Order` to its right, group payment types in a cluster." Adding positioning syntax to the DSL violates design principle 3 ("Language-neutral"). A sidecar positioning file (JSON/YAML/TOML) that overrides layout via hooks keeps the DSL pure.
+- `[HOOK-POS-MOTIVATION]` The DSL describes _types and relationships_, not layout. Some diagrams need specific placement: "put `User` top-left, `Order` to its right, group payment types in a cluster." Adding positioning syntax to the DSL violates design principle 3 ("Language-neutral"). A sidecar positioning file (JSON/YAML/TOML) that overrides layout via hooks keeps the DSL pure.
 - `[HOOK-POS-MECHANISM]` A positioning layer reads a position map `{ [declName]: { x, y } }` and implements a `node` hook:
   ```ts
   const positioning = (positions: Record<string, { x: number; y: number }>): RenderHooks => ({

@@ -9,7 +9,7 @@ export interface BaseCtx {
   readonly graph: LaidOutGraph;
 }
 
-export interface DefsCtx extends BaseCtx {}
+export type DefsCtx = BaseCtx;
 
 export interface BackgroundCtx extends BaseCtx {
   readonly width: number;

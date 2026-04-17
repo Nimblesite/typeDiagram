@@ -166,15 +166,37 @@ function buildNodeCtx(n: NodeBox, ctx: RenderCtx, geo: NodeGeometry): NodeCtx {
 function renderNodeWithHook(n: NodeBox, ctx: RenderCtx): SafeSvg {
   const geo = nodeGeometry(n, ctx);
   const nodeCtx = buildNodeCtx(n, ctx, geo);
-  const defaultNode = renderDefaultNode(n, ctx, geo, nodeCtx);
-  const { svg: out } = invokeHook<NodeCtx>(ctx.hooks?.node, nodeCtx, defaultNode, "node", ctx.hooks?.onError, {
-    nodeId: n.id,
-  });
-  return out;
+  // [HOOK-TEST-ROW-SKIP-WHEN-NODE] When a node hook is present, first build a
+  // default WITHOUT invoking row hooks — if the node hook replaces the node,
+  // row hooks must not fire. If the node hook returns undefined, re-render rows
+  // with row hooks enabled.
+  const nodeHook = ctx.hooks?.node;
+  if (nodeHook === undefined) {
+    return renderDefaultNode(n, ctx, geo, nodeCtx, true);
+  }
+  const defaultNoRowHooks = renderDefaultNode(n, ctx, geo, nodeCtx, false);
+  const { overridden, svg: out } = invokeHook<NodeCtx>(
+    nodeHook,
+    nodeCtx,
+    defaultNoRowHooks,
+    "node",
+    ctx.hooks?.onError,
+    { nodeId: n.id }
+  );
+  if (overridden) {
+    return out;
+  }
+  return renderDefaultNode(n, ctx, geo, nodeCtx, true);
 }
 
-function renderDefaultNode(n: NodeBox, ctx: RenderCtx, geo: NodeGeometry, nodeCtx: NodeCtx): SafeSvg {
-  const rows = renderRows(n, ctx, geo, nodeCtx);
+function renderDefaultNode(
+  n: NodeBox,
+  ctx: RenderCtx,
+  geo: NodeGeometry,
+  nodeCtx: NodeCtx,
+  invokeRowHooks: boolean
+): SafeSvg {
+  const rows = renderRows(n, ctx, geo, nodeCtx, invokeRowHooks);
   const headerY = geo.y + geo.nameHeaderH / 2 + ctx.fontSize * 0.35;
   const badge = geo.isUnion
     ? renderUnionBadge(geo.x, geo.y + geo.nameHeaderH, UNION_BADGE_H, n.width, ctx.theme, ctx.fontSize)
@@ -191,33 +213,30 @@ function renderDefaultNode(n: NodeBox, ctx: RenderCtx, geo: NodeGeometry, nodeCt
 </g>`;
 }
 
-function renderRows(n: NodeBox, ctx: RenderCtx, geo: NodeGeometry, nodeCtx: NodeCtx): SafeSvg {
-  const parts = n.rows.map((r, i) => renderRowWithHook(n, r, i, ctx, geo, nodeCtx).value);
+function renderRows(n: NodeBox, ctx: RenderCtx, geo: NodeGeometry, nodeCtx: NodeCtx, invokeRowHooks: boolean): SafeSvg {
+  const parts = n.rows.map((r, i) => renderRow(n, r, i, ctx, geo, nodeCtx, invokeRowHooks).value);
   return raw(parts.join("\n"));
 }
 
-function renderRowWithHook(
+function renderRow(
   n: NodeBox,
   r: NodeRow,
   i: number,
   ctx: RenderCtx,
   geo: NodeGeometry,
-  nodeCtx: NodeCtx
+  nodeCtx: NodeCtx,
+  invokeRowHooks: boolean
 ): SafeSvg {
-  const rowCtx = buildRowCtx(n, r, i, ctx, geo, nodeCtx);
   const def = renderDefaultRow(n, r, ctx, geo, nodeCtx.isUnion);
+  if (!invokeRowHooks) {
+    return def;
+  }
+  const rowCtx = buildRowCtx(n, r, i, ctx, geo, nodeCtx);
   const { svg: out } = invokeHook<RowCtx>(ctx.hooks?.row, rowCtx, def, "row", ctx.hooks?.onError, { nodeId: n.id });
   return out;
 }
 
-function buildRowCtx(
-  n: NodeBox,
-  r: NodeRow,
-  i: number,
-  ctx: RenderCtx,
-  geo: NodeGeometry,
-  nodeCtx: NodeCtx
-): RowCtx {
+function buildRowCtx(n: NodeBox, r: NodeRow, i: number, ctx: RenderCtx, geo: NodeGeometry, nodeCtx: NodeCtx): RowCtx {
   const ry = geo.y + r.y;
   return {
     ...baseCtx(ctx),
@@ -275,7 +294,9 @@ function buildEdgeCtx(e: EdgeRoute, ctx: RenderCtx): EdgeCtx {
   const source = ctx.nodeById.get(e.sourceNodeId);
   const target = ctx.nodeById.get(e.targetNodeId);
   if (source === undefined || target === undefined) {
-    throw new Error(`[HOOK-EDGE] edge ${e.id} references unknown node (source=${e.sourceNodeId} target=${e.targetNodeId})`);
+    throw new Error(
+      `[HOOK-EDGE] edge ${e.id} references unknown node (source=${e.sourceNodeId} target=${e.targetNodeId})`
+    );
   }
   const dash = e.kind === "genericArg" ? "3 3" : undefined;
   return {

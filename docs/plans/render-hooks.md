@@ -8,16 +8,16 @@ Add six render hooks (`defs`, `node`, `row`, `edge`, `background`, `post`) to th
 
 ## Decisions
 
-| Concern                 | Decision                                                                                              | Why                                                                                                                                      |
-| ----------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
-| Return type             | `SafeSvg \| undefined` (`SafeSvg` required for `post`)                                                | Types enforce XSS safety. `undefined` = "use default" is cheaper than a "default" sentinel.                                               |
-| Override pattern        | Transform hooks receive `defaultSvg: SafeSvg` as second arg                                           | "Decorate default" is the 90% case. Removes the need for finer phases.                                                                   |
-| Error handling          | Try/catch per hook call; log via `pino` at `error`; fall back to default                               | A bad hook must not corrupt the whole diagram. Consistent with "heavy structured logging" rule.                                          |
-| Ordering                | `defs` → `background` → per-node (`node` OR `row`s) → per-edge (`edge`) → `post`                      | `defs` must precede ID references; `background` must sit under nodes; `post` must wrap the finished document.                             |
-| `node` vs `row` interaction | If `node` returns a value, `row` hooks are skipped for that node                                   | Predictable composition. Half-overridden nodes are a footgun.                                                                             |
-| Context immutability    | Contexts are plain read-only objects (`readonly` markers on fields); `NodeBox`/`EdgeRoute` pass-through | Freezing at runtime is slow and unnecessary. Type-level readonly is enough for internal discipline.                                        |
-| Hook composition        | NO composer utility in v1. Users write their own.                                                     | Composition policies (merge? chain? first-non-undefined-wins?) are taste decisions. Ship the primitive; don't prescribe.                   |
-| Async                   | Sync only                                                                                             | `renderSvg` is `string` → `string`. Going async forces every consumer (CLI, VS Code, markdown-it) to await.                                |
+| Concern                     | Decision                                                                                                | Why                                                                                                                      |
+| --------------------------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Return type                 | `SafeSvg \| undefined` (`SafeSvg` required for `post`)                                                  | Types enforce XSS safety. `undefined` = "use default" is cheaper than a "default" sentinel.                              |
+| Override pattern            | Transform hooks receive `defaultSvg: SafeSvg` as second arg                                             | "Decorate default" is the 90% case. Removes the need for finer phases.                                                   |
+| Error handling              | Try/catch per hook call; log via `pino` at `error`; fall back to default                                | A bad hook must not corrupt the whole diagram. Consistent with "heavy structured logging" rule.                          |
+| Ordering                    | `defs` → `background` → per-node (`node` OR `row`s) → per-edge (`edge`) → `post`                        | `defs` must precede ID references; `background` must sit under nodes; `post` must wrap the finished document.            |
+| `node` vs `row` interaction | If `node` returns a value, `row` hooks are skipped for that node                                        | Predictable composition. Half-overridden nodes are a footgun.                                                            |
+| Context immutability        | Contexts are plain read-only objects (`readonly` markers on fields); `NodeBox`/`EdgeRoute` pass-through | Freezing at runtime is slow and unnecessary. Type-level readonly is enough for internal discipline.                      |
+| Hook composition            | NO composer utility in v1. Users write their own.                                                       | Composition policies (merge? chain? first-non-undefined-wins?) are taste decisions. Ship the primitive; don't prescribe. |
+| Async                       | Sync only                                                                                               | `renderSvg` is `string` → `string`. Going async forces every consumer (CLI, VS Code, markdown-it) to await.              |
 
 ## Affected files
 
@@ -45,18 +45,55 @@ import type { EdgeRoute, LaidOutGraph, NodeBox, NodeRow } from "../layout/types.
 import type { SafeSvg } from "./svg-tag.js";
 import type { Theme } from "./theme.js";
 
-export interface BaseCtx { theme: Theme; fontSize: number; padding: number; graph: LaidOutGraph; }
+export interface BaseCtx {
+  theme: Theme;
+  fontSize: number;
+  padding: number;
+  graph: LaidOutGraph;
+}
 export interface DefsCtx extends BaseCtx {}
-export interface BackgroundCtx extends BaseCtx { width: number; height: number; }
-export interface NodeCtx extends BaseCtx { node: NodeBox; x: number; y: number; width: number; height: number;
-  accent: string; isUnion: boolean; header: { text: string; height: number; fill: string; };
-  badge?: { y: number; height: number; fontSize: number; }; }
-export interface RowCtx extends BaseCtx { node: NodeBox; row: NodeRow; rowIndex: number;
-  x: number; y: number; width: number; height: number; isUnionVariant: boolean; textX: number; textY: number; }
-export interface EdgeCtx extends BaseCtx { edge: EdgeRoute; points: ReadonlyArray<{ x: number; y: number }>;
-  midpoint: { x: number; y: number }; sourceNode: NodeBox; targetNode: NodeBox;
-  stroke: string; strokeWidth: number; dashArray?: string; }
-export interface PostCtx extends BaseCtx { width: number; height: number; svg: SafeSvg; }
+export interface BackgroundCtx extends BaseCtx {
+  width: number;
+  height: number;
+}
+export interface NodeCtx extends BaseCtx {
+  node: NodeBox;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  accent: string;
+  isUnion: boolean;
+  header: { text: string; height: number; fill: string };
+  badge?: { y: number; height: number; fontSize: number };
+}
+export interface RowCtx extends BaseCtx {
+  node: NodeBox;
+  row: NodeRow;
+  rowIndex: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  isUnionVariant: boolean;
+  textX: number;
+  textY: number;
+}
+export interface EdgeCtx extends BaseCtx {
+  edge: EdgeRoute;
+  points: ReadonlyArray<{ x: number; y: number }>;
+  midpoint: { x: number; y: number };
+  sourceNode: NodeBox;
+  targetNode: NodeBox;
+  stroke: string;
+  strokeWidth: number;
+  dashArray?: string;
+}
+export interface PostCtx extends BaseCtx {
+  width: number;
+  height: number;
+  svg: SafeSvg;
+}
 
 export interface RenderHooks {
   defs?: (ctx: DefsCtx) => SafeSvg | undefined;
@@ -74,7 +111,7 @@ Plus a single small helper that takes a hook fn + ctx + default, runs it in try/
 
 - Each internal renderer (`renderNode`, `renderRow`, `renderEdge`) returns `SafeSvg` already. Refactor `renderRows` to iterate and call `row` hook per-row (currently it inlines in `.map`).
 - Build `ctx` objects locally at each call site — no factory. Pass the same `BaseCtx` fields in.
-- Convert `renderNode` to emit a `SafeSvg` representing *just the default node* before the hook call, so the hook can receive it as `defaultSvg`. Today it returns the `<g>…</g>` — already fine.
+- Convert `renderNode` to emit a `SafeSvg` representing _just the default node_ before the hook call, so the hook can receive it as `defaultSvg`. Today it returns the `<g>…</g>` — already fine.
 - Wrap final output in `post` if present.
 
 ### 3. `render-svg/index.ts` — exports
