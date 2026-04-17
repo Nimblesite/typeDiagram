@@ -2,18 +2,28 @@ import type { Diagnostic } from "./parser/diagnostics.js";
 import { type Result, andThenAsync, err, ok } from "./result.js";
 import { parse as parseSrc } from "./parser/index.js";
 import { buildModel } from "./model/index.js";
-import { layout } from "./layout/index.js";
+import { layout, layoutSync, warmupLayout, isLayoutWarm } from "./layout/index.js";
 import { renderSvg, type SvgOpts } from "./render-svg/index.js";
-import type { LayoutOpts } from "./layout/index.js";
+import type { LaidOutGraph, LayoutOpts } from "./layout/index.js";
+import type { Model } from "./model/index.js";
 
 export interface AllOpts extends SvgOpts, LayoutOpts {}
 
-export async function renderToString(source: string, opts: AllOpts = {}): Promise<Result<string, Diagnostic[]>> {
+// [RENDER-SHARED] parse + buildModel is synchronous and shared by sync and async paths.
+function parseAndBuild(source: string): Result<Model, Diagnostic[]> {
   const parsed = parseSrc(source);
   if (!parsed.ok) {
     return parsed;
   }
-  const model = buildModel(parsed.value);
+  return buildModel(parsed.value);
+}
+
+function toSvg(laid: LaidOutGraph, opts: AllOpts): string {
+  return renderSvg(laid, opts);
+}
+
+export async function renderToString(source: string, opts: AllOpts = {}): Promise<Result<string, Diagnostic[]>> {
+  const model = parseAndBuild(source);
   if (!model.ok) {
     return model;
   }
@@ -21,8 +31,29 @@ export async function renderToString(source: string, opts: AllOpts = {}): Promis
   if (!laid.ok) {
     return laid;
   }
-  return ok(renderSvg(laid.value, opts));
+  return ok(toSvg(laid.value, opts));
 }
+
+// [RENDER-SYNC] Synchronous renderToString. Caller MUST have awaited `warmupSyncRender()`
+// (or any async `renderToString`) at least once before invoking. Uses identical
+// parse/buildModel/renderSvg code as the async path; only the layout call differs.
+export function renderToStringSync(source: string, opts: AllOpts = {}): Result<string, Diagnostic[]> {
+  const model = parseAndBuild(source);
+  if (!model.ok) {
+    return model;
+  }
+  const laid = layoutSync(model.value, opts);
+  if (!laid.ok) {
+    return laid;
+  }
+  return ok(toSvg(laid.value, opts));
+}
+
+export async function warmupSyncRender(): Promise<void> {
+  await warmupLayout();
+}
+
+export { isLayoutWarm as isSyncRenderReady };
 
 /** Browser-only: parse SVG string into an SVGElement via DOMParser. */
 export async function render(source: string, opts: AllOpts = {}): Promise<Result<SVGElement, Diagnostic[]>> {

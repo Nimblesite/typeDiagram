@@ -1,1 +1,1 @@
-export { renderMarkdown } from "./integrations/markdown.js";
+export { renderMarkdown, renderMarkdownSync } from "./integrations/markdown.js";
