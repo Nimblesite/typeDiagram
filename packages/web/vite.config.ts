@@ -7,7 +7,7 @@ import { defineConfig } from "vite";
 // [WEB-ELEVENTY-ROOT] Eleventy renders HTML into .eleventy-out/; Vite uses that as its root
 // so it processes the generated index.html / converter.html the same way it did the hand-written
 // ones. Docs + blog HTML pass through via the copyEleventy plugin.
-import { copyEleventyPlugin } from "./vite-plugin-copy-eleventy.js";
+import { copyEleventyPlugin, eleventyDevReloadPlugin } from "./vite-plugin-copy-eleventy.js";
 
 const ELEVENTY_OUT = resolve(__dirname, ".eleventy-out");
 
@@ -31,5 +31,5 @@ export default defineConfig({
       "/src": resolve(__dirname, "src"),
     },
   },
-  plugins: [copyEleventyPlugin(ELEVENTY_OUT)],
+  plugins: [copyEleventyPlugin(ELEVENTY_OUT), eleventyDevReloadPlugin(ELEVENTY_OUT)],
 });

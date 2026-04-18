@@ -1,5 +1,7 @@
 // [WEB-COPY-ELEVENTY] Copies Eleventy-generated HTML (docs/, blog/) into Vite's dist
 // and rewrites /src/styles.css to the hashed asset filename Vite produced.
+// Also provides a dev-mode watcher that full-reloads the browser whenever
+// Eleventy rewrites any HTML under its output dir.
 import { readdir, readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import type { Plugin } from "vite";
@@ -39,5 +41,29 @@ export const copyEleventyPlugin = (eleventyRoot: string): Plugin => ({
       const source = raw.replace(/\/src\/styles\.css/g, cssHref);
       this.emitFile({ type: "asset", fileName: rel, source });
     }
+  },
+});
+
+// [WEB-ELEVENTY-DEV-RELOAD] Dev-only: force a full-page reload whenever Eleventy
+// rewrites an HTML file under its output dir. Vite's HMR does not reload the
+// browser on static HTML changes by itself, so edits to layouts/markdown in
+// eleventy/ would otherwise appear stuck until manual refresh.
+export const eleventyDevReloadPlugin = (eleventyRoot: string): Plugin => ({
+  name: "vite-plugin-eleventy-dev-reload",
+  apply: "serve",
+  configureServer(server) {
+    server.watcher.add(`${eleventyRoot}/**/*.html`);
+    const trigger = (file: string): void => {
+      if (!file.startsWith(eleventyRoot)) {
+        return;
+      }
+      if (!file.endsWith(".html")) {
+        return;
+      }
+      server.ws.send({ type: "full-reload", path: "*" });
+    };
+    server.watcher.on("add", trigger);
+    server.watcher.on("change", trigger);
+    server.watcher.on("unlink", trigger);
   },
 });

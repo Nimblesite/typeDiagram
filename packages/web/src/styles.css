@@ -343,9 +343,6 @@ body {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
 }
 
-.playground-mount {
-  height: 600px;
-}
 
 /* — Editor header (file tab bar) — */
 
@@ -420,6 +417,13 @@ body {
   display: grid;
   grid-template-columns: 1fr 4px 1fr;
   height: 100%;
+}
+
+/* Mount gets BOTH .playground-mount and .playground at runtime. Declared after
+   .playground so source order wins the same-specificity tie and the fixed height
+   is not clobbered by the grid's height:100%. */
+.playground-mount {
+  height: 760px;
 }
 
 @media (orientation: portrait), (max-width: 767px) {

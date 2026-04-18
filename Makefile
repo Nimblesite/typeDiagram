@@ -4,7 +4,7 @@
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup install-vsix
+.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -67,10 +67,11 @@ fmt:
 	@echo "==> Formatting (write)..."
 	npx prettier --write .
 
-## clean: Remove all build artifacts
+## clean: Remove all build artifacts (dist, coverage, eleventy + typedoc output)
 clean:
 	@echo "==> Cleaning..."
 	$(RM) packages/typediagram/dist packages/cli/dist packages/web/dist packages/vscode/dist coverage
+	$(RM) packages/web/.eleventy-out packages/web/.typedoc-out
 
 ## ci: full CI simulation. Fail-fast on every gate, in order:
 ##     fmt-check -> lint -> test+coverage -> build -> bundle-size
@@ -129,3 +130,13 @@ install-vsix:
 	npm run -w typediagram-vscode package
 	@echo "==> Installing VSIX..."
 	code --install-extension $$(ls typediagram-*.vsix | head -1) --force
+
+## dev: Start the web playground dev server (cleans generated output first, then
+##      runs typedoc + eleventy + eleventy --watch + vite in parallel with HMR).
+dev: dev-web
+
+dev-web:
+	@echo "==> Building typediagram-core (required by web dev server)..."
+	npm run -w typediagram-core build
+	@echo "==> Starting web dev server (clean + eleventy --watch + vite)..."
+	npm run -w packages/web dev
