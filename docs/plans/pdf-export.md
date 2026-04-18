@@ -8,16 +8,16 @@ Add `typediagram.exportMarkdownPdf` command to the VS Code extension. Right-clic
 
 ## Key decisions (from spec, copied here so this plan is self-contained)
 
-| Concern               | Decision                                                                                              | Why                                                                                                                                                                                      |
-| --------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| PDF engine            | VS Code's bundled Electron via `webview.printToPDF`                                                   | Zero new runtime binaries. Chromium preserves inline SVG as vector paths in the output PDF. Used by `shd101wyy.markdown-preview-enhanced` and similar extensions.                        |
-| Markdown → HTML       | `markdown-it` (already a devDep; promote to `dependencies`)                                           | We already ship it for the preview plugin tests. ~90 KB, pure JS, zero transitive deps. Alternatives (`marked`, `remark`) add more weight for no gain at our feature scope.              |
-| Fence → SVG           | Reuse `renderMarkdownSync` from `typediagram-core`                                                    | Already exists, already tested, already case-insensitive. Zero duplication.                                                                                                              |
-| SVG-in-HTML safety    | Replace SVGs with sentinels `<!--TD-SVG-${i}-->` before markdown-it, substitute back after            | markdown-it html-escapes inline HTML by default unless `html: true`. Sentinel swap is safer than trusting the `html` flag — we control what gets through.                                |
-| User prompts          | NONE. Write `<basename>.pdf` next to the source, overwrite silently                                   | User directive: "just fucking generate it". No `showSaveDialog`, no overwrite confirmations.                                                                                             |
-| Page size / margins   | Hard-coded A4, 20mm all-around, in the HTML shell's `@page` rule                                      | MVP. Config added later only if users ask.                                                                                                                                               |
-| Theme                 | Single setting: `typediagram.pdfExport.theme` = light \| dark (default light)                         | Passes through to `renderMarkdownSync`. Page background is always white — PDFs are for printing.                                                                                         |
-| Non-goals             | Syntax highlighting for non-TD code blocks, TOC, page numbers, multi-file, Web VS Code                | Each adds scope. Defer.                                                                                                                                                                  |
+| Concern             | Decision                                                                                   | Why                                                                                                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| PDF engine          | VS Code's bundled Electron via `webview.printToPDF`                                        | Zero new runtime binaries. Chromium preserves inline SVG as vector paths in the output PDF. Used by `shd101wyy.markdown-preview-enhanced` and similar extensions.           |
+| Markdown → HTML     | `markdown-it` (already a devDep; promote to `dependencies`)                                | We already ship it for the preview plugin tests. ~90 KB, pure JS, zero transitive deps. Alternatives (`marked`, `remark`) add more weight for no gain at our feature scope. |
+| Fence → SVG         | Reuse `renderMarkdownSync` from `typediagram-core`                                         | Already exists, already tested, already case-insensitive. Zero duplication.                                                                                                 |
+| SVG-in-HTML safety  | Replace SVGs with sentinels `<!--TD-SVG-${i}-->` before markdown-it, substitute back after | markdown-it html-escapes inline HTML by default unless `html: true`. Sentinel swap is safer than trusting the `html` flag — we control what gets through.                   |
+| User prompts        | NONE. Write `<basename>.pdf` next to the source, overwrite silently                        | User directive: "just fucking generate it". No `showSaveDialog`, no overwrite confirmations.                                                                                |
+| Page size / margins | Hard-coded A4, 20mm all-around, in the HTML shell's `@page` rule                           | MVP. Config added later only if users ask.                                                                                                                                  |
+| Theme               | Single setting: `typediagram.pdfExport.theme` = light \| dark (default light)              | Passes through to `renderMarkdownSync`. Page background is always white — PDFs are for printing.                                                                            |
+| Non-goals           | Syntax highlighting for non-TD code blocks, TOC, page numbers, multi-file, Web VS Code     | Each adds scope. Defer.                                                                                                                                                     |
 
 ## Dependencies to add
 
@@ -138,14 +138,14 @@ Skipped on darwin-arm64 for the same reason the existing electron tests are skip
 
 ## Risk register
 
-| Risk                                                                | Mitigation                                                                                                                                                                                            |
-| ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `webview.printToPDF` doesn't exist on older VS Codes / Web VS Code  | Feature-detect at runtime; show error notification with version hint, log and abort. Engines in `package.json` already requires 1.75+; raise to 1.76+ (which ships `printToPDF`).                     |
-| markdown-it escapes our inline SVG                                  | Sentinel swap strategy (see spec `[PDF-COMPOSE]`). Tests assert the string `TD-SVG-` does NOT leak into output.                                                                                       |
-| SVG not preserved as vector in PDF (rasterised)                     | Test `[PDF-PRINT]` decodes PDF bytes and asserts vector-op markers. If it fails, investigate Electron print options (`printSelectionOnly`, `preferCSSPageSize`, `scale`).                             |
-| Bundle size regression                                              | `make bundle-size` already enforced. markdown-it is ~90KB; acceptable.                                                                                                                                |
-| Two commands on the same file fire concurrently                     | Command handler captures a per-uri lock in module scope; second invocation waits for first to finish. Logged `warn` "export-pdf already in progress for URI".                                         |
-| Extension bundle doesn't include markdown-it at runtime             | esbuild must bundle it. Verify by grepping bundled `dist/extension.js` for the `markdown-it` module preamble. Add to VSIX-package.test.ts.                                                            |
+| Risk                                                               | Mitigation                                                                                                                                                                        |
+| ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `webview.printToPDF` doesn't exist on older VS Codes / Web VS Code | Feature-detect at runtime; show error notification with version hint, log and abort. Engines in `package.json` already requires 1.75+; raise to 1.76+ (which ships `printToPDF`). |
+| markdown-it escapes our inline SVG                                 | Sentinel swap strategy (see spec `[PDF-COMPOSE]`). Tests assert the string `TD-SVG-` does NOT leak into output.                                                                   |
+| SVG not preserved as vector in PDF (rasterised)                    | Test `[PDF-PRINT]` decodes PDF bytes and asserts vector-op markers. If it fails, investigate Electron print options (`printSelectionOnly`, `preferCSSPageSize`, `scale`).         |
+| Bundle size regression                                             | `make bundle-size` already enforced. markdown-it is ~90KB; acceptable.                                                                                                            |
+| Two commands on the same file fire concurrently                    | Command handler captures a per-uri lock in module scope; second invocation waits for first to finish. Logged `warn` "export-pdf already in progress for URI".                     |
+| Extension bundle doesn't include markdown-it at runtime            | esbuild must bundle it. Verify by grepping bundled `dist/extension.js` for the `markdown-it` module preamble. Add to VSIX-package.test.ts.                                        |
 
 ## TODO (execution checklist)
 
@@ -163,7 +163,7 @@ Check items off as each lands with its tests passing.
 - [ ] **`[PDF-COMPOSE]` re-injection** — `reinjectSvgs(html, svgs)` substitutes sentinels back.
 - [ ] **`[PDF-COMPOSE]` `composeHtml(src, { theme })`** — calls `renderMarkdownSync` → sentinel swap → `md.render` → re-inject → wrap in shell.
 - [ ] **`[PDF-SHELL]`** — `buildShell(title, bodyHtml)` returns self-contained HTML with `@page A4` and 20mm margin. No external refs.
-- [ ] **Tests — `[PDF-COMPOSE]`** — markdown with 0 fences passes through; with N fences, exactly N `<svg`, zero ``` ```typediagram ```, no html-escaped SVG, no sentinel leak, light ≠ dark output, diagnostics surface for bad fences.
+- [ ] **Tests — `[PDF-COMPOSE]`** — markdown with 0 fences passes through; with N fences, exactly N `<svg`, zero ` `typediagram ```, no html-escaped SVG, no sentinel leak, light ≠ dark output, diagnostics surface for bad fences.
 - [ ] **Tests — `[PDF-SHELL]`** — no external URLs, `@page` present, system font stack present.
 
 ### Phase B — Webview print wrapper

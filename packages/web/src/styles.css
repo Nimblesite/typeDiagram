@@ -377,18 +377,92 @@ body {
   background: transparent;
   border-bottom: 0;
 }
-.pane-head-slot {
-  flex: 1;
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  padding-right: var(--td-space-sm);
-  gap: 4px;
+.pane-tabs {
+  gap: 2px;
+  padding: 0 var(--td-space-sm);
 }
-.hook-chips {
+.pane-tab {
+  padding: 6px var(--td-space-md);
+  font-family: var(--td-font-body);
+  font-size: var(--td-size-label);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--td-outline);
+  background: transparent;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition:
+    color var(--td-ease),
+    border-color var(--td-ease);
+}
+.pane-tab:hover {
+  color: var(--td-on-surface);
+}
+.pane-tab--on {
+  color: var(--td-primary);
+  border-bottom-color: var(--td-primary);
+}
+.pane-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 999px;
+  background: var(--td-primary);
+  color: var(--td-on-primary);
+}
+.editor-wrap--hidden {
+  display: none;
+}
+#hooks-editor {
+  margin: 0;
+  padding: var(--td-space-lg) var(--td-space-lg) 44px;
+  width: 100%;
+  height: 100%;
+  font-family: var(--td-font-mono);
+  font-size: var(--td-size-code);
+  line-height: 1.6;
+  color: var(--td-on-surface);
+  background: var(--td-surface-low);
+  border: 0;
+  outline: 0;
+  resize: none;
+  caret-color: var(--td-primary);
+  white-space: pre-wrap;
+  tab-size: 2;
+}
+.hooks-toolbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
   display: flex;
   gap: 4px;
   flex-wrap: wrap;
+  padding: 6px var(--td-space-sm);
+  background: var(--td-surface-container);
+  border-top: 1px solid var(--td-outline-variant);
+}
+.hooks-diag {
+  position: absolute;
+  left: var(--td-space-sm);
+  right: var(--td-space-sm);
+  bottom: 44px;
+  padding: 6px 10px;
+  font-family: var(--td-font-mono);
+  font-size: var(--td-size-label);
+  color: var(--td-error);
+  background: rgba(255, 180, 171, 0.12);
+  border: 1px solid rgba(255, 180, 171, 0.4);
+  border-radius: var(--td-radius-sm);
+  white-space: pre-wrap;
 }
 .hook-chip {
   font-family: var(--td-font-mono);

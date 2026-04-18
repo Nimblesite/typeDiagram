@@ -26,13 +26,14 @@ This spec pins down the exact pipeline, the dependency footprint, and the verifi
 
 ## Dependencies
 
-| Dependency        | Kind    | New?                                                 | Role                                                                                                    |
-| ----------------- | ------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `vscode`          | runtime | no                                                   | `WebviewPanel` + `webview.printToPDF` (stable since VS Code 1.76)                                       |
-| `typediagram-core`| runtime | no                                                   | `renderMarkdownSync` produces fence-replaced markdown (prose + inline SVG)                              |
-| `markdown-it`     | runtime | **yes — move from devDependencies to dependencies**  | Convert non-fence markdown (headings, paragraphs, lists, inline code) to HTML                           |
+| Dependency         | Kind    | New?                                                | Role                                                                          |
+| ------------------ | ------- | --------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `vscode`           | runtime | no                                                  | `WebviewPanel` + `webview.printToPDF` (stable since VS Code 1.76)             |
+| `typediagram-core` | runtime | no                                                  | `renderMarkdownSync` produces fence-replaced markdown (prose + inline SVG)    |
+| `markdown-it`      | runtime | **yes — move from devDependencies to dependencies** | Convert non-fence markdown (headings, paragraphs, lists, inline code) to HTML |
 
 **Explicitly NOT added:**
+
 - Chromium / puppeteer / playwright / wkhtmltopdf — VS Code already ships Electron.
 - `highlight.js` / `prismjs` — out of scope; non-typediagram code blocks render as plain `<pre><code>`.
 - `markdown-it-anchor` / any plugin — out of scope.

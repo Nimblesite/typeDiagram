@@ -31,8 +31,8 @@ suite("typediagram extension inside a real VS Code", () => {
     assert.strictEqual(contributes["markdown.markdownItPlugins"], true, "markdownItPlugins flag not set");
   });
 
-  test("opens doc.md and extendMarkdownIt runs (preview refresh is triggered)", async () => {
-    const docPath = path.resolve(__dirname, "../../../examples/doc.md");
+  test("opens spec.md and extendMarkdownIt runs (preview refresh is triggered)", async () => {
+    const docPath = path.resolve(__dirname, "../../../examples/spec.md");
     const uri = vscode.Uri.file(docPath);
     const doc = await vscode.workspace.openTextDocument(uri);
     await vscode.window.showTextDocument(doc);

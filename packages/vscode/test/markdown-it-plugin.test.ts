@@ -14,7 +14,7 @@ import type { MarkdownIt as MdShape } from "../src/markdown-it-plugin.js";
 vi.mock("vscode", () => mock);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const EXAMPLE_DOC = resolve(__dirname, "../examples/doc.md");
+const EXAMPLE_DOC = resolve(__dirname, "../examples/spec.md");
 
 describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
   beforeAll(async () => {
@@ -27,14 +27,14 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
     return md.render(source);
   };
 
-  it("renders the example doc.md typediagram fence to inline SVG", () => {
+  it("renders the example spec.md typediagram fence to inline SVG", () => {
     const src = readFileSync(EXAMPLE_DOC, "utf8");
     const html = render(src);
     expect(html).toContain("<svg");
     expect(html).toContain('class="typediagram"');
     expect(html).not.toContain("```typediagram");
     // And prose around it still renders
-    expect(html.toLowerCase()).toContain("something");
+    expect(html.toLowerCase()).toContain("specification");
   });
 
   it("is case-insensitive — lowercase typediagram", () => {

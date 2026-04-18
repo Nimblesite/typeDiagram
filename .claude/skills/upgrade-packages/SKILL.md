@@ -53,6 +53,7 @@ If `--check-only` was passed, **stop here** and report the outdated list.
 **Before running any upgrade command, you MUST fetch and read the official npm documentation URL above.** Use WebFetch to retrieve the page. This ensures you use the correct flags and understand the behavior. Do not guess at flags or options from memory.
 
 If running with `--major`, also read:
+
 - npm-check-updates: https://www.npmjs.com/package/npm-check-updates
 
 ## Step 4 — Upgrade packages
@@ -90,6 +91,7 @@ make ci
 `make ci` chains `_fmt_check -> lint -> test (fail-fast + coverage) -> build -> _bundle_size`. Any regression (lint, type, test, coverage threshold, or bundle-size budget) will fail the run.
 
 If tests/lint/typecheck/bundle-size fail:
+
 1. Read the failure output carefully.
 2. Check the changelog / migration guide for the upgraded packages (fetch the release notes URL if available).
 3. Fix breaking changes in the code.

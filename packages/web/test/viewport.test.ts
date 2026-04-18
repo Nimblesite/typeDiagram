@@ -212,4 +212,54 @@ describe("[WEB-VIEWPORT]", () => {
     vp.reset();
     expect(wrapper.style.transform).toBe("translate(0px, 0px) scale(1)");
   });
+
+  // [WEB-VIEWPORT-PRESERVE] Bug: re-rendering (setViewportContent) wipes the
+  // user's pan/zoom. After the first render fit-zooms the content, subsequent
+  // renders must preserve whatever transform the user has since applied.
+  it("setViewportContent PRESERVES user pan after first render", () => {
+    createViewport(container);
+    Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 600, configurable: true });
+    const wrapper = container.querySelector(".viewport-wrapper") as HTMLElement;
+
+    // First render: fit kicks in — acceptable.
+    setViewportContent(container, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"></svg>`);
+
+    // User pans the viewport.
+    container.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, bubbles: true }));
+    container.dispatchEvent(new PointerEvent("pointermove", { clientX: 123, clientY: 77, bubbles: true }));
+    container.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
+    const afterPan = wrapper.style.transform;
+    expect(afterPan).toContain("translate(");
+    // grab one of the translate offsets — must not be (0,0) after a pan.
+    expect(afterPan).not.toBe("translate(0px, 0px) scale(1)");
+
+    // Re-render with NEW content.
+    setViewportContent(container, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"></svg>`);
+    const afterRerender = wrapper.style.transform;
+
+    // BUG: today the transform gets reset to "fit" — wiping the user's pan.
+    expect(afterRerender).toBe(afterPan);
+  });
+
+  it("setViewportContent PRESERVES user zoom after first render", () => {
+    createViewport(container);
+    Object.defineProperty(container, "clientWidth", { value: 800, configurable: true });
+    Object.defineProperty(container, "clientHeight", { value: 600, configurable: true });
+    Object.defineProperty(container, "getBoundingClientRect", {
+      value: () => ({ left: 0, top: 0, width: 800, height: 600, right: 800, bottom: 600 }),
+    });
+    const wrapper = container.querySelector(".viewport-wrapper") as HTMLElement;
+
+    setViewportContent(container, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"></svg>`);
+
+    // User zooms in (e.g. wheel).
+    container.dispatchEvent(new WheelEvent("wheel", { deltaY: -100, clientX: 400, clientY: 300, bubbles: true }));
+    const afterZoom = wrapper.style.transform;
+
+    setViewportContent(container, `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300"></svg>`);
+    const afterRerender = wrapper.style.transform;
+
+    expect(afterRerender).toBe(afterZoom);
+  });
 });

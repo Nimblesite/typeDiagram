@@ -158,6 +158,53 @@ Hooks are exported from [`packages/typediagram/src/render-svg/index.ts`](../../p
 
 - `[HOOK-COMPOSE]` Hooks are a single object, not an array. Users who want to combine hook sets write their own composer — we don't ship one in v1. The `defaultSvg` parameter makes the common "decorate default" case trivial without a framework.
 
+## `[HOOK-LAYERS]` Layering — read this before adding features
+
+Three strictly-stacked layers. Each layer knows nothing about the one above it. **Breaking this layering is a review-rejection.**
+
+| Layer       | Name                        | Artifact                                                                           | Location                              | Who depends on it             |
+| ----------- | --------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------- |
+| **Layer 1** | `RenderHooks` — core API    | TypeScript `RenderHooks` interface + phase invocation inside `renderSvg`           | `packages/typediagram/src/render-svg` | everyone                      |
+| **Layer 2** | Hook **code** (user JS)     | A string of JavaScript the user writes; compiled to a Layer-1 `RenderHooks` object | `packages/web/src/eval-hooks.ts`      | Layer 3, playground, docs     |
+| **Layer 3** | **Presets** — code snippets | Named strings of Layer-2 JS (with `// --- preset:<id> ---` delimiters)             | `packages/web/src/hook-presets.ts`    | the playground's chip UI only |
+
+### Layer 1 — `RenderHooks` (core)
+
+The only layer that talks to the renderer. Phase-based, typed, synchronous, fully optional. A consumer using the TypeScript library directly writes a `RenderHooks` object and passes it to `renderSvg` / `renderToString`. **No other layer exists from the core framework's perspective.** If you're adding a new hook phase or changing context shapes, this is the only layer you touch.
+
+### Layer 2 — user JavaScript (playground and beyond)
+
+The **primary** consumer-facing surface in interactive tools: **the user types plain JavaScript**. `svg`, `raw`, and a pre-declared `hooks` object are in scope; the user assigns functions onto `hooks`. The playground's `evalHooks(code)` compiles this via `new Function("svg", "raw", body)` and hands the resulting `RenderHooks` to Layer 1. Empty input returns `undefined` hooks — identical to passing no hooks at all.
+
+> Presets are NOT the hook API. Presets are NOT a compositional primitive. The hook API is user-authored JavaScript, period. Presets only exist to help the user learn it by pasting example code.
+
+### Layer 3 — presets
+
+Each preset is a **string of Layer-2 source code**, wrapped in sentinel comments:
+
+```
+// --- preset:drop-shadow ---
+hooks.defs = () => svg`<filter id="td-preset-drop">…</filter>`;
+hooks.node = (ctx, def) => svg`<g filter="url(#td-preset-drop)">${def}</g>`;
+// --- /preset:drop-shadow ---
+```
+
+Nothing about a preset is compiled, composed, or handed to the renderer by the preset module. The **only** thing a preset does is:
+
+- provide a `source` string,
+- support being spliced into or out of a larger block of user code via `togglePresetInCode(code, id, on)`.
+
+Clicking a preset button in the playground mutates the hooks editor's textarea — the user **sees the code** and can hand-edit it. Detection (`presetsInCode(code)`) just regex-matches the sentinel comments, nothing more. Overlapping presets that assign the same hook key (e.g. two presets both setting `hooks.node`) **do not auto-compose** — last write wins, exactly as it would in any JS module. This is a deliberate non-feature: the user sees the raw code, so any "magic merge" would be a lie.
+
+If a new preset is added, no other layer changes. If the `RenderHooks` interface changes, preset bodies need to be re-edited in the source string, but neither Layer 2 (eval) nor Layer 3 (splice helpers) have any structural dependency on the preset set.
+
+### Anti-patterns (do NOT do these)
+
+- Exporting preset `RenderHooks` objects directly — that smuggles Layer 3 into Layer 1 and silently duplicates what `evalHooks` should own.
+- A `mergePresets(...)` composition utility — composition belongs to the user's code, not a framework. If users want to compose, they concatenate Layer-2 source or write their own wrapper functions.
+- Binding chip clicks directly to `renderSvg({ hooks: … })` — chips must always go through the textarea and Layer 2. The textarea is the source of truth.
+- Passing `{ hooks: {} }` when the user has no hooks — hooks must be **absent from the options object entirely** when unused (verified by tests on both the core side and the playground side).
+
 ## Worked examples
 
 ### `[HOOK-EX-FIELD-COLOR]` Per-field color coding

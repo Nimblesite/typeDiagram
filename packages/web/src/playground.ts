@@ -1,5 +1,9 @@
-// [WEB-PLAYGROUND] Embeddable editor+preview component.
-// Call mountPlayground(container) to drop it anywhere in the page.
+// [WEB-PLAYGROUND] Editor+preview component with tabbed left pane:
+//   source — the typeDiagram DSL
+//   hooks  — optional JavaScript the user can write to customize rendering
+//
+// Hooks are ENTIRELY OPTIONAL. Empty hooks tab => renderer runs on its default
+// path with no `hooks` option passed at all.
 import { debounce } from "./debounce.js";
 import { renderPane } from "./render-pane.js";
 import { initSplitter } from "./splitter.js";
@@ -7,10 +11,10 @@ import { createViewport, setViewportContent } from "./viewport.js";
 import { initHighlight } from "./highlight.js";
 import { initEditorZoom } from "./editor-zoom.js";
 import { createZoomControls } from "./zoom-controls.js";
-import { createHookChips } from "./hook-chips.js";
-import { mergePresets } from "./hook-presets.js";
+import { evalHooks } from "./eval-hooks.js";
+import { PRESETS, togglePresetInCode, presetsInCode, type PresetId } from "./hook-presets.js";
 
-const INITIAL = `typeDiagram
+const INITIAL_SOURCE = `typeDiagram
 
 # Chat API request types
 
@@ -74,22 +78,40 @@ union Option<T> {
 alias Email = String
 `;
 
+const HOOKS_PLACEHOLDER = `// Optional render hooks. Write plain JS — in scope:
+//   svg   — tagged template for safe SVG fragments
+//   raw   — wrap a trusted raw SVG string (bypasses escaping)
+//   hooks — assign your hook functions onto this object
+//
+// Example:
+//
+// hooks.defs = () => svg\`<filter id="drop"><feDropShadow dx="1" dy="2" stdDeviation="2"/></filter>\`;
+// hooks.node = (ctx, def) => svg\`<g filter="url(#drop)">\${def}</g>\`;
+//
+// Leave this empty to render with NO hooks.
+`;
+
 const buildDom = (container: HTMLElement) => {
   container.classList.add("playground");
   container.innerHTML = `
     <section class="pane pane-editor">
-      <label for="editor" class="pane-label">source</label>
-      <div class="editor-wrap">
+      <div class="pane-head pane-tabs">
+        <button type="button" class="pane-tab pane-tab--on" data-tab="source">source</button>
+        <button type="button" class="pane-tab" data-tab="hooks">hooks <span class="pane-tab-badge" id="hooks-badge" hidden></span></button>
+      </div>
+      <div class="editor-wrap" data-editor="source">
         <pre class="editor-backdrop" id="backdrop" aria-hidden="true"><code></code></pre>
         <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
+      </div>
+      <div class="editor-wrap editor-wrap--hidden" data-editor="hooks">
+        <textarea id="hooks-editor" spellcheck="false" autocomplete="off" placeholder="${HOOKS_PLACEHOLDER.replace(/"/g, "&quot;")}"></textarea>
+        <div class="hooks-toolbar" id="hooks-toolbar"></div>
+        <div class="hooks-diag" id="hooks-diag" hidden></div>
       </div>
     </section>
     <div class="splitter" id="splitter"></div>
     <section class="pane pane-preview">
-      <div class="pane-head">
-        <label class="pane-label">preview</label>
-        <div class="pane-head-slot" id="chips-slot"></div>
-      </div>
+      <div class="pane-head"><label class="pane-label">preview</label></div>
       <div id="preview"></div>
     </section>`;
 
@@ -102,36 +124,115 @@ const buildDom = (container: HTMLElement) => {
   };
   return {
     editor: q("#editor") as HTMLTextAreaElement,
+    hooksEditor: q("#hooks-editor") as HTMLTextAreaElement,
+    hooksToolbar: q("#hooks-toolbar") as HTMLElement,
+    hooksDiag: q("#hooks-diag") as HTMLElement,
+    hooksBadge: q("#hooks-badge") as HTMLElement,
     preview: q("#preview") as HTMLElement,
     splitter: q("#splitter") as HTMLElement,
     backdrop: q("#backdrop") as HTMLElement,
-    editorWrap: q(".editor-wrap") as HTMLElement,
-    chipsSlot: q("#chips-slot") as HTMLElement,
+    editorWrap: q('[data-editor="source"]') as HTMLElement,
+    hooksWrap: q('[data-editor="hooks"]') as HTMLElement,
+    tabs: Array.from(container.querySelectorAll<HTMLButtonElement>(".pane-tab")),
   };
 };
 
+const buildPresetButtons = (toolbar: HTMLElement, getCode: () => string, setCode: (next: string) => void) => {
+  for (const preset of PRESETS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "hook-chip";
+    btn.textContent = preset.label;
+    btn.title = preset.blurb;
+    btn.dataset.presetId = preset.id;
+    btn.setAttribute("aria-pressed", "false");
+    btn.addEventListener("click", () => {
+      const code = getCode();
+      const on = !presetsInCode(code).includes(preset.id);
+      setCode(togglePresetInCode(code, preset.id, on));
+    });
+    toolbar.appendChild(btn);
+  }
+};
+
+const syncPresetButtons = (toolbar: HTMLElement, code: string) => {
+  const active = new Set<PresetId>(presetsInCode(code));
+  for (const btn of Array.from(toolbar.querySelectorAll<HTMLButtonElement>(".hook-chip"))) {
+    const id = btn.dataset.presetId as PresetId;
+    const on = active.has(id);
+    btn.classList.toggle("hook-chip--on", on);
+    btn.setAttribute("aria-pressed", on ? "true" : "false");
+  }
+};
+
+const activateTab = (tabId: "source" | "hooks", refs: ReturnType<typeof buildDom>) => {
+  for (const t of refs.tabs) {
+    const on = t.dataset.tab === tabId;
+    t.classList.toggle("pane-tab--on", on);
+  }
+  refs.editorWrap.classList.toggle("editor-wrap--hidden", tabId !== "source");
+  refs.hooksWrap.classList.toggle("editor-wrap--hidden", tabId !== "hooks");
+};
+
 export const mountPlayground = (container: HTMLElement) => {
-  const { editor, preview, splitter, backdrop, editorWrap, chipsSlot } = buildDom(container);
+  const refs = buildDom(container);
+  const { editor, hooksEditor, hooksToolbar, hooksDiag, hooksBadge, preview, splitter, backdrop, editorWrap } = refs;
   initSplitter(container, splitter);
   const vp = createViewport(preview);
   createZoomControls(preview, vp);
 
-  editor.value = INITIAL;
+  editor.value = INITIAL_SOURCE;
   initHighlight(editor, backdrop);
   initEditorZoom(editorWrap, editor, backdrop);
 
-  let run: () => Promise<void> = async () => {};
-  const chips = createHookChips(() => {
-    void run();
-  });
-  chipsSlot.appendChild(chips.container);
-  run = async () => {
-    const html = await renderPane(editor.value, mergePresets(chips.selected()));
+  buildPresetButtons(
+    hooksToolbar,
+    () => hooksEditor.value,
+    (next) => {
+      hooksEditor.value = next;
+      syncPresetButtons(hooksToolbar, next);
+      void run();
+    }
+  );
+  syncPresetButtons(hooksToolbar, hooksEditor.value);
+
+  const run = async () => {
+    const evaluated = evalHooks(hooksEditor.value);
+    if (evaluated.ok) {
+      hooksDiag.hidden = true;
+      hooksDiag.textContent = "";
+    } else {
+      hooksDiag.hidden = false;
+      hooksDiag.textContent = evaluated.error ?? "hook eval failed";
+    }
+    const count = evaluated.hooks === undefined ? 0 : Object.keys(evaluated.hooks).length;
+    if (count > 0) {
+      hooksBadge.hidden = false;
+      hooksBadge.textContent = String(count);
+    } else {
+      hooksBadge.hidden = true;
+      hooksBadge.textContent = "";
+    }
+    const html = await renderPane(editor.value, evaluated.hooks);
     setViewportContent(preview, html);
   };
   const debounced = debounce(() => {
     void run();
   }, 120);
+
   editor.addEventListener("input", debounced);
+  hooksEditor.addEventListener("input", () => {
+    syncPresetButtons(hooksToolbar, hooksEditor.value);
+    debounced();
+  });
+  for (const tab of refs.tabs) {
+    tab.addEventListener("click", () => {
+      const id = tab.dataset.tab;
+      if (id === "source" || id === "hooks") {
+        activateTab(id, refs);
+      }
+    });
+  }
+  activateTab("source", refs);
   void run();
 };

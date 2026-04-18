@@ -2,6 +2,8 @@
 // Spec: docs/specs/pdf-export.md. Plan: docs/plans/pdf-export.md.
 import type * as vscode from "vscode";
 import MarkdownIt from "markdown-it";
+import PDFDocument from "pdfkit";
+import SVGtoPDF from "svg-to-pdfkit";
 import { renderMarkdownSync } from "typediagram-core/markdown";
 import { getLogger } from "./logger.js";
 
@@ -11,27 +13,11 @@ type Theme = "light" | "dark";
 export interface ExportPdfDeps {
   readonly readFile: (uri: vscode.Uri) => Promise<Uint8Array>;
   readonly writeFile: (uri: vscode.Uri, data: Uint8Array) => Promise<void>;
-  readonly createWebviewPanel: (
-    viewType: string,
-    title: string,
-    showOptions: { viewColumn: number; preserveFocus: boolean },
-    options: { enableScripts: boolean; retainContextWhenHidden: boolean }
-  ) => WebviewPanelLike;
   readonly uriWithPath: (base: vscode.Uri, newPath: string) => vscode.Uri;
   readonly showInformationMessage: (msg: string, ...actions: string[]) => Promise<string | undefined>;
   readonly showErrorMessage: (msg: string) => void;
   readonly openExternal: (uri: vscode.Uri) => Promise<boolean>;
   readonly executeCommand: (cmd: string, ...args: unknown[]) => Promise<unknown>;
-}
-
-// [PDF-PRINT] Minimal panel shape we actually use.
-export interface WebviewPanelLike {
-  readonly webview: {
-    html: string;
-    readonly printToPDF?: (options?: Record<string, unknown>) => Promise<Uint8Array>;
-    readonly onDidReceiveMessage: (handler: (msg: unknown) => void) => { dispose: () => void };
-  };
-  dispose: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,8 +33,12 @@ export async function readMarkdown(uri: vscode.Uri, deps: Pick<ExportPdfDeps, "r
 // [PDF-COMPOSE] Sentinel swap prevents markdown-it from HTML-escaping inline SVG.
 // ---------------------------------------------------------------------------
 
-const SENTINEL_PREFIX = "<!--TD-SVG-";
-const SENTINEL_SUFFIX = "-->";
+// [PDF-COMPOSE-SENTINEL] A non-HTML, non-markdown-significant token. markdown-it never
+// transforms identifier-like strings. We use a Unicode private-use-area bracket to make
+// accidental collision with user content impossibly rare.
+const SENTINEL_PREFIX = "\uE000TDSVG";
+const SENTINEL_SUFFIX = "\uE001";
+const SENTINEL_RE = /\uE000TDSVG(\d+)\uE001/g;
 const SVG_BLOCK_RE = /<svg\b[\s\S]*?<\/svg>/gi;
 
 interface SentinelSwap {
@@ -67,7 +57,7 @@ export function extractSvgs(mdWithSvgs: string): SentinelSwap {
 }
 
 export function reinjectSvgs(html: string, svgs: string[]): string {
-  return html.replace(/<!--TD-SVG-(\d+)-->/g, (_m, idx: string) => {
+  return html.replace(SENTINEL_RE, (_m, idx: string) => {
     const n = Number(idx);
     const svg = svgs[n];
     if (svg === undefined) {
@@ -123,30 +113,20 @@ export function composeHtml(mdSource: string, opts: { theme: Theme; title: strin
   // transformed markdown (fences replaced with SVG or error-comment). We only care about
   // separating diagnostics from the transformed text — we want the text in BOTH cases.
   const rendered = renderMarkdownSync(mdSource, { theme: opts.theme });
-  // eslint-disable-next-line no-console
-  console.error("[DBG composeHtml] rendered.ok=", rendered.ok, "srcLen=", mdSource.length);
   // The integration helper doesn't give us the transformed-with-errors text when ok=false,
   // so on hard failure we fall back to the raw source + surface the diagnostics.
   const mdWithSvgs = rendered.ok ? rendered.value : mdSource;
   const diagnostics = rendered.ok ? [] : rendered.error;
-  // eslint-disable-next-line no-console
-  console.error("[DBG composeHtml] mdWithSvgs has <svg:", mdWithSvgs.includes("<svg"));
 
   // Step 2: sentinel swap so markdown-it never sees raw <svg>.
   const { skeleton, svgs } = extractSvgs(mdWithSvgs);
-  // eslint-disable-next-line no-console
-  console.error("[DBG composeHtml] svgs extracted:", svgs.length, "skel preview:", skeleton.slice(0, 100));
 
   // Step 3: markdown → HTML.
   const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
   const bodyHtml = md.render(skeleton);
-  // eslint-disable-next-line no-console
-  console.error("[DBG composeHtml] bodyHtml has sentinel:", bodyHtml.includes("TD-SVG-"), "preview:", bodyHtml.slice(0, 200));
 
   // Step 4: put the SVGs back.
   const finalBody = reinjectSvgs(bodyHtml, svgs);
-  // eslint-disable-next-line no-console
-  console.error("[DBG composeHtml] finalBody has <svg:", finalBody.includes("<svg"));
 
   // Step 5: wrap in the shell.
   const html = buildShell(opts.title, finalBody);
@@ -154,57 +134,99 @@ export function composeHtml(mdSource: string, opts: { theme: Theme; title: strin
 }
 
 // ---------------------------------------------------------------------------
-// [PDF-PRINT]
+// [PDF-PRINT] Pure-Node pdfkit + svg-to-pdfkit pipeline. Produces a real PDF
+// with every typeDiagram embedded as true vector paths (no rasterisation).
 // ---------------------------------------------------------------------------
 
-const PRINT_LOAD_TIMEOUT_MS = 10_000;
+const A4_MARGIN = 40;
+const SVG_RENDER_WIDTH = 500;
 
-export async function renderHtmlToPdf(
-  html: string,
-  deps: Pick<ExportPdfDeps, "createWebviewPanel">
-): Promise<Uint8Array> {
-  // 2 = ViewColumn.Beside; we avoid importing vscode here so deps is the only surface.
-  const panel = deps.createWebviewPanel(
-    "typediagram.pdfExport",
-    "TypeDiagram PDF Export",
-    { viewColumn: 2, preserveFocus: true },
-    { enableScripts: true, retainContextWhenHidden: true }
-  );
-
-  try {
-    const loaded = new Promise<void>((resolve, reject) => {
-      const timer = setTimeout(() => {
-        reject(new Error("[PDF-PRINT] webview load timeout"));
-      }, PRINT_LOAD_TIMEOUT_MS);
-      const sub = panel.webview.onDidReceiveMessage(() => {
-        clearTimeout(timer);
-        sub.dispose();
-        resolve();
-      });
-      // The shell emits one load marker via window.addEventListener('load')
-      // and then posts to the extension host. We inject that bridge here:
-      panel.webview.html = html.replace(
-        "/* marker for print */",
-        "const vs = acquireVsCodeApi(); vs.postMessage({ kind: 'td-print-ready' });"
-      );
-    });
-    await loaded;
-
-    const print = panel.webview.printToPDF;
-    if (typeof print !== "function") {
-      throw new Error("[PDF-PRINT] webview.printToPDF is not available in this VS Code runtime");
+// Split mdWithSvgs into an ordered list of prose and svg chunks so pdfkit can
+// emit them sequentially — prose as text, SVGs as vectors.
+interface Chunk {
+  kind: "prose" | "svg";
+  value: string;
+}
+export function chunkMarkdown(mdWithSvgs: string): Chunk[] {
+  const chunks: Chunk[] = [];
+  let cursor = 0;
+  for (const m of mdWithSvgs.matchAll(SVG_BLOCK_RE)) {
+    if (m.index > cursor) {
+      chunks.push({ kind: "prose", value: mdWithSvgs.slice(cursor, m.index) });
     }
-    const buf = await print({
-      marginsType: 0,
-      pageSize: "A4",
-      printBackground: true,
-      printSelectionOnly: false,
-      landscape: false,
-    });
-    return buf;
-  } finally {
-    panel.dispose();
+    chunks.push({ kind: "svg", value: m[0] });
+    cursor = m.index + m[0].length;
   }
+  if (cursor < mdWithSvgs.length) {
+    chunks.push({ kind: "prose", value: mdWithSvgs.slice(cursor) });
+  }
+  return chunks;
+}
+
+function renderProseToPdf(doc: PDFKit.PDFDocument, prose: string): void {
+  // Very light markdown → PDF: headings on their own lines, code fences rendered
+  // as indented monospace. Full fidelity is NOT a goal — the diagrams are the
+  // point; the prose is context.
+  const lines = prose.split("\n");
+  let inFence = false;
+  for (const line of lines) {
+    if (/^```/.test(line)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence) {
+      doc.font("Courier").fontSize(10).text(line);
+      continue;
+    }
+    const hMatch = /^(#{1,6})\s+(.*)$/.exec(line);
+    if (hMatch) {
+      // Regex groups 1 and 2 are required — both are always present when hMatch is non-null.
+      const hashes = hMatch[1] as string;
+      const text = hMatch[2] as string;
+      const level = hashes.length;
+      const size = level === 1 ? 20 : level === 2 ? 16 : level === 3 ? 13 : 11;
+      doc.moveDown(0.5);
+      doc.font("Helvetica-Bold").fontSize(size).text(text);
+      doc.moveDown(0.3);
+      continue;
+    }
+    if (line.trim().length === 0) {
+      doc.moveDown(0.5);
+      continue;
+    }
+    doc.font("Helvetica").fontSize(11).text(line);
+  }
+}
+
+export async function renderToPdf(mdWithSvgs: string, title: string): Promise<Uint8Array> {
+  return new Promise<Uint8Array>((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: A4_MARGIN, info: { Title: title } });
+    const buffers: Buffer[] = [];
+    doc.on("data", (b: Buffer) => buffers.push(b));
+    doc.on("end", () => {
+      resolve(new Uint8Array(Buffer.concat(buffers)));
+    });
+    doc.on("error", reject);
+
+    doc.font("Helvetica-Bold").fontSize(22).text(title);
+    doc.moveDown();
+
+    for (const chunk of chunkMarkdown(mdWithSvgs)) {
+      if (chunk.kind === "prose") {
+        renderProseToPdf(doc, chunk.value);
+      } else {
+        // Vector-embed the SVG. svg-to-pdfkit streams path ops directly.
+        doc.moveDown(0.5);
+        SVGtoPDF(doc, chunk.value, A4_MARGIN, doc.y, { width: SVG_RENDER_WIDTH, assumePt: false });
+        // Advance the cursor past the rendered SVG region. pdfkit doesn't know
+        // svg-to-pdfkit drew; we conservatively add a fixed gap then let natural
+        // text flow push subsequent content onto a new page if needed.
+        doc.moveDown(12);
+      }
+    }
+
+    doc.end();
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -236,11 +258,7 @@ export async function writeNextToSource(
 
 const inFlight = new Map<string, Promise<void>>();
 
-export async function exportPdf(
-  sourceUri: vscode.Uri,
-  opts: { theme: Theme },
-  deps: ExportPdfDeps
-): Promise<void> {
+export async function exportPdf(sourceUri: vscode.Uri, opts: { theme: Theme }, deps: ExportPdfDeps): Promise<void> {
   const log = getLogger().child({ scope: "export-pdf" });
   const key = sourceUri.toString();
   const existing = inFlight.get(key);
@@ -269,16 +287,17 @@ async function runExport(
     const t0 = Date.now();
     const src = await readMarkdown(sourceUri, deps);
     const title = titleFromPath(sourceUri.path);
-    const composed = composeHtml(src, { theme: opts.theme, title });
-    log.info("composed HTML", {
-      fenceCount: composed.fenceCount,
-      htmlLength: composed.html.length,
+    const rendered = renderMarkdownSync(src, { theme: opts.theme });
+    const mdWithSvgs = rendered.ok ? rendered.value : src;
+    log.info("composed markdown+svgs", {
+      ok: rendered.ok,
+      diagnostics: rendered.ok ? 0 : rendered.error.length,
+      bytes: mdWithSvgs.length,
       elapsedMs: Date.now() - t0,
-      diagnostics: composed.diagnostics.length,
     });
 
     const t1 = Date.now();
-    const buf = await renderHtmlToPdf(composed.html, deps);
+    const buf = await renderToPdf(mdWithSvgs, title);
     log.info("rendered PDF", { bufferLength: buf.length, elapsedMs: Date.now() - t1 });
 
     const saved = await writeNextToSource(buf, sourceUri, deps);
@@ -292,23 +311,27 @@ async function runExport(
 }
 
 function titleFromPath(path: string): string {
-  const basename = path.split("/").pop() ?? "document.md";
+  // `String.prototype.split` always returns ≥ 1 element, so `parts[last]` is always defined.
+  const parts = path.split("/");
+  const basename = parts[parts.length - 1] as string;
   return basename.replace(MD_EXT_RE, "");
 }
 
 function notifySaved(saved: vscode.Uri, deps: ExportPdfDeps, log: ReturnType<typeof getLogger>): void {
   // Fire-and-forget — the command itself has completed by this point.
-  void deps.showInformationMessage(`TypeDiagram PDF written: ${saved.path}`, "Open PDF", "Reveal in File Explorer").then(
-    (choice) => {
-      if (choice === "Open PDF") {
-        void deps.openExternal(saved);
-      } else if (choice === "Reveal in File Explorer") {
-        void deps.executeCommand("revealFileInOS", saved);
+  void deps
+    .showInformationMessage(`TypeDiagram PDF written: ${saved.path}`, "Open PDF", "Reveal in File Explorer")
+    .then(
+      (choice) => {
+        if (choice === "Open PDF") {
+          void deps.openExternal(saved);
+        } else if (choice === "Reveal in File Explorer") {
+          void deps.executeCommand("revealFileInOS", saved);
+        }
+        log.info("notification dismissed", { choice: choice ?? "(none)" });
+      },
+      (err: unknown) => {
+        log.error("notification failed", { err: String(err) });
       }
-      log.info("notification dismissed", { choice: choice ?? "(none)" });
-    },
-    (err: unknown) => {
-      log.error("notification failed", { err: String(err) });
-    }
-  );
+    );
 }

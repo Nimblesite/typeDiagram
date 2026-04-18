@@ -45,6 +45,8 @@ export const window = {
   visibleTextEditors: [] as { document: unknown }[],
   createWebviewPanel: vi.fn(() => mockPanel),
   createOutputChannel: vi.fn(() => mockOutputChannel),
+  showInformationMessage: vi.fn((..._args: unknown[]) => Promise.resolve(undefined)),
+  showErrorMessage: vi.fn((_msg: string) => Promise.resolve(undefined)),
   tabGroups: {
     all: [] as TabGroup[],
     close: vi.fn((_tabs: Tab[], _preserveFocus?: boolean) => Promise.resolve(true)),
@@ -76,6 +78,10 @@ export const commands = {
 
 export const workspace = {
   textDocuments: [] as unknown[],
+  fs: {
+    readFile: vi.fn((_u: unknown) => Promise.resolve(new Uint8Array())),
+    writeFile: vi.fn((_u: unknown, _data: Uint8Array) => Promise.resolve()),
+  },
   getConfiguration: vi.fn(() => ({
     get: <T>(_key: string, defaultValue?: T) => defaultValue,
   })),
@@ -102,4 +108,8 @@ export const Uri = {
   joinPath: vi.fn((_base: unknown, ...parts: string[]) => ({
     path: parts.join("/"),
   })),
+};
+
+export const env = {
+  openExternal: vi.fn((_u: unknown) => Promise.resolve(true)),
 };

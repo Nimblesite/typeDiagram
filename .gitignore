@@ -78,3 +78,4 @@ packages/web/.typedoc-out/
 
 # Repo-root screenshot PNGs (kept for README but not accidentally re-added elsewhere)
 /*.png
+dist-test-pdfs/

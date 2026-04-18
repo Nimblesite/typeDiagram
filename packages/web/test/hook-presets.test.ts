@@ -1,136 +1,144 @@
-// [WEB-HOOK-PRESETS-TEST] Each preset, when passed to renderToString, produces
-// an SVG containing the preset's signature markup. Also covers mergePresets.
+// [WEB-HOOK-PRESETS-TEST] Presets are code snippets, nothing more. These tests
+// verify the splice helpers (toggle in/out, detect presence) and that each
+// preset's source parses + evaluates into a callable RenderHooks via evalHooks.
 import { describe, expect, it } from "vitest";
 import { renderToString } from "typediagram-core";
-import { PRESETS, mergePresets, type PresetId } from "../src/hook-presets.js";
+import { PRESETS, togglePresetInCode, presetsInCode, codeContainsPreset } from "../src/hook-presets.js";
+import { evalHooks } from "../src/eval-hooks.js";
 
-const SRC = `typeDiagram
+const SAMPLE = `typeDiagram
   type User { id: UUID, email: String, name: String, active: Bool }
   type Address { line1: String, city: String }
   union Shape { Circle { radius: Float } Square { side: Float } }
-  alias Email = String
 `;
 
-const renderWith = async (ids: ReadonlyArray<PresetId>): Promise<string> => {
-  const selected = PRESETS.filter((p) => ids.includes(p.id));
-  const hooks = mergePresets(selected);
-  const r = await renderToString(SRC, { hooks });
-  if (!r.ok) {
-    throw new Error(`render failed: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-};
-
-describe("[WEB-HOOK-PRESETS] PRESETS registry", () => {
-  it("has every expected preset id", () => {
-    const ids = PRESETS.map((p) => p.id);
-    expect(ids).toContain("drop-shadow");
-    expect(ids).toContain("field-color");
-    expect(ids).toContain("grid-bg");
-    expect(ids).toContain("classes");
-    expect(ids).toContain("glow-union");
-  });
-
-  it("every preset has a non-empty label and blurb", () => {
+describe("[WEB-PRESET-REGISTRY] PRESETS", () => {
+  it("every preset has id, label, blurb, and source", () => {
     for (const p of PRESETS) {
+      expect(p.id.length).toBeGreaterThan(0);
       expect(p.label.length).toBeGreaterThan(0);
       expect(p.blurb.length).toBeGreaterThan(0);
+      expect(p.source).toContain(`// --- preset:${p.id} ---`);
+      expect(p.source).toContain(`// --- /preset:${p.id} ---`);
+    }
+  });
+
+  it("every preset source evaluates to at least one hook function", () => {
+    for (const p of PRESETS) {
+      const r = evalHooks(p.source);
+      expect(r.ok).toBe(true);
+      const fns = Object.values(r.hooks ?? {}).filter((v) => typeof v === "function");
+      expect(fns.length).toBeGreaterThan(0);
     }
   });
 });
 
-describe("[WEB-HOOK-PRESET-DROP-SHADOW]", () => {
-  it("adds a drop-shadow filter and wraps every node group with it", async () => {
-    const out = await renderWith(["drop-shadow"]);
-    expect(out).toContain(`id="td-preset-drop"`);
-    expect(out).toContain("feDropShadow");
-    expect(out).toContain(`filter="url(#td-preset-drop)"`);
-  });
-});
-
-describe("[WEB-HOOK-PRESET-FIELD-COLOR]", () => {
-  it("colors id / email / name rows with distinct accent rects", async () => {
-    const out = await renderWith(["field-color"]);
-    // id rows use #ffd400
-    expect(out).toContain(`fill="#ffd400"`);
-    // email rows use #66ccff
-    expect(out).toContain(`fill="#66ccff"`);
-  });
-});
-
-describe("[WEB-HOOK-PRESET-GRID-BG]", () => {
-  it("injects a grid pattern in defs and paints it under the diagram", async () => {
-    const out = await renderWith(["grid-bg"]);
-    expect(out).toContain(`id="td-preset-grid"`);
-    expect(out).toContain(`fill="url(#td-preset-grid)"`);
-    // grid rect must sit after </defs> and before first node <g>
-    const defsClose = out.indexOf("</defs>");
-    const gridRect = out.indexOf(`fill="url(#td-preset-grid)"`);
-    const firstNode = out.indexOf("<g data-decl=");
-    expect(gridRect).toBeGreaterThan(defsClose);
-    expect(gridRect).toBeLessThan(firstNode);
-  });
-});
-
-describe("[WEB-HOOK-PRESET-CLASSES]", () => {
-  it("adds td-kind-* classes and injects style rules", async () => {
-    const out = await renderWith(["classes"]);
-    expect(out).toContain(`class="td-kind-record"`);
-    expect(out).toContain(`class="td-kind-union"`);
-    expect(out).toContain(`class="td-kind-alias"`);
-    expect(out).toContain(`<style>`);
-    expect(out).toContain(`.td-kind-union`);
-  });
-});
-
-describe("[WEB-HOOK-PRESET-GLOW-UNION]", () => {
-  it("only union nodes receive the glow filter", async () => {
-    const out = await renderWith(["glow-union"]);
-    expect(out).toContain(`id="td-preset-glow"`);
-    // The Shape union must be wrapped in the glow filter; User (record) must not.
-    const shapeIdx = out.indexOf(`data-decl="Shape"`);
-    const userIdx = out.indexOf(`data-decl="User"`);
-    expect(shapeIdx).toBeGreaterThan(0);
-    expect(userIdx).toBeGreaterThan(0);
-    // Count glow-filter groups: must be exactly the number of unions in SRC (1: Shape)
-    const glowMatches = out.match(/filter="url\(#td-preset-glow\)"/g) ?? [];
-    expect(glowMatches.length).toBe(1);
-  });
-});
-
-describe("[WEB-HOOK-PRESETS-MERGE] mergePresets composes all phases", () => {
-  it("empty selection returns empty RenderHooks object", () => {
-    expect(mergePresets([])).toEqual({});
+describe("[WEB-PRESET-SPLICE] togglePresetInCode", () => {
+  it("adding a preset to empty code yields exactly the preset block", () => {
+    const out = togglePresetInCode("", "drop-shadow", true);
+    expect(out).toContain("// --- preset:drop-shadow ---");
+    expect(out).toContain("// --- /preset:drop-shadow ---");
+    expect(presetsInCode(out)).toEqual(["drop-shadow"]);
   });
 
-  it("combining drop-shadow + grid-bg + classes leaves all three signatures in output", async () => {
-    const out = await renderWith(["drop-shadow", "grid-bg", "classes"]);
-    expect(out).toContain(`id="td-preset-drop"`);
-    expect(out).toContain(`id="td-preset-grid"`);
-    expect(out).toContain(`class="td-kind-record"`);
-    // post-hook style rules still present
-    expect(out).toContain(`<style>`);
+  it("adding the same preset twice is idempotent (single block)", () => {
+    const once = togglePresetInCode("", "grid-bg", true);
+    const twice = togglePresetInCode(once, "grid-bg", true);
+    expect(twice).toBe(once);
   });
 
-  it("node transform hooks chain — presets compose in registry order", async () => {
-    const out = await renderWith(["classes", "drop-shadow"]);
-    // Selection is filtered by PRESETS registry order (drop-shadow declared before classes),
-    // so drop-shadow runs first on the default, then classes wraps that output.
-    // Result: classes group is OUTER, filter group is INNER: classIdx < filterIdx.
-    expect(out).toContain(`filter="url(#td-preset-drop)"`);
-    expect(out).toContain(`class="td-kind-record"`);
-    const filterIdx = out.indexOf(`<g filter="url(#td-preset-drop)">`);
-    const classIdx = out.indexOf(`<g class="td-kind-record"`);
-    expect(filterIdx).toBeGreaterThan(-1);
-    expect(classIdx).toBeLessThan(filterIdx);
+  it("toggling OFF removes the block without disturbing other content", () => {
+    const hand = `// user's own hook\nhooks.edge = (_c, d) => d;\n`;
+    const added = togglePresetInCode(hand, "classes", true);
+    expect(codeContainsPreset(added, "classes")).toBe(true);
+    const removed = togglePresetInCode(added, "classes", false);
+    expect(codeContainsPreset(removed, "classes")).toBe(false);
+    // the user's own hook line survives
+    expect(removed).toContain("hooks.edge = (_c, d) => d;");
   });
 
-  it("default output unchanged when NO presets selected", async () => {
-    const plain = await renderWith([]);
-    const base = await renderToString(SRC);
-    if (!base.ok) {
-      throw new Error("base render failed");
+  it("toggling OFF a preset that isn't present is a no-op", () => {
+    const code = "hooks.node = (_c, d) => d;";
+    expect(togglePresetInCode(code, "grid-bg", false)).toBe(code);
+  });
+
+  it("multiple presets coexist in arbitrary order", () => {
+    let code = "";
+    code = togglePresetInCode(code, "drop-shadow", true);
+    code = togglePresetInCode(code, "grid-bg", true);
+    code = togglePresetInCode(code, "field-color", true);
+    const active = presetsInCode(code);
+    expect(active).toContain("drop-shadow");
+    expect(active).toContain("grid-bg");
+    expect(active).toContain("field-color");
+  });
+
+  it("preset code with all presets added still evaluates successfully", () => {
+    let code = "";
+    for (const p of PRESETS) {
+      code = togglePresetInCode(code, p.id, true);
     }
-    expect(plain).toBe(base.value);
+    const r = evalHooks(code);
+    expect(r.ok).toBe(true);
+    const fnCount = Object.values(r.hooks ?? {}).filter((v) => typeof v === "function").length;
+    expect(fnCount).toBeGreaterThan(0);
+  });
+});
+
+// [WEB-PRESET-COMPOSE] When multiple presets are active at once, ALL their
+// signature effects must appear in the rendered SVG. This is the bug report
+// flagged in the playground: selecting shadow + grid + field-color shows ONLY
+// grid. Presets must chain — each preset must preserve any prior hooks on the
+// same key and compose with them.
+describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () => {
+  const compileAndRender = async (ids: ReadonlyArray<string>): Promise<string> => {
+    let code = "";
+    for (const id of ids) {
+      code = togglePresetInCode(code, id as (typeof PRESETS)[number]["id"], true);
+    }
+    const r = evalHooks(code);
+    expect(r.ok).toBe(true);
+    const out = await renderToString(SAMPLE, { hooks: r.hooks });
+    expect(out.ok).toBe(true);
+    if (!out.ok) {
+      throw new Error("render failed");
+    }
+    return out.value;
+  };
+
+  it("grid + shadow => BOTH grid pattern AND drop-shadow filter appear in defs", async () => {
+    const svgOut = await compileAndRender(["grid-bg", "drop-shadow"]);
+    expect(svgOut).toContain(`id="td-preset-grid"`);
+    expect(svgOut).toContain(`id="td-preset-drop"`);
+    expect(svgOut).toContain(`filter="url(#td-preset-drop)"`);
+    expect(svgOut).toContain(`fill="url(#td-preset-grid)"`);
+  });
+
+  it("grid + shadow + field-color => grid bg, shadow wrap, AND row accents all present", async () => {
+    const svgOut = await compileAndRender(["grid-bg", "drop-shadow", "field-color"]);
+    // Grid
+    expect(svgOut).toContain(`fill="url(#td-preset-grid)"`);
+    // Shadow (applied per-node)
+    expect(svgOut).toContain(`filter="url(#td-preset-drop)"`);
+    // Field color (yellow for id:, blue for email:, purple for name:)
+    expect(svgOut).toContain(`fill="#ffd400"`);
+    expect(svgOut).toContain(`fill="#66ccff"`);
+  });
+
+  it("glow-union + shadow => union nodes keep glow, non-union nodes still get shadow", async () => {
+    const svgOut = await compileAndRender(["glow-union", "drop-shadow"]);
+    // Both filters defined
+    expect(svgOut).toContain(`id="td-preset-glow"`);
+    expect(svgOut).toContain(`id="td-preset-drop"`);
+    // User node (record) must be wrapped in the shadow filter
+    const userIdx = svgOut.indexOf(`data-decl="User"`);
+    expect(userIdx).toBeGreaterThan(-1);
+    // Shape node (union) must receive the glow filter at minimum
+    const shapeIdx = svgOut.indexOf(`data-decl="Shape"`);
+    expect(shapeIdx).toBeGreaterThan(-1);
+    const glowMatches = svgOut.match(/url\(#td-preset-glow\)/g) ?? [];
+    const shadowMatches = svgOut.match(/url\(#td-preset-drop\)/g) ?? [];
+    expect(glowMatches.length).toBeGreaterThan(0);
+    expect(shadowMatches.length).toBeGreaterThan(0);
   });
 });

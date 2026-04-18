@@ -16,14 +16,14 @@
       "lines": 96.71
     },
     "packages/web": {
-      "statements": 95,
+      "statements": 95.46,
       "branches": 95.84,
-      "functions": 97.21,
-      "lines": 95
+      "functions": 97.52,
+      "lines": 95.46
     },
     "packages/vscode": {
       "statements": 99,
-      "branches": 97.9,
+      "branches": 98.41,
       "functions": 99,
       "lines": 99
     }

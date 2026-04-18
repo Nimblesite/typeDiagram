@@ -1,189 +1,257 @@
-<!DOCTYPE html>
+<!doctype html>
 
-<html class="dark" lang="en"><head>
-<meta charset="utf-8"/>
-<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-<title>typeDiagram | Multi-language pipeline</title>
-<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
-<script id="tailwind-config">
+<html class="dark" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>typeDiagram | Multi-language pipeline</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
+    <script id="tailwind-config">
       tailwind.config = {
         darkMode: "class",
         theme: {
           extend: {
-            "colors": {
-                    "surface": "#0b1326",
-                    "on-error": "#690005",
-                    "surface-tint": "#7bd0ff",
-                    "on-tertiary-container": "#004d44",
-                    "secondary": "#ddb7ff",
-                    "error": "#ffb4ab",
-                    "secondary-container": "#6f00be",
-                    "on-secondary": "#490080",
-                    "on-secondary-fixed-variant": "#6900b3",
-                    "tertiary": "#45e3ce",
-                    "surface-container-low": "#131b2e",
-                    "surface-container": "#171f33",
-                    "inverse-surface": "#dae2fd",
-                    "on-surface-variant": "#bdc8d1",
-                    "on-surface": "#dae2fd",
-                    "inverse-primary": "#00668a",
-                    "secondary-fixed-dim": "#ddb7ff",
-                    "primary": "#8ed5ff",
-                    "primary-fixed": "#c4e7ff",
-                    "surface-dim": "#0b1326",
-                    "secondary-fixed": "#f0dbff",
-                    "on-background": "#dae2fd",
-                    "on-error-container": "#ffdad6",
-                    "surface-bright": "#31394d",
-                    "on-tertiary": "#003731",
-                    "on-primary-container": "#004965",
-                    "primary-container": "#38bdf8",
-                    "on-tertiary-fixed": "#00201c",
-                    "surface-container-high": "#222a3d",
-                    "tertiary-fixed-dim": "#3cddc7",
-                    "background": "#0b1326",
-                    "tertiary-fixed": "#62fae3",
-                    "outline": "#87929a",
-                    "on-primary-fixed-variant": "#004c69",
-                    "on-primary-fixed": "#001e2c",
-                    "on-primary": "#00354a",
-                    "error-container": "#93000a",
-                    "surface-variant": "#2d3449",
-                    "surface-container-highest": "#2d3449",
-                    "inverse-on-surface": "#283044",
-                    "on-secondary-container": "#d6a9ff",
-                    "tertiary-container": "#07c7b2",
-                    "primary-fixed-dim": "#7bd0ff",
-                    "on-tertiary-fixed-variant": "#005047",
-                    "surface-container-lowest": "#060e20",
-                    "outline-variant": "#3e484f",
-                    "on-secondary-fixed": "#2c0051"
+            colors: {
+              surface: "#0b1326",
+              "on-error": "#690005",
+              "surface-tint": "#7bd0ff",
+              "on-tertiary-container": "#004d44",
+              secondary: "#ddb7ff",
+              error: "#ffb4ab",
+              "secondary-container": "#6f00be",
+              "on-secondary": "#490080",
+              "on-secondary-fixed-variant": "#6900b3",
+              tertiary: "#45e3ce",
+              "surface-container-low": "#131b2e",
+              "surface-container": "#171f33",
+              "inverse-surface": "#dae2fd",
+              "on-surface-variant": "#bdc8d1",
+              "on-surface": "#dae2fd",
+              "inverse-primary": "#00668a",
+              "secondary-fixed-dim": "#ddb7ff",
+              primary: "#8ed5ff",
+              "primary-fixed": "#c4e7ff",
+              "surface-dim": "#0b1326",
+              "secondary-fixed": "#f0dbff",
+              "on-background": "#dae2fd",
+              "on-error-container": "#ffdad6",
+              "surface-bright": "#31394d",
+              "on-tertiary": "#003731",
+              "on-primary-container": "#004965",
+              "primary-container": "#38bdf8",
+              "on-tertiary-fixed": "#00201c",
+              "surface-container-high": "#222a3d",
+              "tertiary-fixed-dim": "#3cddc7",
+              background: "#0b1326",
+              "tertiary-fixed": "#62fae3",
+              outline: "#87929a",
+              "on-primary-fixed-variant": "#004c69",
+              "on-primary-fixed": "#001e2c",
+              "on-primary": "#00354a",
+              "error-container": "#93000a",
+              "surface-variant": "#2d3449",
+              "surface-container-highest": "#2d3449",
+              "inverse-on-surface": "#283044",
+              "on-secondary-container": "#d6a9ff",
+              "tertiary-container": "#07c7b2",
+              "primary-fixed-dim": "#7bd0ff",
+              "on-tertiary-fixed-variant": "#005047",
+              "surface-container-lowest": "#060e20",
+              "outline-variant": "#3e484f",
+              "on-secondary-fixed": "#2c0051",
             },
-            "borderRadius": {
-                    "DEFAULT": "0.125rem",
-                    "lg": "0.25rem",
-                    "xl": "0.5rem",
-                    "full": "0.75rem"
+            borderRadius: {
+              DEFAULT: "0.125rem",
+              lg: "0.25rem",
+              xl: "0.5rem",
+              full: "0.75rem",
             },
-            "fontFamily": {
-                    "headline": ["Space Grotesk", "sans-serif"],
-                    "body": ["Inter", "sans-serif"],
-                    "label": ["Inter", "sans-serif"],
-                    "mono": ["JetBrains Mono", "monospace"]
-            }
+            fontFamily: {
+              headline: ["Space Grotesk", "sans-serif"],
+              body: ["Inter", "sans-serif"],
+              label: ["Inter", "sans-serif"],
+              mono: ["JetBrains Mono", "monospace"],
+            },
           },
         },
-      }
+      };
     </script>
-<style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
-        body {
-            background-color: #0b1326;
-            color: #dae2fd;
-        }
-        .code-block {
-            background-color: #060e20;
-            font-family: 'JetBrains Mono', monospace;
-        }
+    <style>
+      .material-symbols-outlined {
+        font-variation-settings:
+          "FILL" 0,
+          "wght" 400,
+          "GRAD" 0,
+          "opsz" 24;
+      }
+      body {
+        background-color: #0b1326;
+        color: #dae2fd;
+      }
+      .code-block {
+        background-color: #060e20;
+        font-family: "JetBrains Mono", monospace;
+      }
     </style>
-</head>
-<body class="font-body selection:bg-primary-container selection:text-on-primary-container">
-<!-- TopNavBar -->
-<header class="w-full border-b border-[#131b2e] bg-[#0b1326] sticky top-0 z-50">
-<nav class="flex justify-between items-center w-full px-6 py-3 max-w-[1440px] mx-auto">
-<div class="flex items-center gap-8">
-<div class="text-xl font-bold text-[#8ed5ff] tracking-tighter font-headline">typeDiagram</div>
-<div class="hidden md:flex items-center gap-6">
-<a class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200" href="#">Playground</a>
-<a class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200" href="#">Converter</a>
-<a class="text-[#8ed5ff] border-b-2 border-[#8ed5ff] pb-1 font-headline tracking-tight" href="#">Docs</a>
-<a class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200" href="#">Blog</a>
-<a class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200" href="#">GitHub</a>
-</div>
-</div>
-<div class="flex items-center gap-4">
-<div class="hidden md:flex bg-surface-container-lowest border border-outline-variant/20 px-3 py-1.5 rounded-lg items-center gap-2 w-64">
-<span class="material-symbols-outlined text-slate-500 text-sm">search</span>
-<span class="text-slate-500 text-sm">Search documentation...</span>
-<span class="ml-auto text-[10px] text-slate-600 border border-outline-variant/40 px-1 rounded">⌘K</span>
-</div>
-<button class="material-symbols-outlined text-slate-400 hover:text-[#45e3ce] transition-colors">dark_mode</button>
-<button class="material-symbols-outlined text-slate-400 hover:text-[#45e3ce] transition-colors">terminal</button>
-</div>
-</nav>
-</header>
-<div class="flex max-w-[1440px] mx-auto min-h-screen">
-<!-- SideNavBar -->
-<aside class="h-screen w-64 border-r border-[#222a3d] bg-[#131b2e] sticky top-[61px] hidden md:block">
-<div class="flex flex-col py-8 px-4 space-y-2">
-<div class="mb-6 px-4">
-<div class="text-sm font-bold text-[#8ed5ff] font-headline">Documentation</div>
-<div class="text-[10px] text-slate-500 font-mono tracking-widest uppercase mt-1">v1.0.4-stable</div>
-</div>
-<a class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150" href="#">
-<span class="material-symbols-outlined text-lg">info</span>
-<span>Introduction</span>
-</a>
-<a class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150" href="#">
-<span class="material-symbols-outlined text-lg">rocket_launch</span>
-<span>Getting Started</span>
-</a>
-<a class="flex items-center gap-3 py-2 px-4 rounded-sm bg-[#222a3d] text-[#8ed5ff] border-l-4 border-[#8ed5ff] font-bold font-mono text-sm group transition: ease-in-out duration-150" href="#">
-<span class="material-symbols-outlined text-lg">terminal</span>
-<span>Language Reference</span>
-</a>
-<a class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150" href="#">
-<span class="material-symbols-outlined text-lg">settings_ethernet</span>
-<span>CLI</span>
-</a>
-<a class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150" href="#">
-<span class="material-symbols-outlined text-lg">api</span>
-<span>API Reference</span>
-</a>
-<div class="mt-8 pt-8 border-t border-[#222a3d] px-4">
-<div class="text-[10px] text-slate-600 font-mono tracking-widest uppercase mb-4">Advanced Guides</div>
-<ul class="space-y-3">
-<li><a class="text-xs text-[#45e3ce] font-mono hover:underline decoration-[#45e3ce]/40" href="#">Multi-language pipeline</a></li>
-<li><a class="text-xs text-slate-500 font-mono hover:text-slate-300" href="#">Custom Generators</a></li>
-<li><a class="text-xs text-slate-500 font-mono hover:text-slate-300" href="#">CI/CD Integration</a></li>
-</ul>
-</div>
-</div>
-</aside>
-<!-- Main Content -->
-<main class="flex-1 bg-surface p-8 md:p-12 lg:p-16">
-<article class="max-w-4xl mx-auto">
-<header class="mb-12">
-<nav class="flex items-center gap-2 text-xs font-mono text-slate-500 mb-6 uppercase tracking-widest">
-<span>Guides</span>
-<span class="material-symbols-outlined text-sm">chevron_right</span>
-<span class="text-[#45e3ce]">Architecture</span>
-</nav>
-<h1 class="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-on-surface mb-6">Multi-language pipeline</h1>
-<p class="text-lg text-on-surface-variant leading-relaxed max-w-2xl">
-                        Configure <span class="text-primary font-mono">typeDiagram</span> as the single source of truth for DTOs in a polyglot project. This guide uses a TypeScript frontend + Rust backend, but the pattern works for any combination of languages.
-                    </p>
-</header>
-<!-- Project Layout Section -->
-<section class="mb-16">
-<div class="flex items-center gap-4 mb-6">
-<div class="h-8 w-1 bg-tertiary"></div>
-<h2 class="text-2xl font-bold font-headline tracking-tight text-on-surface">Project layout</h2>
-</div>
-<div class="surface-container-low rounded-lg p-6 overflow-hidden relative">
-<!-- Blueprint grid texture decoration -->
-<div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: linear-gradient(#8ed5ff 1px, transparent 1px), linear-gradient(90deg, #8ed5ff 1px, transparent 1px); background-size: 20px 20px;"></div>
-<div class="relative z-10">
-<div class="flex items-center gap-2 mb-4 text-xs font-mono text-slate-500">
-<span class="material-symbols-outlined text-sm">folder_open</span>
-<span>Directory Structure</span>
-</div>
-<pre class="code-block p-6 rounded-md text-sm leading-relaxed overflow-x-auto text-[#8ed5ff]"><span class="text-slate-600">repo/</span>
+  </head>
+  <body class="font-body selection:bg-primary-container selection:text-on-primary-container">
+    <!-- TopNavBar -->
+    <header class="w-full border-b border-[#131b2e] bg-[#0b1326] sticky top-0 z-50">
+      <nav class="flex justify-between items-center w-full px-6 py-3 max-w-[1440px] mx-auto">
+        <div class="flex items-center gap-8">
+          <div class="text-xl font-bold text-[#8ed5ff] tracking-tighter font-headline">typeDiagram</div>
+          <div class="hidden md:flex items-center gap-6">
+            <a
+              class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200"
+              href="#"
+              >Playground</a
+            >
+            <a
+              class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200"
+              href="#"
+              >Converter</a
+            >
+            <a class="text-[#8ed5ff] border-b-2 border-[#8ed5ff] pb-1 font-headline tracking-tight" href="#">Docs</a>
+            <a
+              class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200"
+              href="#"
+              >Blog</a
+            >
+            <a
+              class="text-slate-400 font-medium font-headline tracking-tight hover:text-[#45e3ce] transition-colors duration-200"
+              href="#"
+              >GitHub</a
+            >
+          </div>
+        </div>
+        <div class="flex items-center gap-4">
+          <div
+            class="hidden md:flex bg-surface-container-lowest border border-outline-variant/20 px-3 py-1.5 rounded-lg items-center gap-2 w-64"
+          >
+            <span class="material-symbols-outlined text-slate-500 text-sm">search</span>
+            <span class="text-slate-500 text-sm">Search documentation...</span>
+            <span class="ml-auto text-[10px] text-slate-600 border border-outline-variant/40 px-1 rounded">⌘K</span>
+          </div>
+          <button class="material-symbols-outlined text-slate-400 hover:text-[#45e3ce] transition-colors">
+            dark_mode
+          </button>
+          <button class="material-symbols-outlined text-slate-400 hover:text-[#45e3ce] transition-colors">
+            terminal
+          </button>
+        </div>
+      </nav>
+    </header>
+    <div class="flex max-w-[1440px] mx-auto min-h-screen">
+      <!-- SideNavBar -->
+      <aside class="h-screen w-64 border-r border-[#222a3d] bg-[#131b2e] sticky top-[61px] hidden md:block">
+        <div class="flex flex-col py-8 px-4 space-y-2">
+          <div class="mb-6 px-4">
+            <div class="text-sm font-bold text-[#8ed5ff] font-headline">Documentation</div>
+            <div class="text-[10px] text-slate-500 font-mono tracking-widest uppercase mt-1">v1.0.4-stable</div>
+          </div>
+          <a
+            class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150"
+            href="#"
+          >
+            <span class="material-symbols-outlined text-lg">info</span>
+            <span>Introduction</span>
+          </a>
+          <a
+            class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150"
+            href="#"
+          >
+            <span class="material-symbols-outlined text-lg">rocket_launch</span>
+            <span>Getting Started</span>
+          </a>
+          <a
+            class="flex items-center gap-3 py-2 px-4 rounded-sm bg-[#222a3d] text-[#8ed5ff] border-l-4 border-[#8ed5ff] font-bold font-mono text-sm group transition: ease-in-out duration-150"
+            href="#"
+          >
+            <span class="material-symbols-outlined text-lg">terminal</span>
+            <span>Language Reference</span>
+          </a>
+          <a
+            class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150"
+            href="#"
+          >
+            <span class="material-symbols-outlined text-lg">settings_ethernet</span>
+            <span>CLI</span>
+          </a>
+          <a
+            class="flex items-center gap-3 py-2 px-4 rounded-sm text-slate-500 hover:text-slate-300 hover:bg-[#222a3d]/50 font-mono text-sm group transition: ease-in-out duration-150"
+            href="#"
+          >
+            <span class="material-symbols-outlined text-lg">api</span>
+            <span>API Reference</span>
+          </a>
+          <div class="mt-8 pt-8 border-t border-[#222a3d] px-4">
+            <div class="text-[10px] text-slate-600 font-mono tracking-widest uppercase mb-4">Advanced Guides</div>
+            <ul class="space-y-3">
+              <li>
+                <a class="text-xs text-[#45e3ce] font-mono hover:underline decoration-[#45e3ce]/40" href="#"
+                  >Multi-language pipeline</a
+                >
+              </li>
+              <li><a class="text-xs text-slate-500 font-mono hover:text-slate-300" href="#">Custom Generators</a></li>
+              <li><a class="text-xs text-slate-500 font-mono hover:text-slate-300" href="#">CI/CD Integration</a></li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+      <!-- Main Content -->
+      <main class="flex-1 bg-surface p-8 md:p-12 lg:p-16">
+        <article class="max-w-4xl mx-auto">
+          <header class="mb-12">
+            <nav class="flex items-center gap-2 text-xs font-mono text-slate-500 mb-6 uppercase tracking-widest">
+              <span>Guides</span>
+              <span class="material-symbols-outlined text-sm">chevron_right</span>
+              <span class="text-[#45e3ce]">Architecture</span>
+            </nav>
+            <h1 class="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-on-surface mb-6">
+              Multi-language pipeline
+            </h1>
+            <p class="text-lg text-on-surface-variant leading-relaxed max-w-2xl">
+              Configure <span class="text-primary font-mono">typeDiagram</span> as the single source of truth for DTOs
+              in a polyglot project. This guide uses a TypeScript frontend + Rust backend, but the pattern works for any
+              combination of languages.
+            </p>
+          </header>
+          <!-- Project Layout Section -->
+          <section class="mb-16">
+            <div class="flex items-center gap-4 mb-6">
+              <div class="h-8 w-1 bg-tertiary"></div>
+              <h2 class="text-2xl font-bold font-headline tracking-tight text-on-surface">Project layout</h2>
+            </div>
+            <div class="surface-container-low rounded-lg p-6 overflow-hidden relative">
+              <!-- Blueprint grid texture decoration -->
+              <div
+                class="absolute inset-0 opacity-[0.03] pointer-events-none"
+                style="
+                  background-image:
+                    linear-gradient(#8ed5ff 1px, transparent 1px), linear-gradient(90deg, #8ed5ff 1px, transparent 1px);
+                  background-size: 20px 20px;
+                "
+              ></div>
+              <div class="relative z-10">
+                <div class="flex items-center gap-2 mb-4 text-xs font-mono text-slate-500">
+                  <span class="material-symbols-outlined text-sm">folder_open</span>
+                  <span>Directory Structure</span>
+                </div>
+                <pre
+                  class="code-block p-6 rounded-md text-sm leading-relaxed overflow-x-auto text-[#8ed5ff]"
+                ><span class="text-slate-600">repo/</span>
 ├── <span class="text-secondary font-bold">schemas/</span>
 │   ├── <span class="text-primary">user.diag</span>
 │   └── <span class="text-primary">auth.diag</span>
@@ -191,102 +259,133 @@
 │   └── src/types/generated/
 └── <span class="text-tertiary">backend/</span> <span class="text-slate-700 italic">// Rust</span>
     └── src/models/generated/</pre>
-</div>
-</div>
-</section>
-<!-- Generate Code Section -->
-<section class="mb-16">
-<div class="flex items-center gap-4 mb-6">
-<div class="h-8 w-1 bg-primary"></div>
-<h2 class="text-2xl font-bold font-headline tracking-tight text-on-surface">Generate code for each target</h2>
-</div>
-<p class="text-on-surface-variant mb-6 leading-relaxed">
-                        Use the <span class="font-mono text-secondary">type-diag</span> CLI to compile your schemas into language-specific DTOs. Each generator handles language idiomatic patterns like <span class="font-mono text-tertiary">Option&lt;T&gt;</span> in Rust or interfaces in TypeScript.
-                    </p>
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-<!-- TypeScript Card -->
-<div class="bg-surface-container-high rounded-sm p-6 border-l-4 border-primary">
-<div class="flex justify-between items-center mb-4">
-<h3 class="font-mono text-sm font-bold text-primary">TypeScript Frontend</h3>
-<span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">.ts</span>
-</div>
-<div class="code-block p-4 rounded text-xs text-on-surface-variant mb-4">
-<div class="flex gap-2">
-<span class="text-slate-600">$</span>
-<span class="text-on-surface">type-diag gen -l ts -i ./schemas -o ./frontend/src/types</span>
-</div>
-</div>
-<div class="text-[11px] font-mono text-slate-500">
-                                Output: <span class="italic">user.generated.ts, auth.generated.ts</span>
-</div>
-</div>
-<!-- Rust Card -->
-<div class="bg-surface-container-high rounded-sm p-6 border-l-4 border-secondary">
-<div class="flex justify-between items-center mb-4">
-<h3 class="font-mono text-sm font-bold text-secondary">Rust Backend</h3>
-<span class="text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded font-mono">.rs</span>
-</div>
-<div class="code-block p-4 rounded text-xs text-on-surface-variant mb-4">
-<div class="flex gap-2">
-<span class="text-slate-600">$</span>
-<span class="text-on-surface">type-diag gen -l rust -i ./schemas -o ./backend/src/models</span>
-</div>
-</div>
-<div class="text-[11px] font-mono text-slate-500">
-                                Output: <span class="italic">user.rs, auth.rs</span>
-</div>
-</div>
-</div>
-</section>
-<!-- Visualization / Bento Style Callout -->
-<section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
-<div class="md:col-span-2 bg-[#060e20] p-8 rounded-lg flex flex-col justify-center border border-outline-variant/10 relative overflow-hidden">
-<div class="absolute top-0 right-0 p-4 opacity-10">
-<span class="material-symbols-outlined text-6xl text-primary">hub</span>
-</div>
-<h4 class="text-lg font-headline font-bold text-on-surface mb-3">Automated CI Sync</h4>
-<p class="text-sm text-on-surface-variant leading-relaxed">
-                            Integrate the pipeline into your GitHub Actions to ensure frontend and backend types are always in sync. If a schema change breaks a consumer, the build fails before merging.
-                        </p>
-</div>
-<div class="bg-surface-container rounded-lg p-8 flex flex-col items-center justify-center text-center group hover:bg-surface-container-high transition-colors">
-<span class="material-symbols-outlined text-4xl text-tertiary mb-4 group-hover:scale-110 transition-transform">auto_awesome</span>
-<div class="text-sm font-headline font-bold">Try Interactive Demo</div>
-<div class="text-[10px] font-mono text-slate-500 mt-2 uppercase tracking-tighter">Live Sandbox →</div>
-</div>
-</section>
-<!-- Next Steps -->
-<div class="flex items-center justify-between border-t border-[#222a3d] pt-12 mt-12">
-<div class="flex flex-col items-start">
-<span class="text-[10px] font-mono text-slate-600 uppercase mb-1">Previous</span>
-<a class="text-primary hover:text-tertiary transition-colors flex items-center gap-1 font-headline font-medium" href="#">
-<span class="material-symbols-outlined text-sm">arrow_back</span>
-                            CLI Basics
-                        </a>
-</div>
-<div class="flex flex-col items-end">
-<span class="text-[10px] font-mono text-slate-600 uppercase mb-1">Next</span>
-<a class="text-primary hover:text-tertiary transition-colors flex items-center gap-1 font-headline font-medium" href="#">
-                            Rust Attributes
-                            <span class="material-symbols-outlined text-sm">arrow_forward</span>
-</a>
-</div>
-</div>
-</article>
-</main>
-</div>
-<!-- Footer -->
-<footer class="w-full border-t border-[#131b2e] bg-[#0b1326] mt-20">
-<div class="flex justify-between items-center w-full px-8 py-6 max-w-[1440px] mx-auto">
-<div class="font-mono text-xs uppercase tracking-widest text-slate-600">
-                © 2024 typeDiagram Architecture. All rights reserved.
+              </div>
             </div>
-<div class="flex items-center gap-8">
-<a class="font-mono text-xs uppercase tracking-widest text-slate-600 hover:text-[#45e3ce] transition-colors" href="#">Privacy</a>
-<a class="font-mono text-xs uppercase tracking-widest text-slate-600 hover:text-[#45e3ce] transition-colors" href="#">Terms</a>
-<a class="font-mono text-xs uppercase tracking-widest text-slate-600 hover:text-[#45e3ce] transition-colors" href="#">Security</a>
-<a class="font-mono text-xs uppercase tracking-widest text-[#8ed5ff]" href="#">Status</a>
-</div>
-</div>
-</footer>
-</body></html>
+          </section>
+          <!-- Generate Code Section -->
+          <section class="mb-16">
+            <div class="flex items-center gap-4 mb-6">
+              <div class="h-8 w-1 bg-primary"></div>
+              <h2 class="text-2xl font-bold font-headline tracking-tight text-on-surface">
+                Generate code for each target
+              </h2>
+            </div>
+            <p class="text-on-surface-variant mb-6 leading-relaxed">
+              Use the <span class="font-mono text-secondary">type-diag</span> CLI to compile your schemas into
+              language-specific DTOs. Each generator handles language idiomatic patterns like
+              <span class="font-mono text-tertiary">Option&lt;T&gt;</span> in Rust or interfaces in TypeScript.
+            </p>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <!-- TypeScript Card -->
+              <div class="bg-surface-container-high rounded-sm p-6 border-l-4 border-primary">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="font-mono text-sm font-bold text-primary">TypeScript Frontend</h3>
+                  <span class="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-mono">.ts</span>
+                </div>
+                <div class="code-block p-4 rounded text-xs text-on-surface-variant mb-4">
+                  <div class="flex gap-2">
+                    <span class="text-slate-600">$</span>
+                    <span class="text-on-surface">type-diag gen -l ts -i ./schemas -o ./frontend/src/types</span>
+                  </div>
+                </div>
+                <div class="text-[11px] font-mono text-slate-500">
+                  Output: <span class="italic">user.generated.ts, auth.generated.ts</span>
+                </div>
+              </div>
+              <!-- Rust Card -->
+              <div class="bg-surface-container-high rounded-sm p-6 border-l-4 border-secondary">
+                <div class="flex justify-between items-center mb-4">
+                  <h3 class="font-mono text-sm font-bold text-secondary">Rust Backend</h3>
+                  <span class="text-[10px] bg-secondary/10 text-secondary px-2 py-0.5 rounded font-mono">.rs</span>
+                </div>
+                <div class="code-block p-4 rounded text-xs text-on-surface-variant mb-4">
+                  <div class="flex gap-2">
+                    <span class="text-slate-600">$</span>
+                    <span class="text-on-surface">type-diag gen -l rust -i ./schemas -o ./backend/src/models</span>
+                  </div>
+                </div>
+                <div class="text-[11px] font-mono text-slate-500">
+                  Output: <span class="italic">user.rs, auth.rs</span>
+                </div>
+              </div>
+            </div>
+          </section>
+          <!-- Visualization / Bento Style Callout -->
+          <section class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+            <div
+              class="md:col-span-2 bg-[#060e20] p-8 rounded-lg flex flex-col justify-center border border-outline-variant/10 relative overflow-hidden"
+            >
+              <div class="absolute top-0 right-0 p-4 opacity-10">
+                <span class="material-symbols-outlined text-6xl text-primary">hub</span>
+              </div>
+              <h4 class="text-lg font-headline font-bold text-on-surface mb-3">Automated CI Sync</h4>
+              <p class="text-sm text-on-surface-variant leading-relaxed">
+                Integrate the pipeline into your GitHub Actions to ensure frontend and backend types are always in sync.
+                If a schema change breaks a consumer, the build fails before merging.
+              </p>
+            </div>
+            <div
+              class="bg-surface-container rounded-lg p-8 flex flex-col items-center justify-center text-center group hover:bg-surface-container-high transition-colors"
+            >
+              <span
+                class="material-symbols-outlined text-4xl text-tertiary mb-4 group-hover:scale-110 transition-transform"
+                >auto_awesome</span
+              >
+              <div class="text-sm font-headline font-bold">Try Interactive Demo</div>
+              <div class="text-[10px] font-mono text-slate-500 mt-2 uppercase tracking-tighter">Live Sandbox →</div>
+            </div>
+          </section>
+          <!-- Next Steps -->
+          <div class="flex items-center justify-between border-t border-[#222a3d] pt-12 mt-12">
+            <div class="flex flex-col items-start">
+              <span class="text-[10px] font-mono text-slate-600 uppercase mb-1">Previous</span>
+              <a
+                class="text-primary hover:text-tertiary transition-colors flex items-center gap-1 font-headline font-medium"
+                href="#"
+              >
+                <span class="material-symbols-outlined text-sm">arrow_back</span>
+                CLI Basics
+              </a>
+            </div>
+            <div class="flex flex-col items-end">
+              <span class="text-[10px] font-mono text-slate-600 uppercase mb-1">Next</span>
+              <a
+                class="text-primary hover:text-tertiary transition-colors flex items-center gap-1 font-headline font-medium"
+                href="#"
+              >
+                Rust Attributes
+                <span class="material-symbols-outlined text-sm">arrow_forward</span>
+              </a>
+            </div>
+          </div>
+        </article>
+      </main>
+    </div>
+    <!-- Footer -->
+    <footer class="w-full border-t border-[#131b2e] bg-[#0b1326] mt-20">
+      <div class="flex justify-between items-center w-full px-8 py-6 max-w-[1440px] mx-auto">
+        <div class="font-mono text-xs uppercase tracking-widest text-slate-600">
+          © 2024 typeDiagram Architecture. All rights reserved.
+        </div>
+        <div class="flex items-center gap-8">
+          <a
+            class="font-mono text-xs uppercase tracking-widest text-slate-600 hover:text-[#45e3ce] transition-colors"
+            href="#"
+            >Privacy</a
+          >
+          <a
+            class="font-mono text-xs uppercase tracking-widest text-slate-600 hover:text-[#45e3ce] transition-colors"
+            href="#"
+            >Terms</a
+          >
+          <a
+            class="font-mono text-xs uppercase tracking-widest text-slate-600 hover:text-[#45e3ce] transition-colors"
+            href="#"
+            >Security</a
+          >
+          <a class="font-mono text-xs uppercase tracking-widest text-[#8ed5ff]" href="#">Status</a>
+        </div>
+      </div>
+    </footer>
+  </body>
+</html>

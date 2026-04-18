@@ -4,7 +4,22 @@ Spec: [render-hooks.md](../specs/render-hooks.md). This plan is the implementati
 
 ## Goal
 
-Add six render hooks (`defs`, `node`, `row`, `edge`, `background`, `post`) to the SVG renderer. Keep default output byte-identical. Prove power by implementing a positioning-hook proof-of-concept in tests.
+Add six render hooks (`defs`, `node`, `row`, `edge`, `background`, `post`) to the SVG renderer. Keep default output byte-identical. Prove power by implementing a positioning-hook proof-of-concept in tests. Surface the API in the web playground as a **second editor tab where the user writes plain JavaScript** — optional, always, with a pasteable-preset convenience built strictly on top.
+
+## Layering (read spec [HOOK-LAYERS] first)
+
+| Layer | Concern                                    | Module                                                      | Depends on           |
+| ----- | ------------------------------------------ | ----------------------------------------------------------- | -------------------- |
+| 1     | `RenderHooks` interface + phase invocation | `packages/typediagram/src/render-svg/hooks.ts`, `render.ts` | nothing              |
+| 2     | User JS compiled to Layer 1                | `packages/web/src/eval-hooks.ts`                            | Layer 1 (types only) |
+| 3     | Preset snippets (strings) + splice helpers | `packages/web/src/hook-presets.ts`                          | Layer 2 (tests only) |
+
+**Review rejections**:
+
+- Layer 3 exporting a `RenderHooks` object (must be strings).
+- Layer 3 importing `svg`/`raw` at runtime (must not).
+- Anywhere: passing `{ hooks: {} }` when the user didn't opt in.
+- Composition utilities in Layer 3 (`mergePresets`, chip-merging hook assemblers, etc.) — the user's JavaScript IS the composition mechanism.
 
 ## Decisions
 
@@ -198,3 +213,16 @@ Tests must keep coverage ratcheting up (CLAUDE.md coverage rule). New branches a
 - [ ] Run `make test`; ratchet `coverage-thresholds.json` to new measured floor.
 - [ ] Run `make lint` and `make fmt`.
 - [ ] Run `make ci` as final gate.
+
+## Web playground integration (Layers 2 + 3)
+
+- [ ] Create [`packages/web/src/eval-hooks.ts`](../../packages/web/src/eval-hooks.ts) (Layer 2): `evalHooks(code)` -> `{ ok, hooks?, error? }`. Empty / whitespace-only input returns `{ ok: true }` with no hooks. Uses `new Function("svg", "raw", body)` with `svg`/`raw` from `typediagram-core`.
+- [ ] Create [`packages/web/src/hook-presets.ts`](../../packages/web/src/hook-presets.ts) (Layer 3): `PRESETS` as `ReadonlyArray<{ id, label, blurb, source }>`. `togglePresetInCode(code, id, on)` splices block in/out by sentinel-comment regex. `presetsInCode(code)` returns ids of present blocks. No `RenderHooks` exports.
+- [ ] Add tabbed UI to [`playground.ts`](../../packages/web/src/playground.ts): `source` (default) and `hooks`. Hooks tab owns a textarea, a diagnostics block, and a row of preset chips along its bottom.
+- [ ] Hooks editor `input` event: re-run `evalHooks`; on success, pass `hooks` into `renderPane`; on failure, show error in diag block and render with NO hooks (default path).
+- [ ] Chip click: `togglePresetInCode(editor.value, id, !present)` → set editor value → fire input. Chips re-sync from textarea content on every keystroke.
+- [ ] `renderPane(source, hooks?)` accepts optional `RenderHooks`; passes `hooks` only when defined (never `{ hooks: {} }`).
+- [ ] [WEB-EVAL-HOOKS-TEST] — empty input => no hooks; comment-only => empty hooks object; valid code => callable hooks; syntax error => surfaced via `error`; XSS escape via svg`` works.
+- [ ] [WEB-PRESET-SPLICE] — toggle on/off is idempotent; doesn't disturb hand-written code; multiple presets coexist.
+- [ ] [WEB-PLAYGROUND] — empty hooks editor => `renderToString` called WITHOUT a `hooks` option; typing code passes hooks; clearing reverts; chip click mutates textarea; hand-typed block lights up the matching chip.
+- [ ] Add minimal CSS for `.pane-tabs`, `.pane-tab`, `.hook-chip`, `.hooks-toolbar`, `.hooks-diag`.

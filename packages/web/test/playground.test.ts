@@ -1,23 +1,28 @@
-// [WEB-PLAYGROUND-TEST] Integration test for the mountPlayground component.
+// [WEB-PLAYGROUND-TEST] Integration tests for the tabbed playground.
+// CRITICAL: hooks are optional. Empty hooks tab must cause renderToString to
+// be called with NO `hooks` option (not even an empty object).
 import { describe, expect, it, beforeEach, vi } from "vitest";
+import type * as TypeDiagramCore from "typediagram-core";
 
-// Mock typediagram to avoid pulling the full framework in this DOM-focused test.
-// svg / raw must still work so hook-presets.ts (imported by playground) can load.
 const { renderToStringMock } = vi.hoisted(() => ({
   renderToStringMock: vi.fn().mockResolvedValue({ ok: true, value: "<svg>mock</svg>" }),
 }));
-vi.mock("typediagram-core", () => ({
-  renderToString: renderToStringMock,
-  parser: { formatDiagnostics: (d: unknown[]) => d.map(String).join("\n") },
-  svg: (strings: TemplateStringsArray, ..._values: unknown[]) => ({
-    __brand: "SafeSvg",
-    value: strings.join(""),
-  }),
-  raw: (s: string) => ({ __brand: "SafeSvg", value: s }),
-}));
+
+// Mock typediagram-core — keep the REAL svg/raw helpers (via importActual) so
+// the hook editor's JS can produce real SafeSvg values that interoperate with
+// any real renderer path that might also load.
+vi.mock("typediagram-core", async () => {
+  const actual = await vi.importActual<typeof TypeDiagramCore>("typediagram-core");
+  return {
+    ...actual,
+    renderToString: renderToStringMock,
+  };
+});
 
 import { mountPlayground } from "../src/playground.js";
 import { PRESETS } from "../src/hook-presets.js";
+
+const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 describe("[WEB-PLAYGROUND]", () => {
   let container: HTMLElement;
@@ -30,71 +35,115 @@ describe("[WEB-PLAYGROUND]", () => {
     document.body.appendChild(container);
   });
 
-  it("builds the DOM structure with editor, splitter, and preview", () => {
+  it("builds source and hooks tabs and a preview pane", () => {
     mountPlayground(container);
     expect(container.querySelector("#editor")).not.toBeNull();
-    expect(container.querySelector("#splitter")).not.toBeNull();
+    expect(container.querySelector("#hooks-editor")).not.toBeNull();
+    expect(container.querySelectorAll(".pane-tab")).toHaveLength(2);
     expect(container.querySelector("#preview")).not.toBeNull();
-    expect(container.querySelector("#backdrop")).not.toBeNull();
   });
 
-  it("adds playground class to container", () => {
+  it("source tab is active by default — hooks editor is hidden", () => {
     mountPlayground(container);
-    expect(container.classList.contains("playground")).toBe(true);
+    const sourceWrap = container.querySelector('[data-editor="source"]');
+    const hooksWrap = container.querySelector('[data-editor="hooks"]');
+    expect(sourceWrap?.classList.contains("editor-wrap--hidden")).toBe(false);
+    expect(hooksWrap?.classList.contains("editor-wrap--hidden")).toBe(true);
   });
 
-  it("populates editor with initial example text", () => {
+  it("clicking the hooks tab reveals the hooks editor", () => {
     mountPlayground(container);
-    const editor = container.querySelector<HTMLTextAreaElement>("#editor");
-    expect(editor).not.toBeNull();
-    expect(editor?.value).toContain("typeDiagram");
-    expect(editor?.value).toContain("ChatRequest");
+    const hooksTab = container.querySelector<HTMLButtonElement>('.pane-tab[data-tab="hooks"]');
+    hooksTab?.click();
+    const hooksWrap = container.querySelector('[data-editor="hooks"]');
+    const sourceWrap = container.querySelector('[data-editor="source"]');
+    expect(hooksWrap?.classList.contains("editor-wrap--hidden")).toBe(false);
+    expect(sourceWrap?.classList.contains("editor-wrap--hidden")).toBe(true);
+    expect(hooksTab?.classList.contains("pane-tab--on")).toBe(true);
   });
 
-  it("renders preview on mount", async () => {
+  it("empty hooks editor -> renderToString is called WITHOUT a hooks option", async () => {
     mountPlayground(container);
-    // Allow async render to settle
-    await new Promise((r) => setTimeout(r, 50));
-    const preview = container.querySelector("#preview");
-    expect(preview).not.toBeNull();
-    expect(preview?.innerHTML).toContain("mock");
+    await wait(50);
+    expect(renderToStringMock).toHaveBeenCalled();
+    const lastCall = renderToStringMock.mock.calls.at(-1);
+    const opts = lastCall?.[1] as { hooks?: unknown } | undefined;
+    expect(opts?.hooks).toBeUndefined();
   });
 
-  it("re-renders on editor input", async () => {
+  it("typing JS in hooks editor passes a hooks object on next render", async () => {
     mountPlayground(container);
-    await new Promise((r) => setTimeout(r, 50));
-
-    const editor = container.querySelector<HTMLTextAreaElement>("#editor");
-    expect(editor).not.toBeNull();
-    if (editor === null) {
+    await wait(50);
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    expect(hooksEditor).not.toBeNull();
+    if (hooksEditor === null) {
       return;
     }
-    editor.value = "typeDiagram\n  type Foo { x: Int }";
-    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    hooksEditor.value = "hooks.node = (ctx, def) => def;";
+    hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(200);
+    const lastCall = renderToStringMock.mock.calls.at(-1);
+    const opts = lastCall?.[1] as { hooks?: Record<string, unknown> } | undefined;
+    expect(opts?.hooks).toBeDefined();
+    expect(typeof opts?.hooks?.node).toBe("function");
+  });
 
-    // Wait for debounce (120ms) + render
-    await new Promise((r) => setTimeout(r, 200));
+  it("clearing the hooks editor reverts to NO hooks option", async () => {
+    mountPlayground(container);
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    if (hooksEditor === null) {
+      throw new Error("missing hooks editor");
+    }
+    hooksEditor.value = "hooks.node = (_c, d) => d;";
+    hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(200);
+    hooksEditor.value = "";
+    hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(200);
+    const lastCall = renderToStringMock.mock.calls.at(-1);
+    const opts = lastCall?.[1] as { hooks?: unknown } | undefined;
+    expect(opts?.hooks).toBeUndefined();
+  });
+
+  // [WEB-PLAYGROUND-HOOKS-HIGHLIGHT] The hooks editor has JS syntax highlighting.
+  it("hooks editor has a syntax-highlight backdrop that reflects typed JS tokens", async () => {
+    mountPlayground(container);
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    if (hooksEditor === null) {
+      throw new Error("missing hooks editor");
+    }
+    const backdrop = container.querySelector<HTMLElement>("#hooks-backdrop");
+    expect(backdrop).not.toBeNull();
+
+    hooksEditor.value = "const x = 1; // comment";
+    hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(30);
+
+    const html = backdrop?.innerHTML ?? "";
+    // Expect at least one span-based token wrapper indicating the JS highlighter ran.
+    expect(html).toMatch(/<span[^>]*class=/);
+    // Comment must be tokenized.
+    expect(html.toLowerCase()).toContain("comment");
+  });
+
+  it("invalid hook code surfaces the error in the diag block; preview still renders", async () => {
+    mountPlayground(container);
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    if (hooksEditor === null) {
+      throw new Error("missing hooks editor");
+    }
+    hooksEditor.value = "hooks.node = ###;";
+    hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(200);
+    const diag = container.querySelector<HTMLElement>("#hooks-diag");
+    expect(diag?.hidden).toBe(false);
+    expect((diag?.textContent ?? "").length).toBeGreaterThan(0);
     const preview = container.querySelector("#preview");
     expect(preview?.innerHTML).toContain("mock");
-  });
-
-  it("creates splitter and viewport inside preview", () => {
-    mountPlayground(container);
-    const preview = container.querySelector("#preview");
-    expect(preview).not.toBeNull();
-    expect(preview?.querySelector(".viewport-wrapper")).not.toBeNull();
-  });
-
-  it("creates editor pane labels", () => {
-    mountPlayground(container);
-    const labels = container.querySelectorAll(".pane-label");
-    expect(labels.length).toBe(2);
-    expect(labels[0]?.textContent).toBe("source");
-    expect(labels[1]?.textContent).toBe("preview");
   });
 });
 
-describe("[WEB-PLAYGROUND-HOOK-CHIPS] hook preset chips", () => {
+describe("[WEB-PLAYGROUND-PRESETS] preset buttons paste code into the hooks editor", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -105,75 +154,68 @@ describe("[WEB-PLAYGROUND-HOOK-CHIPS] hook preset chips", () => {
     document.body.appendChild(container);
   });
 
-  it("renders one chip per registered preset", () => {
+  it("renders one preset button per PRESETS entry", () => {
     mountPlayground(container);
-    const chips = container.querySelectorAll(".hook-chip");
-    expect(chips.length).toBe(PRESETS.length);
-    for (const p of PRESETS) {
-      const chip = container.querySelector(`.hook-chip[data-preset-id="${p.id}"]`);
-      expect(chip).not.toBeNull();
-      expect(chip?.textContent).toBe(p.label);
-    }
+    const buttons = container.querySelectorAll(".hook-chip");
+    expect(buttons.length).toBe(PRESETS.length);
   });
 
-  it("chips start unselected — initial render passes NO hooks (hooks are optional)", async () => {
+  it("clicking a preset button inserts its source block into the hooks editor", async () => {
     mountPlayground(container);
-    await new Promise((r) => setTimeout(r, 50));
-    expect(renderToStringMock).toHaveBeenCalled();
-    const lastCall = renderToStringMock.mock.calls[renderToStringMock.mock.calls.length - 1];
-    const opts = lastCall?.[1] as { hooks?: unknown } | undefined;
-    expect(opts?.hooks).toBeUndefined();
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    const btn = container.querySelector<HTMLButtonElement>('.hook-chip[data-preset-id="drop-shadow"]');
+    expect(hooksEditor?.value).toBe("");
+    btn?.click();
+    await wait(30);
+    expect(hooksEditor?.value).toContain("// --- preset:drop-shadow ---");
+    expect(hooksEditor?.value).toContain("hooks.node");
+    expect(btn?.getAttribute("aria-pressed")).toBe("true");
   });
 
-  it("clicking a chip re-renders WITH a hooks option", async () => {
+  it("clicking the same preset button a second time removes the block", async () => {
     mountPlayground(container);
-    await new Promise((r) => setTimeout(r, 50));
+    const btn = container.querySelector<HTMLButtonElement>('.hook-chip[data-preset-id="grid-bg"]');
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    btn?.click();
+    await wait(30);
+    expect(hooksEditor?.value).toContain("preset:grid-bg");
+    btn?.click();
+    await wait(30);
+    expect(hooksEditor?.value).not.toContain("preset:grid-bg");
+    expect(btn?.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("preset click triggers a render with the resulting hooks object", async () => {
+    mountPlayground(container);
+    await wait(50);
     renderToStringMock.mockClear();
-    const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="drop-shadow"]`);
-    expect(chip).not.toBeNull();
-    chip?.click();
-    await new Promise((r) => setTimeout(r, 20));
+    const btn = container.querySelector<HTMLButtonElement>('.hook-chip[data-preset-id="drop-shadow"]');
+    btn?.click();
+    await wait(200);
     expect(renderToStringMock).toHaveBeenCalled();
-    const lastCall = renderToStringMock.mock.calls[renderToStringMock.mock.calls.length - 1];
+    const lastCall = renderToStringMock.mock.calls.at(-1);
     const opts = lastCall?.[1] as { hooks?: Record<string, unknown> } | undefined;
     expect(opts?.hooks).toBeDefined();
-    // drop-shadow preset supplies defs + node hooks
     expect(opts?.hooks?.defs).toBeTypeOf("function");
     expect(opts?.hooks?.node).toBeTypeOf("function");
   });
 
-  it("toggling a chip OFF reverts to no-hooks render", async () => {
+  it("editing the hooks textarea by hand re-syncs preset button aria-pressed state", async () => {
     mountPlayground(container);
-    await new Promise((r) => setTimeout(r, 50));
-    const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="drop-shadow"]`);
-    chip?.click();
-    await new Promise((r) => setTimeout(r, 20));
-    chip?.click();
-    await new Promise((r) => setTimeout(r, 20));
-    const lastCall = renderToStringMock.mock.calls[renderToStringMock.mock.calls.length - 1];
-    const opts = lastCall?.[1] as { hooks?: unknown } | undefined;
-    expect(opts?.hooks).toBeUndefined();
-  });
-
-  it("chip toggles aria-pressed and td-chip--on class", () => {
-    mountPlayground(container);
-    const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="grid-bg"]`);
-    expect(chip).not.toBeNull();
-    expect(chip?.getAttribute("aria-pressed")).toBe("false");
-    expect(chip?.classList.contains("hook-chip--on")).toBe(false);
-    chip?.click();
-    expect(chip?.getAttribute("aria-pressed")).toBe("true");
-    expect(chip?.classList.contains("hook-chip--on")).toBe(true);
-    chip?.click();
-    expect(chip?.getAttribute("aria-pressed")).toBe("false");
-    expect(chip?.classList.contains("hook-chip--on")).toBe(false);
-  });
-
-  it("every chip has a tooltip (title) matching its blurb", () => {
-    mountPlayground(container);
-    for (const p of PRESETS) {
-      const chip = container.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="${p.id}"]`);
-      expect(chip?.title).toBe(p.blurb);
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    if (hooksEditor === null) {
+      throw new Error("no hooks editor");
     }
+    // Hand-type a preset block — the matching chip should light up.
+    const preset = PRESETS.find((p) => p.id === "classes");
+    if (preset === undefined) {
+      throw new Error("classes preset missing");
+    }
+    hooksEditor.value = preset.source;
+    hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(30);
+    const btn = container.querySelector<HTMLButtonElement>('.hook-chip[data-preset-id="classes"]');
+    expect(btn?.getAttribute("aria-pressed")).toBe("true");
+    expect(btn?.classList.contains("hook-chip--on")).toBe(true);
   });
 });

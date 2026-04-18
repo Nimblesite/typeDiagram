@@ -137,7 +137,10 @@
         },
         "typediagram.pdfExport.theme": {
           "type": "string",
-          "enum": ["light", "dark"],
+          "enum": [
+            "light",
+            "dark"
+          ],
           "default": "light",
           "description": "Theme applied to typeDiagrams inside the generated PDF. The page background is always white."
         }
@@ -156,12 +159,15 @@
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
+    "pdfkit": "^0.18.0",
+    "svg-to-pdfkit": "^0.1.8",
     "typediagram-core": "0.3.0"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
     "@types/mocha": "^10.0.10",
     "@types/node": "^22.0.0",
+    "@types/pdfkit": "^0.17.6",
     "@types/vscode": "^1.75.0",
     "@vscode/test-electron": "^2.5.2",
     "esbuild": "^0.24.0",

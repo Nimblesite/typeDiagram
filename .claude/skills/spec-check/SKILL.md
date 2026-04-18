@@ -36,6 +36,7 @@ Before checking code/test references, verify that the specs themselves are well-
 5. **Check for missing IDs:** Any heading that defines a requirement or behavior should have an ID. Flag headings in spec files that look like they define behavior but lack an ID.
 
 If any ID violations are found, report them all and **STOP**:
+
 ```
 SPEC ID VIOLATIONS:
 
@@ -73,12 +74,14 @@ Spec IDs are **hierarchical descriptive slugs, NEVER numbered.** The format is `
 The hierarchy depth varies by repo: two words for simple repos (`[AUTH-LOGIN]`), three for most (`[AUTH-TOKEN-VERIFY]`), four for complex domains (`[AUTH-OAUTH-REFRESH-FLOW]`). The hierarchy mirrors the spec document's heading structure.
 
 Examples of valid spec IDs (note how groups cluster):
+
 - `[AUTH-LOGIN]`, `[AUTH-TOKEN-VERIFY]`, `[AUTH-TOKEN-REFRESH]` — all in the AUTH group
 - `[CI-TIMEOUT]`, `[CI-LINT]`, `[CI-RELEASE]` — all in the CI group
 - `[LINT-ESLINT]`, `[LINT-RUFF]` — all in the LINT group
 - `[FEAT-DARK-MODE]`, `[FEAT-SEARCH-FILTER]` — all in the FEAT group
 
 Examples of INVALID spec IDs:
+
 - `[SPEC-001]` — numbered, meaningless
 - `[FEAT-AUTH-01]` — trailing number
 - `[REQ-003]` — sequential index, no group hierarchy
@@ -97,6 +100,7 @@ For each file, extract every spec ID and its associated section title (the headi
 - If `$ARGUMENTS` is empty, process ALL discovered specs.
 
 If filtering produces zero specs, report an error:
+
 ```
 ERROR: No specs found matching "$ARGUMENTS". Discovered spec files: [list them]
 ```
@@ -110,6 +114,7 @@ For EACH spec section that has an ID, perform checks A, B, and C below. **Stop o
 #### Check A: Code references the spec ID
 
 Search the entire codebase for the spec ID string, **excluding** these directories:
+
 - `docs/`
 - `node_modules/`
 - `.git/`
@@ -120,18 +125,22 @@ Use Grep with the literal spec ID (e.g., `[AUTH-TOKEN-VERIFY]`) to find referenc
 Code files should contain comments referencing the spec ID. The search must catch **all** comment styles across languages, but this repo is TypeScript so the primary patterns are:
 
 **C-style `//` comments** (TypeScript/JavaScript):
+
 - `// Implements [AUTH-TOKEN-VERIFY]`
 - `// [AUTH-TOKEN-VERIFY]`
 - `// Tests [AUTH-TOKEN-VERIFY]` (also counts as a code reference)
 - `/// Implements [AUTH-TOKEN-VERIFY]` (doc comments)
 
 **Hash `#` comments** (YAML, TOML, shell):
+
 - `# Implements [AUTH-TOKEN-VERIFY]`
 
 **HTML/XML comments** (HTML, CSS, SVG, XML):
+
 - `<!-- Implements [AUTH-TOKEN-VERIFY] -->`
 
 **CSS comments:**
+
 - `/* Implements [AUTH-TOKEN-VERIFY] */`
 
 **The key rule:** any comment in any language containing the exact spec ID string (e.g., `[AUTH-TOKEN-VERIFY]`) counts as a valid code reference. The Grep search uses the literal spec ID string, so it naturally matches all comment styles. Do NOT restrict the search to specific comment prefixes — just search for the spec ID string itself.
@@ -153,6 +162,7 @@ this spec section, then re-run spec-check.
 #### Check B: Tests reference the spec ID
 
 Search test files for the spec ID. Test files are found in:
+
 - `test/`
 - `tests/`
 - `**/*.test.*`
@@ -167,6 +177,7 @@ Use Grep to search these locations for the literal spec ID string.
 Tests should contain the spec ID in comments, test names, or annotations. For this repo (TypeScript + vitest), the common patterns are:
 
 **TypeScript / vitest / Jest:**
+
 - `// Tests [AUTH-TOKEN-VERIFY]`
 - `describe('[AUTH-TOKEN-VERIFY] Authentication flow', () => ...)`
 - `test('[AUTH-TOKEN-VERIFY] should verify token', () => ...)`
@@ -235,6 +246,7 @@ before checking permissions, as specified in [AUTH-TOKEN-VERIFY].
 Output ONLY the first violation found. Use the exact error format shown above. Do not summarize other specs. Do not offer to fix the code. Just report the violation.
 
 End with:
+
 ```
 spec-check FAILED. Fix the violation above and re-run.
 ```
