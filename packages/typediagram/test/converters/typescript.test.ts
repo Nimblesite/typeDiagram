@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { typescript } from "../../src/converters/index.js";
 import { parse } from "../../src/parser/index.js";
 import { buildModel } from "../../src/model/index.js";
-import { unwrap } from "./helpers.js";
+import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
 
 describe("[CONV-TS-FROM-COMPLEX] complex TypeScript -> typeDiagram", () => {
   it("parses a messy real-world file with interfaces, unions, aliases, and noise", () => {
@@ -159,12 +159,18 @@ export interface NullableFields {
     const idList = model.decls.find((d) => d.name === "IdList");
     expect(idList?.kind).toBe("alias");
 
-    // NullableFields — | null and | undefined stripped
+    // NullableFields — `T | null` and `T | undefined` become Option<T>.
     const nullable = model.decls.find((d) => d.name === "NullableFields");
     expect(nullable?.kind).toBe("record");
     const nfFields = nullable?.kind === "record" ? nullable.fields : [];
-    expect(nfFields.find((f) => f.name === "name")?.type.name).toBe("String");
-    expect(nfFields.find((f) => f.name === "email")?.type.name).toBe("String");
+    const nameField = nfFields.find((f) => f.name === "name");
+    expect(nameField?.type.name).toBe("Option");
+    expect(nameField?.type.args[0]?.name).toBe("String");
+    const emailField = nfFields.find((f) => f.name === "email");
+    expect(emailField?.type.name).toBe("Option");
+    expect(emailField?.type.args[0]?.name).toBe("String");
+    // Non-nullable sibling stays unwrapped.
+    expect(nfFields.find((f) => f.name === "age")?.type.name).toBe("Int");
   });
 
   it("returns error on input with only functions, classes, and constants", () => {
@@ -313,5 +319,11 @@ alias Tag = String
     expect(variants[2]?.fields).toHaveLength(0);
 
     expect(model2.decls.find((d) => d.name === "Tag")?.kind).toBe("alias");
+  });
+});
+
+describe("[CONV-TS-RT] TypeScript round-trip TD -> TS -> TD", () => {
+  it("losslessly round-trips the home-page example through TypeScript (TD text preserved)", () => {
+    expectLosslessRoundTrip(typescript);
   });
 });

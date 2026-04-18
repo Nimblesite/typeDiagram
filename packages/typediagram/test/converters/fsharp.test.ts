@@ -2,72 +2,8 @@
 import { describe, expect, it } from "vitest";
 import { fsharp } from "../../src/converters/index.js";
 import { parse } from "../../src/parser/index.js";
-import { buildModel, printSource } from "../../src/model/index.js";
-import { unwrap } from "./helpers.js";
-
-// The canonical home-page example. F# is the only converter that round-trips
-// this losslessly. The round-trip test below locks that guarantee in.
-const HOME_PAGE_TD = `typeDiagram
-
-type ChatRequest {
-  message: String
-  session_id: String
-  tool_results: Option<List<ToolResult>>
-}
-
-type ChatTurnInput {
-  config: AgentConfig
-  user_message: String
-  tool_results: Option<List<ToolResult>>
-  session_id: String
-}
-
-type ToolResult {
-  tool_call_id: String
-  name: String
-  content: ToolResultContent
-  ok: Bool
-}
-
-type TextPart {
-  text: String
-}
-
-type UriPart {
-  url: String
-  kind: UriKind
-  media_type: Option<String>
-}
-
-union ToolResultContent {
-  None
-  Scalar { value: String }
-  Dict { entries: Map<String, String> }
-  List { items: List<ContentItem> }
-}
-
-union ContentItem {
-  Text { value: TextPart }
-  Uri { value: UriPart }
-  Scalar { value: String }
-}
-
-union UriKind {
-  Image
-  Audio
-  Video
-  Document
-  Web
-  Api
-}
-
-union Option<T> {
-  Some { value: T }
-  None
-}
-
-alias Email = String
-`;
+import { buildModel } from "../../src/model/index.js";
+import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
 
 describe("[CONV-FS-FROM-COMPLEX] complex F# -> typeDiagram", () => {
   it("parses a messy F# file with records, DUs, abbreviations, and noise", () => {
@@ -266,13 +202,6 @@ alias Email = String
 
 describe("[CONV-FS-RT] F# round-trip TD -> F# -> TD", () => {
   it("losslessly round-trips the home-page example through F# (TD text preserved)", () => {
-    // Round-trip: TD -> F# -> TD. Must be byte-for-byte identical to the
-    // original HOME_PAGE_TD source.
-    const originalModel = unwrap(buildModel(unwrap(parse(HOME_PAGE_TD))));
-    const fsCode = fsharp.toSource(originalModel);
-    const roundTripModel = unwrap(fsharp.fromSource(fsCode));
-    const roundTripTd = printSource(roundTripModel);
-
-    expect(roundTripTd).toBe(HOME_PAGE_TD);
+    expectLosslessRoundTrip(fsharp);
   });
 });

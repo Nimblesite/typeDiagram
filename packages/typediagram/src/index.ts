@@ -106,5 +106,7 @@ export type {
 } from "./render-svg/index.js";
 export { svg, raw } from "./render-svg/index.js";
 
+export { HOME_PAGE_SAMPLE } from "./sample.js";
+
 // keep imports from being tree-shaken away in odd configurations
 void andThenAsync;

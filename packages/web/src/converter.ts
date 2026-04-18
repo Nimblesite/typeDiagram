@@ -7,54 +7,9 @@ import { initSplitter } from "./splitter.js";
 import { createViewport, setViewportContent } from "./viewport.js";
 import { initEditorZoom } from "./editor-zoom.js";
 import { createZoomControls } from "./zoom-controls.js";
+import { HOME_PAGE_SAMPLE } from "typediagram-core";
 
-const TD_SAMPLE = `typeDiagram
-
-type ChatRequest {
-  message:      String
-  session_id:   String
-  tool_results: Option<List<ToolResult>>
-}
-
-type ChatTurnInput {
-  config:       AgentConfig
-  user_message: String
-  tool_results: Option<List<ToolResult>>
-  session_id:   String
-}
-
-type ToolResult {
-  tool_call_id: String
-  name:         String
-  content:      String
-  ok:           Bool
-}
-
-type TextPart {
-  text: String
-}
-
-type UriPart {
-  url:        String
-  kind:       UriKind
-  media_type: Option<String>
-}
-
-union ContentItem {
-  Text   { value: TextPart }
-  Uri    { value: UriPart }
-  Scalar { value: String }
-}
-
-union UriKind {
-  Image
-  Audio
-  Video
-  Document
-  Web
-  Api
-}
-`;
+const TD_SAMPLE = HOME_PAGE_SAMPLE;
 
 const LANG_LABELS: Record<SupportedLang, string> = {
   typescript: "TypeScript",

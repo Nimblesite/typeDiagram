@@ -8,6 +8,8 @@ import { parseTypeRef } from "./parse-typeref.js";
 
 // ── Type mapping tables ──
 
+// Option<T> is emitted specially in mapTdToTs as `T | undefined`, so it's not
+// listed here.
 const TD_TO_TS: Record<string, string> = {
   Bool: "boolean",
   Int: "number",
@@ -17,7 +19,6 @@ const TD_TO_TS: Record<string, string> = {
   Unit: "void",
   List: "Array",
   Map: "Map",
-  Option: "undefined",
 };
 
 const TS_TO_TD: Record<string, string> = {
@@ -85,11 +86,50 @@ const splitTsGenericArgs = (s: string): string[] => {
   return last.length > 0 ? [...parts, last] : parts;
 };
 
+// Split a top-level TypeScript union (`A | B | C`) into parts, respecting
+// angle brackets so `Map<string, number> | undefined` splits into two, not
+// three.
+const splitTsUnion = (s: string): string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charAt(i);
+    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
+    if (c === "|" && depth === 0) {
+      parts.push(s.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  parts.push(s.slice(start).trim());
+  return parts.filter((p) => p.length > 0);
+};
+
+// If `t` is one of:
+//   T | undefined
+//   T | null
+//   T | undefined | null  (any order)
+// return the inner T (trimmed). Otherwise return null.
+const extractOptionInner = (t: string): string | null => {
+  const parts = splitTsUnion(t);
+  if (parts.length < 2 || parts.length > 3) {
+    return null;
+  }
+  const nullish = new Set(["undefined", "null"]);
+  const nonNullish = parts.filter((p) => !nullish.has(p));
+  const nullishParts = parts.filter((p) => nullish.has(p));
+  if (nonNullish.length !== 1 || nullishParts.length !== parts.length - 1) {
+    return null;
+  }
+  return nonNullish[0] ?? null;
+};
+
 const mapTsType = (t: string): string => {
-  const trimmed = t
-    .replace(/\s*\|\s*undefined$/, "")
-    .replace(/\s*\|\s*null$/, "")
-    .trim();
+  const trimmed = t.trim();
+  const optionInner = extractOptionInner(trimmed);
+  if (optionInner !== null) {
+    return `Option<${mapTsType(optionInner)}>`;
+  }
   const arrayMatch = /^(.+)\[\]$/.exec(trimmed);
   if (arrayMatch?.[1] !== undefined) {
     return `List<${mapTsType(arrayMatch[1])}>`;
@@ -177,7 +217,11 @@ const fromTypeScript = (source: string): Result<Model, Diagnostic[]> => {
       .map((p) => p.trim())
       .filter((p) => p.length > 0);
     const allLiterals = parts.every((p) => /^["']/.test(p));
-    const isUnion = parts.length > 1 && !allLiterals;
+    // `T | undefined`, `T | null`, `T | undefined | null` is Option<T>, not a
+    // tagged union — fall through to the alias branch where mapTsType will
+    // convert it to Option<T>.
+    const isOptionShape = extractOptionInner(rhs) !== null;
+    const isUnion = parts.length > 1 && !allLiterals && !isOptionShape;
 
     if (isUnion) {
       builder.add(
@@ -204,6 +248,12 @@ const fromTypeScript = (source: string): Result<Model, Diagnostic[]> => {
 // ── To TypeScript ──
 
 const mapTdToTs = (t: ResolvedTypeRef): string => {
+  // Option<T> -> T | undefined. If T is itself a union type this could become
+  // `A | B | undefined`, which parses back via the `T | undefined` rule below
+  // as `Option<A | B>` — still lossless for the round-trip of Option<Simple>.
+  if (t.name === "Option" && t.args.length === 1 && t.args[0] !== undefined) {
+    return `${mapTdToTs(t.args[0])} | undefined`;
+  }
   const name = TD_TO_TS[t.name] ?? t.name;
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToTs).join(", ")}>`;
 };

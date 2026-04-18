@@ -14,70 +14,9 @@ import { createZoomControls } from "./zoom-controls.js";
 import { evalHooks } from "./eval-hooks.js";
 import { PRESETS, togglePresetInCode, presetsInCode, type PresetId } from "./hook-presets.js";
 import { initJsHighlight } from "./highlight-js.js";
+import { HOME_PAGE_SAMPLE } from "typediagram-core";
 
-const INITIAL_SOURCE = `typeDiagram
-
-# Chat API request types
-
-type ChatRequest {
-  message:      String
-  session_id:   String
-  tool_results: Option<List<ToolResult>>
-}
-
-type ChatTurnInput {
-  config:       AgentConfig
-  user_message: String
-  tool_results: Option<List<ToolResult>>
-  session_id:   String
-}
-
-type ToolResult {
-  tool_call_id: String
-  name:         String
-  content:      ToolResultContent
-  ok:           Bool
-}
-
-union ToolResultContent {
-  None
-  Scalar { value: String }
-  Dict   { entries: Map<String, String> }
-  List   { items: List<ContentItem> }
-}
-
-union ContentItem {
-  Text   { value: TextPart }
-  Uri    { value: UriPart }
-  Scalar { value: String }
-}
-
-type TextPart {
-  text: String
-}
-
-type UriPart {
-  url:        String
-  kind:       UriKind
-  media_type: Option<String>
-}
-
-union UriKind {
-  Image
-  Audio
-  Video
-  Document
-  Web
-  Api
-}
-
-union Option<T> {
-  Some { value: T }
-  None
-}
-
-alias Email = String
-`;
+const INITIAL_SOURCE = HOME_PAGE_SAMPLE;
 
 // [WEB-PLAYGROUND-HOOKS-INITIAL] The hooks textarea starts pre-filled with a
 // block-commented example the user activates by deleting the two /* … */ markers.
