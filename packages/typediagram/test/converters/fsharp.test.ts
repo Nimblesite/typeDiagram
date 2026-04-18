@@ -2,8 +2,72 @@
 import { describe, expect, it } from "vitest";
 import { fsharp } from "../../src/converters/index.js";
 import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
+import { buildModel, printSource } from "../../src/model/index.js";
 import { unwrap } from "./helpers.js";
+
+// The canonical home-page example. F# is the only converter that round-trips
+// this losslessly. The round-trip test below locks that guarantee in.
+const HOME_PAGE_TD = `typeDiagram
+
+type ChatRequest {
+  message: String
+  session_id: String
+  tool_results: Option<List<ToolResult>>
+}
+
+type ChatTurnInput {
+  config: AgentConfig
+  user_message: String
+  tool_results: Option<List<ToolResult>>
+  session_id: String
+}
+
+type ToolResult {
+  tool_call_id: String
+  name: String
+  content: ToolResultContent
+  ok: Bool
+}
+
+type TextPart {
+  text: String
+}
+
+type UriPart {
+  url: String
+  kind: UriKind
+  media_type: Option<String>
+}
+
+union ToolResultContent {
+  None
+  Scalar { value: String }
+  Dict { entries: Map<String, String> }
+  List { items: List<ContentItem> }
+}
+
+union ContentItem {
+  Text { value: TextPart }
+  Uri { value: UriPart }
+  Scalar { value: String }
+}
+
+union UriKind {
+  Image
+  Audio
+  Video
+  Document
+  Web
+  Api
+}
+
+union Option<T> {
+  Some { value: T }
+  None
+}
+
+alias Email = String
+`;
 
 describe("[CONV-FS-FROM-COMPLEX] complex F# -> typeDiagram", () => {
   it("parses a messy F# file with records, DUs, abbreviations, and noise", () => {
@@ -201,48 +265,59 @@ alias Email = String
 });
 
 describe("[CONV-FS-RT] F# round-trip TD -> F# -> TD", () => {
-  it("round-trips records and unit-variant unions preserving structure", () => {
-    const td = `
-type User {
-  name: String
-  age: Int
-  active: Bool
-}
+  it("losslessly round-trips the home-page example through F# (TD text preserved)", () => {
+    // Build the canonical printed form of the original TD source. This is
+    // the printer's canonical output — it will differ from HOME_PAGE_TD in
+    // whitespace/comments (printer drops them), but must be identical after
+    // the F# round-trip below.
+    const originalModel = unwrap(buildModel(unwrap(parse(HOME_PAGE_TD))));
+    const originalTd = printSource(originalModel);
 
-type Order {
-  id: String
-  total: Float
-}
+    // Round-trip: TD -> F# -> TD
+    const fsCode = fsharp.toSource(originalModel);
+    const roundTripModel = unwrap(fsharp.fromSource(fsCode));
+    const roundTripTd = printSource(roundTripModel);
 
-union Direction { North\n South\n East\n West }
+    // The TD must be EXACTLY the same after the round-trip.
+    expect(roundTripTd).toBe(originalTd);
 
-alias Tag = String
-`;
-    const model1 = unwrap(buildModel(unwrap(parse(td))));
-    const fsCode = fsharp.toSource(model1);
-    const model2 = unwrap(fsharp.fromSource(fsCode));
+    // Sanity assertions on the intermediate model: every decl survived with
+    // the same kind. If the equality above ever breaks, these pinpoint which
+    // decl was corrupted.
+    expect(roundTripModel.decls.map((d) => d.name)).toEqual(originalModel.decls.map((d) => d.name));
+    expect(roundTripModel.decls.map((d) => d.kind)).toEqual(originalModel.decls.map((d) => d.kind));
 
-    expect(model2.decls.length).toBeGreaterThanOrEqual(4);
+    // Specific decls that stress different features (records with aligned
+    // fields, unions with unit + record variants, generic unions, aliases).
+    const names = roundTripModel.decls.map((d) => d.name);
+    expect(names).toContain("ChatRequest");
+    expect(names).toContain("ChatTurnInput");
+    expect(names).toContain("ToolResult");
+    expect(names).toContain("ToolResultContent");
+    expect(names).toContain("ContentItem");
+    expect(names).toContain("TextPart");
+    expect(names).toContain("UriPart");
+    expect(names).toContain("UriKind");
+    expect(names).toContain("Option");
+    expect(names).toContain("Email");
 
-    const user = model2.decls.find((d) => d.name === "User");
-    expect(user?.kind).toBe("record");
-    expect(user?.kind === "record" ? user.fields.length : 0).toBe(3);
-    expect(user?.kind === "record" ? user.fields[0]?.type.name : "").toBe("String");
-    expect(user?.kind === "record" ? user.fields[1]?.type.name : "").toBe("Int");
-    expect(user?.kind === "record" ? user.fields[2]?.type.name : "").toBe("Bool");
+    // ToolResultContent: mixed unit + record variants with Map/List generics.
+    const trc = roundTripModel.decls.find((d) => d.name === "ToolResultContent");
+    expect(trc?.kind).toBe("union");
+    const trcVariants = trc?.kind === "union" ? trc.variants : [];
+    expect(trcVariants.map((v) => v.name)).toEqual(["None", "Scalar", "Dict", "List"]);
+    expect(trcVariants[0]?.fields).toHaveLength(0);
+    expect(trcVariants[2]?.fields[0]?.type.name).toBe("Map");
+    expect(trcVariants[3]?.fields[0]?.type.name).toBe("List");
 
-    const order = model2.decls.find((d) => d.name === "Order");
-    expect(order?.kind).toBe("record");
-    expect(order?.kind === "record" ? order.fields.length : 0).toBe(2);
+    // Option<T>: generic union.
+    const opt = roundTripModel.decls.find((d) => d.name === "Option");
+    expect(opt?.kind).toBe("union");
+    expect(opt?.generics).toEqual(["T"]);
 
-    const dir = model2.decls.find((d) => d.name === "Direction");
-    expect(dir?.kind).toBe("union");
-    const variants = dir?.kind === "union" ? dir.variants : [];
-    expect(variants).toHaveLength(4);
-    expect(variants[0]?.name).toBe("North");
-
-    const tag = model2.decls.find((d) => d.name === "Tag");
-    expect(tag?.kind).toBe("alias");
-    expect(tag?.kind === "alias" ? tag.target.name : "").toBe("String");
+    // Email: alias.
+    const email = roundTripModel.decls.find((d) => d.name === "Email");
+    expect(email?.kind).toBe("alias");
+    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
   });
 });
