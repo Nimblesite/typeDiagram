@@ -79,6 +79,32 @@ union Option<T> {
 alias Email = String
 `;
 
+// [WEB-PLAYGROUND-HOOKS-INITIAL] The hooks textarea starts pre-filled with a
+// block-commented example the user activates by deleting the two /* … */ markers.
+// No hook property is assigned inside the block, so evalHooks produces NO hooks
+// out of the box == default render.
+const INITIAL_HOOKS = `
+//Render hooks — write plain JS. In scope: svg, raw, hooks.
+//Docs: /docs/render-hooks.html
+
+//Tap a chip below to PASTE a real example. Or delete the comment markers
+//wrapping this block to activate it as a drop-shadow hook.
+
+/*
+const prevDefs = hooks.defs;
+hooks.defs = (ctx) => {
+  const prev = prevDefs ? prevDefs(ctx) : undefined;
+  const mine = svg\`<filter id="drop"><feDropShadow dx="10" dy="3" stdDeviation="2.5" flood-opacity="0.35"/></filter>\`;
+  return prev ? svg\`\${prev}\${mine}\` : mine;
+};
+const prevNode = hooks.node;
+hooks.node = (ctx, def) => {
+  const inner = prevNode ? (prevNode(ctx, def) ?? def) : def;
+  return svg\`<g filter="url(#drop)">\${inner}</g>\`;
+};
+*/
+`;
+
 const buildDom = (container: HTMLElement) => {
   container.classList.add("playground");
   container.innerHTML = `
@@ -94,7 +120,6 @@ const buildDom = (container: HTMLElement) => {
       <div class="editor-wrap editor-wrap--hidden" data-editor="hooks">
         <pre class="editor-backdrop" id="hooks-backdrop" aria-hidden="true"><code></code></pre>
         <textarea id="hooks-editor" spellcheck="false" autocomplete="off"></textarea>
-        <div class="hooks-empty-hint" id="hooks-empty-hint">Tap a <b>chip</b> below to paste an example. <a href="/docs/render-hooks/">hooks docs →</a></div>
         <div class="hooks-toolbar" id="hooks-toolbar"></div>
         <div class="hooks-diag" id="hooks-diag" hidden></div>
       </div>
@@ -105,18 +130,12 @@ const buildDom = (container: HTMLElement) => {
       <div id="preview"></div>
     </section>`;
 
-  const q = (sel: string): Element => {
-    const el = container.querySelector(sel);
-    if (el === null) {
-      throw new Error(`[WEB-PLAYGROUND] missing ${sel}`);
-    }
-    return el;
-  };
+  // Selectors below are guaranteed to match because they come from our own innerHTML literal.
+  const q = (sel: string): Element => container.querySelector(sel) as Element;
   return {
     editor: q("#editor") as HTMLTextAreaElement,
     hooksEditor: q("#hooks-editor") as HTMLTextAreaElement,
     hooksBackdrop: q("#hooks-backdrop") as HTMLElement,
-    hooksEmptyHint: q("#hooks-empty-hint") as HTMLElement,
     hooksToolbar: q("#hooks-toolbar") as HTMLElement,
     hooksDiag: q("#hooks-diag") as HTMLElement,
     hooksBadge: q("#hooks-badge") as HTMLElement,
@@ -166,34 +185,23 @@ const activateTab = (tabId: "source" | "hooks", refs: ReturnType<typeof buildDom
   refs.hooksWrap.classList.toggle("editor-wrap--hidden", tabId !== "hooks");
 };
 
+const STORAGE_SOURCE_KEY = "td-playground-source";
+const STORAGE_HOOKS_KEY = "td-playground-hooks";
+
 export const mountPlayground = (container: HTMLElement) => {
   const refs = buildDom(container);
-  const {
-    editor,
-    hooksEditor,
-    hooksBackdrop,
-    hooksEmptyHint,
-    hooksToolbar,
-    hooksDiag,
-    hooksBadge,
-    preview,
-    splitter,
-    backdrop,
-    editorWrap,
-  } = refs;
+  const { editor, hooksEditor, hooksBackdrop, hooksToolbar, hooksDiag, hooksBadge, preview, splitter, backdrop, editorWrap } = refs;
   initSplitter(container, splitter);
   const vp = createViewport(preview);
   createZoomControls(preview, vp);
 
-  editor.value = INITIAL_SOURCE;
+  const savedSource = localStorage.getItem(STORAGE_SOURCE_KEY);
+  const savedHooks = localStorage.getItem(STORAGE_HOOKS_KEY);
+  editor.value = savedSource ?? INITIAL_SOURCE;
+  hooksEditor.value = savedHooks ?? INITIAL_HOOKS;
   initHighlight(editor, backdrop);
   initEditorZoom(editorWrap, editor, backdrop);
   initJsHighlight(hooksEditor, hooksBackdrop);
-
-  const syncEmptyHint = () => {
-    hooksEmptyHint.hidden = hooksEditor.value.trim().length > 0;
-  };
-  syncEmptyHint();
 
   buildPresetButtons(
     hooksToolbar,
@@ -202,7 +210,6 @@ export const mountPlayground = (container: HTMLElement) => {
       hooksEditor.value = next;
       hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
       syncPresetButtons(hooksToolbar, next);
-      syncEmptyHint();
       void run();
     }
   );
@@ -215,7 +222,7 @@ export const mountPlayground = (container: HTMLElement) => {
       hooksDiag.textContent = "";
     } else {
       hooksDiag.hidden = false;
-      hooksDiag.textContent = evaluated.error ?? "hook eval failed";
+      hooksDiag.textContent = evaluated.error ?? "";
     }
     const count = evaluated.hooks === undefined ? 0 : Object.keys(evaluated.hooks).length;
     if (count > 0) {
@@ -232,10 +239,13 @@ export const mountPlayground = (container: HTMLElement) => {
     void run();
   }, 120);
 
-  editor.addEventListener("input", debounced);
+  editor.addEventListener("input", () => {
+    localStorage.setItem(STORAGE_SOURCE_KEY, editor.value);
+    debounced();
+  });
   hooksEditor.addEventListener("input", () => {
+    localStorage.setItem(STORAGE_HOOKS_KEY, hooksEditor.value);
     syncPresetButtons(hooksToolbar, hooksEditor.value);
-    syncEmptyHint();
     debounced();
   });
   for (const tab of refs.tabs) {

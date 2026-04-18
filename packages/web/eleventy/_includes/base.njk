@@ -34,6 +34,18 @@
       rel="stylesheet"
     />
     <link rel="stylesheet" href="{{ stylesHref | default('./src/styles.css') }}" />
+    <script>
+      // [WEB-THEME-INIT] Set theme BEFORE body paints to avoid a flash.
+      (function () {
+        try {
+          var saved = localStorage.getItem("td-theme");
+          var theme = saved === "light" || saved === "dark" ? saved : "dark";
+          document.documentElement.setAttribute("data-theme", theme);
+        } catch (_) {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      })();
+    </script>
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-38RSQ5G0RR"></script>
     <script>

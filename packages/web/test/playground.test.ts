@@ -3,6 +3,10 @@
 // be called with NO `hooks` option (not even an empty object).
 import { describe, expect, it, beforeEach, vi } from "vitest";
 import type * as TypeDiagramCore from "typediagram-core";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
+const resolveCssPath = (): string => resolve(process.cwd(), "src/styles.css");
 
 const { renderToStringMock } = vi.hoisted(() => ({
   renderToStringMock: vi.fn().mockResolvedValue({ ok: true, value: "<svg>mock</svg>" }),
@@ -62,7 +66,7 @@ describe("[WEB-PLAYGROUND]", () => {
     expect(hooksTab?.classList.contains("pane-tab--on")).toBe(true);
   });
 
-  it("empty hooks editor -> renderToString is called WITHOUT a hooks option", async () => {
+  it("default (fresh mount, commented-out example) -> renderToString called WITHOUT a hooks option", async () => {
     mountPlayground(container);
     await wait(50);
     expect(renderToStringMock).toHaveBeenCalled();
@@ -105,23 +109,70 @@ describe("[WEB-PLAYGROUND]", () => {
     expect(opts?.hooks).toBeUndefined();
   });
 
-  // [WEB-PLAYGROUND-HOOKS-EMPTY-HINT] When the hooks editor is empty, a concise
-  // hint is visible — just "tap a chip" + a docs link. Placeholder verbosity is
-  // a bug: users don't need to read a tutorial inside the textarea.
-  it("empty hooks editor shows a short hint with a docs link (no multi-line tutorial)", () => {
+  // [WEB-PLAYGROUND-HOOKS-PREFILLED] The hooks textarea starts pre-filled with
+  // a commented-out real code example the user can uncomment. No overlay.
+  it("hooks textarea is pre-populated with a SINGLE block-comment example on first mount", () => {
     mountPlayground(container);
-    const hint = container.querySelector<HTMLElement>(".hooks-empty-hint");
-    expect(hint).not.toBeNull();
-    const text = (hint?.textContent ?? "").trim();
-    // Must be short — no more than ~120 characters including the link text.
-    expect(text.length).toBeGreaterThan(0);
-    expect(text.length).toBeLessThan(140);
-    // Must mention chips/tap-a-chip.
-    expect(text.toLowerCase()).toMatch(/chip|preset/);
-    // Must contain a link to hooks docs.
-    const link = hint?.querySelector("a");
-    expect(link).not.toBeNull();
-    expect(link?.getAttribute("href") ?? "").toContain("hook");
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    expect(hooksEditor).not.toBeNull();
+    const value = hooksEditor?.value ?? "";
+    expect(value.length).toBeGreaterThan(0);
+    // Must use /* … */ so the user can delete two markers to activate the whole block,
+    // not chase `//` on every line.
+    expect(value).toContain("/*");
+    expect(value).toContain("*/");
+    // No line-comment slashes.
+    expect(value).not.toMatch(/^\s*\/\//m);
+    // Must reference a hook property so it's a real example.
+    expect(value).toMatch(/hooks\.(defs|node|row|edge|background|post)/);
+    // Must reference the hooks docs path so users can discover the full docs.
+    expect(value).toContain("/docs/render-hooks.html");
+  });
+
+  it("no overlay hint element is present — textarea IS the source of truth", () => {
+    mountPlayground(container);
+    expect(container.querySelector(".hooks-empty-hint")).toBeNull();
+    expect(container.querySelector(".hooks-empty-example")).toBeNull();
+  });
+
+  it("editor input writes source to localStorage", async () => {
+    mountPlayground(container);
+    const editor = container.querySelector<HTMLTextAreaElement>("#editor");
+    if (editor === null) {
+      throw new Error("missing source editor");
+    }
+    editor.value = "typeDiagram\n  type Persisted { x: Int }";
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+    await wait(30);
+    expect(localStorage.getItem("td-playground-source")).toContain("Persisted");
+  });
+
+  it("mount restores previously-saved source and hooks from localStorage", () => {
+    localStorage.setItem("td-playground-source", "typeDiagram\n  type Restored { x: Int }");
+    localStorage.setItem("td-playground-hooks", "hooks.node = (_c, d) => d;");
+    mountPlayground(container);
+    const editor = container.querySelector<HTMLTextAreaElement>("#editor");
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    expect(editor?.value).toContain("Restored");
+    expect(hooksEditor?.value).toContain("hooks.node");
+  });
+
+  it("hooks docs path referenced in the pre-filled example resolves to a real built docs entry", async () => {
+    mountPlayground(container);
+    const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    const value = hooksEditor?.value ?? "";
+    const match = value.match(/\/docs\/([a-z0-9-]+)\.html/);
+    expect(match).not.toBeNull();
+    if (match === null) {
+      return;
+    }
+    const slug = match[1];
+    const docsModule = (await import("../eleventy/_data/docs.js")) as {
+      default: ReadonlyArray<{ slug: string; html: string }>;
+    };
+    const entry = docsModule.default.find((d) => d.slug === slug);
+    expect(entry).toBeDefined();
+    expect((entry?.html ?? "").length).toBeGreaterThan(500);
   });
 
   // [WEB-PLAYGROUND-HOOKS-HIGHLIGHT] The hooks editor has JS syntax highlighting.
@@ -179,15 +230,44 @@ describe("[WEB-PLAYGROUND-PRESETS] preset buttons paste code into the hooks edit
     expect(buttons.length).toBe(PRESETS.length);
   });
 
-  it("clicking a preset button inserts its source block into the hooks editor", async () => {
+  // [WEB-PLAYGROUND-CHIPS-CLICKABLE] Bug: the <textarea> overlay was covering
+  // the chip toolbar so clicks went to the textarea instead. The toolbar must
+  // sit ABOVE the textarea in the stacking context.
+  it("chip toolbar has a higher stacking z-index than the hooks textarea", () => {
+    mountPlayground(container);
+    // Inject the real stylesheet so getComputedStyle reads our rules.
+    const link = document.createElement("link");
+    link.rel = "stylesheet";
+    link.href = "/src/styles.css";
+    // Parse the file directly — happy-dom doesn't fetch.
+    const style = document.createElement("style");
+    const css = readFileSync(resolveCssPath(), "utf8");
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    const toolbar = container.querySelector<HTMLElement>(".hooks-toolbar");
+    const textarea = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
+    expect(toolbar).not.toBeNull();
+    expect(textarea).not.toBeNull();
+    if (toolbar === null || textarea === null) {
+      return;
+    }
+    const toolbarZ = parseInt(getComputedStyle(toolbar).zIndex || "0", 10) || 0;
+    const textareaZ = parseInt(getComputedStyle(textarea).zIndex || "0", 10) || 0;
+    expect(toolbarZ).toBeGreaterThan(textareaZ);
+  });
+
+  it("clicking a preset button appends its source block into the hooks editor", async () => {
     mountPlayground(container);
     const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
     const btn = container.querySelector<HTMLButtonElement>('.hook-chip[data-preset-id="drop-shadow"]');
-    expect(hooksEditor?.value).toBe("");
+    const before = hooksEditor?.value ?? "";
     btn?.click();
     await wait(30);
-    expect(hooksEditor?.value).toContain("// --- preset:drop-shadow ---");
-    expect(hooksEditor?.value).toContain("hooks.node");
+    const after = hooksEditor?.value ?? "";
+    expect(after.length).toBeGreaterThan(before.length);
+    expect(after).toContain("// --- preset:drop-shadow ---");
+    expect(after).toContain("hooks.node");
     expect(btn?.getAttribute("aria-pressed")).toBe("true");
   });
 

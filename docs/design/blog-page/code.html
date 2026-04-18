@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>typeDiagram Blog Post</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;700&amp;family=Inter:wght@400;500;600&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#060e20",
+                        "tertiary-container": "#07c7b2",
+                        "tertiary-fixed-dim": "#3cddc7",
+                        "outline-variant": "#3e484f",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#7bd0ff",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#62fae3",
+                        "on-surface": "#dae2fd",
+                        "inverse-on-surface": "#283044",
+                        "surface-container": "#171f33",
+                        "on-primary-fixed": "#001e2c",
+                        "background": "#0b1326",
+                        "surface-bright": "#31394d",
+                        "on-tertiary": "#003731",
+                        "primary-container": "#38bdf8",
+                        "surface-container-highest": "#2d3449",
+                        "on-tertiary-fixed": "#00201c",
+                        "on-surface-variant": "#bdc8d1",
+                        "inverse-surface": "#dae2fd",
+                        "surface-dim": "#0b1326",
+                        "surface": "#0b1326",
+                        "primary-fixed-dim": "#7bd0ff",
+                        "primary-fixed": "#c4e7ff",
+                        "error-container": "#93000a",
+                        "secondary": "#ddb7ff",
+                        "on-background": "#dae2fd",
+                        "secondary-container": "#6f00be",
+                        "on-secondary-fixed-variant": "#6900b3",
+                        "on-secondary-container": "#d6a9ff",
+                        "inverse-primary": "#00668a",
+                        "secondary-fixed": "#f0dbff",
+                        "on-tertiary-container": "#004d44",
+                        "on-secondary": "#490080",
+                        "on-primary-container": "#004965",
+                        "on-primary-fixed-variant": "#004c69",
+                        "surface-variant": "#2d3449",
+                        "on-tertiary-fixed-variant": "#005047",
+                        "outline": "#87929a",
+                        "on-secondary-fixed": "#2c0051",
+                        "primary": "#8ed5ff",
+                        "tertiary": "#45e3ce",
+                        "secondary-fixed-dim": "#ddb7ff",
+                        "surface-container-low": "#131b2e",
+                        "surface-container-high": "#222a3d",
+                        "on-primary": "#00354a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-headline { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        
+        .code-obsidian {
+            background-color: #1c1f24;
+            color: #dae2fd;
+        }
+        .code-obsidian .keyword { color: #8ed5ff; } /* primary */
+        .code-obsidian .string { color: #ddb7ff; } /* secondary */
+        .code-obsidian .type { color: #45e3ce; } /* tertiary */
+        .code-obsidian .comment { color: #87929a; } /* outline */
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<nav class="bg-[#0b1326] dark:bg-[#0b1326] font-['Space_Grotesk'] uppercase tracking-widest text-xs sticky top-0 w-full z-50 transition-all border-b border-surface-container-low">
+<div class="flex justify-between items-center w-full px-6 py-4 max-w-[1440px] mx-auto">
+<div class="flex items-center gap-8">
+<a class="font-['Space_Grotesk'] text-xl font-bold tracking-tighter text-[#8ed5ff]" href="#">typeDiagram</a>
+<div class="hidden md:flex gap-6">
+<a class="text-slate-500 hover:text-[#8ed5ff] transition-colors hover:bg-[#222a3d] transition-all px-2 py-1 rounded-sm" href="#">Blueprints</a>
+<a class="text-slate-500 hover:text-[#8ed5ff] transition-colors hover:bg-[#222a3d] transition-all px-2 py-1 rounded-sm" href="#">Architecture</a>
+<a class="text-[#8ed5ff] border-b-2 border-[#8ed5ff] pb-1 hover:bg-[#222a3d] transition-all px-2" href="#">Changelog</a>
+<a class="text-slate-500 hover:text-[#8ed5ff] transition-colors hover:bg-[#222a3d] transition-all px-2 py-1 rounded-sm" href="#">Docs</a>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="text-[#8ed5ff] dark:text-[#8ed5ff] hover:bg-[#222a3d] transition-all p-2 rounded-sm scale-95 duration-100">
+<span class="material-symbols-outlined text-lg">terminal</span>
+</button>
+<button class="text-[#8ed5ff] dark:text-[#8ed5ff] hover:bg-[#222a3d] transition-all p-2 rounded-sm scale-95 duration-100">
+<span class="material-symbols-outlined text-lg">settings</span>
+</button>
+</div>
+</div>
+</nav>
+<!-- Main Content -->
+<main class="flex-grow w-full max-w-[800px] mx-auto px-6 py-16 md:py-24">
+<!-- Hero Header -->
+<header class="mb-16">
+<div class="flex items-center gap-4 text-sm font-mono text-secondary mb-6">
+<span>Oct 24, 2024</span>
+<span class="w-1 h-1 bg-outline-variant rounded-full"></span>
+<span>System Architect</span>
+</div>
+<h1 class="font-headline text-4xl md:text-5xl lg:text-6xl font-bold leading-tight tracking-tight text-primary-fixed mb-8">
+                Deconstructing Complex Type Systems
+            </h1>
+<p class="text-lg md:text-xl text-on-surface-variant font-body leading-relaxed max-w-2xl">
+                Exploring the architectural patterns behind modern type definitions and how they manifest in visual logic diagrams.
+            </p>
+</header>
+<!-- Article Body -->
+<article class="prose prose-invert prose-lg max-w-none font-body text-on-surface leading-relaxed">
+<p class="mb-8">
+                The intersection of structural typing and visual representation demands a rigorous approach to architectural integrity. When we build systems that map code to canvas, the underlying types must be treated not just as constraints, but as a formal blueprint.
+            </p>
+<h2 class="font-headline text-2xl md:text-3xl font-bold text-primary mt-12 mb-6">The Atom: Node Cards</h2>
+<p class="mb-6">
+                In our system, the Node Card is the fundamental unit. It requires absolute clarity in its sum types and logical branches. Consider the standard definition for a visual node:
+            </p>
+<!-- Code Block -->
+<div class="bg-surface-container-highest rounded-DEFAULT p-6 my-8 font-mono text-sm overflow-x-auto relative">
+<div class="absolute top-0 left-0 w-1 h-full bg-primary"></div>
+<pre class="code-obsidian"><code><span class="keyword">type</span> <span class="type">NodeVisual</span> = {
+  <span class="keyword">id</span>: <span class="type">string</span>;
+  <span class="keyword">variant</span>: <span class="string">'core'</span> | <span class="string">'branch'</span> | <span class="string">'leaf'</span>;
+  <span class="keyword">metadata</span>: {
+    <span class="keyword">elevation</span>: <span class="type">number</span>;
+    <span class="keyword">tint</span>: <span class="type">ColorToken</span>;
+  };
+  <span class="comment">// Connection anchors</span>
+  <span class="keyword">ports</span>: <span class="type">Array</span>&lt;<span class="type">PortDefinition</span>&gt;;
+}</code></pre>
+</div>
+<p class="mb-8">
+                Notice the explicit separation of the visual variant from the structural metadata. This bilateral division mirrors our Split Pane logic: code on one side, manifestation on the other.
+            </p>
+<!-- Callout/Blockquote -->
+<blockquote class="my-10 pl-6 py-2 border-l-4 border-secondary bg-surface-container-low text-on-surface-variant italic font-body rounded-r-DEFAULT relative">
+                "We reject traditional drop shadows in favor of Ambient Lift. The UI is a series of stacked architectural plates, not a collection of floating bubbles."
+            </blockquote>
+<h3 class="font-headline text-xl md:text-2xl font-bold text-tertiary mt-10 mb-4">Establishing Depth Without Lines</h3>
+<p class="mb-6">
+                Traditional 1px solid borders are strictly prohibited for layout sectioning. Visual boundaries must be established through Tonal Transitions. By utilizing layers like <code>surface_container_low</code> and <code>surface_container_high</code>, we create depth inherently.
+            </p>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 my-8">
+<div class="bg-surface-container-low p-6 rounded-DEFAULT border-l-4 border-error">
+<h4 class="font-mono text-error mb-2 text-sm uppercase tracking-wider">Don't</h4>
+<p class="text-sm text-on-surface-variant">Using solid white or grey borders to separate distinct sections of the application pane.</p>
+</div>
+<div class="bg-surface-container-high p-6 rounded-DEFAULT border-l-4 border-tertiary">
+<h4 class="font-mono text-tertiary mb-2 text-sm uppercase tracking-wider">Do</h4>
+<p class="text-sm text-on-surface-variant">Rely on subtle shifts in background value (surface tiers) to define spatial relationships.</p>
+</div>
+</div>
+</article>
+</main>
+<!-- Footer -->
+<footer class="bg-[#0b1326] dark:bg-[#0b1326] font-mono text-[10px] uppercase tracking-widest border-t border-surface-container-lowest mt-auto">
+<div class="flex flex-col md:flex-row justify-between items-center w-full px-8 py-12 max-w-[1440px] mx-auto gap-6">
+<div class="text-[#45e3ce] font-bold">
+                © 2024 TYPEDIAGRAM // ARCHITECTURAL_INTEGRITY_VERIFIED
+            </div>
+<div class="flex gap-6">
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Source</a>
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Registry</a>
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Legal</a>
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Connect</a>
+</div>
+</div>
+</footer>
+</body></html>

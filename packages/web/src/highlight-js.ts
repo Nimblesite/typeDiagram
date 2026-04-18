@@ -45,7 +45,9 @@ export const highlightJs = (source: string): string => {
       spans.push({ start: offset, end: offset + matchText.length, cls: rule.cls });
     }
   }
-  spans.sort((a, b) => a.start - b.start || a.end - b.end);
+  // At equal start, longer span wins — comments/strings fully swallow any
+  // single-char punctuation rules that would otherwise sort first and leak.
+  spans.sort((a, b) => a.start - b.start || b.end - a.end);
   const kept: Span[] = [];
   let cursor = 0;
   for (const s of spans) {

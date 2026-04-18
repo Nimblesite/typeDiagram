@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>typeDiagram - Architecture Log</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&amp;family=Inter:wght@400;500&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#060e20",
+                        "tertiary-container": "#07c7b2",
+                        "tertiary-fixed-dim": "#3cddc7",
+                        "outline-variant": "#3e484f",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#7bd0ff",
+                        "on-error": "#690005",
+                        "error": "#ffb4ab",
+                        "tertiary-fixed": "#62fae3",
+                        "on-surface": "#dae2fd",
+                        "inverse-on-surface": "#283044",
+                        "surface-container": "#171f33",
+                        "on-primary-fixed": "#001e2c",
+                        "background": "#0b1326",
+                        "surface-bright": "#31394d",
+                        "on-tertiary": "#003731",
+                        "primary-container": "#38bdf8",
+                        "surface-container-highest": "#2d3449",
+                        "on-tertiary-fixed": "#00201c",
+                        "on-surface-variant": "#bdc8d1",
+                        "inverse-surface": "#dae2fd",
+                        "surface-dim": "#0b1326",
+                        "surface": "#0b1326",
+                        "primary-fixed-dim": "#7bd0ff",
+                        "primary-fixed": "#c4e7ff",
+                        "error-container": "#93000a",
+                        "secondary": "#ddb7ff",
+                        "on-background": "#dae2fd",
+                        "secondary-container": "#6f00be",
+                        "on-secondary-fixed-variant": "#6900b3",
+                        "on-secondary-container": "#d6a9ff",
+                        "inverse-primary": "#00668a",
+                        "secondary-fixed": "#f0dbff",
+                        "on-tertiary-container": "#004d44",
+                        "on-secondary": "#490080",
+                        "on-primary-container": "#004965",
+                        "on-primary-fixed-variant": "#004c69",
+                        "surface-variant": "#2d3449",
+                        "on-tertiary-fixed-variant": "#005047",
+                        "outline": "#87929a",
+                        "on-secondary-fixed": "#2c0051",
+                        "primary": "#8ed5ff",
+                        "tertiary": "#45e3ce",
+                        "secondary-fixed-dim": "#ddb7ff",
+                        "surface-container-low": "#131b2e",
+                        "surface-container-high": "#222a3d",
+                        "on-primary": "#00354a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "mono": ["JetBrains Mono", "monospace"]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #0b1326; color: #dae2fd; }
+        h1, h2, h3, h4, h5, h6 { font-family: 'Space Grotesk', sans-serif; }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-[#0b1326] flex justify-between items-center w-full px-6 py-4 max-w-[1440px] mx-auto docked full-width top-0 z-50 sticky">
+<div class="font-['Space_Grotesk'] text-xl font-bold tracking-tighter text-[#8ed5ff]">
+            typeDiagram
+        </div>
+<nav class="hidden md:flex gap-8">
+<a class="text-slate-500 hover:text-[#8ed5ff] transition-colors font-['Space_Grotesk'] uppercase tracking-widest text-xs hover:bg-[#222a3d] transition-all px-2 py-1 rounded-sm scale-95 duration-100" href="#">Blueprints</a>
+<a class="text-slate-500 hover:text-[#8ed5ff] transition-colors font-['Space_Grotesk'] uppercase tracking-widest text-xs hover:bg-[#222a3d] transition-all px-2 py-1 rounded-sm scale-95 duration-100" href="#">Architecture</a>
+<a class="text-[#8ed5ff] border-b-2 border-[#8ed5ff] pb-1 font-['Space_Grotesk'] uppercase tracking-widest text-xs scale-95 duration-100" href="#">Changelog</a>
+<a class="text-slate-500 hover:text-[#8ed5ff] transition-colors font-['Space_Grotesk'] uppercase tracking-widest text-xs hover:bg-[#222a3d] transition-all px-2 py-1 rounded-sm scale-95 duration-100" href="#">Docs</a>
+</nav>
+<div class="flex gap-4 text-[#8ed5ff]">
+<button class="hover:bg-[#222a3d] transition-all p-2 rounded-sm scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">terminal</span>
+</button>
+<button class="hover:bg-[#222a3d] transition-all p-2 rounded-sm scale-95 duration-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-sm">settings</span>
+</button>
+</div>
+</header>
+<main class="flex-grow flex flex-col items-center justify-start w-full max-w-[1440px] mx-auto px-6 py-12 gap-12">
+<div class="w-full flex flex-col gap-4 text-left">
+<h1 class="text-4xl md:text-5xl font-bold tracking-tighter text-on-surface">Architecture Log</h1>
+<p class="font-mono text-sm text-on-surface-variant max-w-2xl">Records, mutations, and structural updates to the typeDiagram core systems.</p>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 w-full">
+<!-- Node Card 1: Primary -->
+<article class="bg-surface-container-high rounded-sm border-l-4 border-primary flex flex-col h-full hover:bg-surface-variant transition-colors group cursor-pointer shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
+<div class="p-6 flex flex-col flex-grow gap-4">
+<div class="flex justify-between items-center text-xs font-mono text-primary">
+<span>type RECORD</span>
+<span>2024.10.15</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface group-hover:text-primary transition-colors">Implementing Deterministic AST Hashing</h2>
+<p class="text-sm text-on-surface-variant flex-grow line-clamp-3">A deep dive into how we stabilized structural comparisons across distributed blueprint segments by normalizing abstract syntax trees before generating SHA-256 signatures.</p>
+<div class="flex gap-2 mt-4 flex-wrap">
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">core</span>
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">hashing</span>
+</div>
+</div>
+</article>
+<!-- Node Card 2: Secondary -->
+<article class="bg-surface-container-high rounded-sm border-l-4 border-secondary flex flex-col h-full hover:bg-surface-variant transition-colors group cursor-pointer shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
+<div class="p-6 flex flex-col flex-grow gap-4">
+<div class="flex justify-between items-center text-xs font-mono text-secondary">
+<span>type UNION</span>
+<span>2024.09.28</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface group-hover:text-secondary transition-colors">Polymorphic Node Rendering Paths</h2>
+<p class="text-sm text-on-surface-variant flex-grow line-clamp-3">Evaluating the performance implications of branching SVG generation logic versus WebGL canvas offloading for complex sum-type visualizations in large-scale graphs.</p>
+<div class="flex gap-2 mt-4 flex-wrap">
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">renderer</span>
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">webgl</span>
+</div>
+</div>
+</article>
+<!-- Node Card 3: Tertiary -->
+<article class="bg-surface-container-high rounded-sm border-l-4 border-tertiary flex flex-col h-full hover:bg-surface-variant transition-colors group cursor-pointer shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
+<div class="p-6 flex flex-col flex-grow gap-4">
+<div class="flex justify-between items-center text-xs font-mono text-tertiary">
+<span>type ALIAS</span>
+<span>2024.09.12</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface group-hover:text-tertiary transition-colors">Semantic Sub-graph Isolation</h2>
+<p class="text-sm text-on-surface-variant flex-grow line-clamp-3">Introducing bounded contexts for diagram segments. How creating visual aliases for deeply nested schemas improves readability without sacrificing underlying structural integrity.</p>
+<div class="flex gap-2 mt-4 flex-wrap">
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">ux</span>
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">graphs</span>
+</div>
+</div>
+</article>
+<!-- Node Card 4: Primary -->
+<article class="bg-surface-container-high rounded-sm border-l-4 border-primary flex flex-col h-full hover:bg-surface-variant transition-colors group cursor-pointer shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
+<div class="p-6 flex flex-col flex-grow gap-4">
+<div class="flex justify-between items-center text-xs font-mono text-primary">
+<span>type RECORD</span>
+<span>2024.08.30</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface group-hover:text-primary transition-colors">Memory Layout of the Layout Engine</h2>
+<p class="text-sm text-on-surface-variant flex-grow line-clamp-3">Optimizing the internal memory representation of our directed acyclic graph structures to reduce cache misses during the highly iterative force-directed layout phases.</p>
+<div class="flex gap-2 mt-4 flex-wrap">
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">performance</span>
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">layout</span>
+</div>
+</div>
+</article>
+<!-- Node Card 5: Secondary -->
+<article class="bg-surface-container-high rounded-sm border-l-4 border-secondary flex flex-col h-full hover:bg-surface-variant transition-colors group cursor-pointer shadow-[0_20px_40px_rgba(0,0,0,0.4)] relative overflow-hidden">
+<div class="p-6 flex flex-col flex-grow gap-4">
+<div class="flex justify-between items-center text-xs font-mono text-secondary">
+<span>type UNION</span>
+<span>2024.08.15</span>
+</div>
+<h2 class="text-xl font-bold text-on-surface group-hover:text-secondary transition-colors">Extending the Edge Syntax</h2>
+<p class="text-sm text-on-surface-variant flex-grow line-clamp-3">Drafting new DSL specifications to support non-binary relations, multi-target dependencies, and weighted conceptual links between disjoint schema regions.</p>
+<div class="flex gap-2 mt-4 flex-wrap">
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">dsl</span>
+<span class="text-xs font-mono px-2 py-1 bg-surface-container-lowest text-on-surface-variant rounded-sm border border-outline-variant/20">syntax</span>
+</div>
+</div>
+</article>
+</div>
+</main>
+<!-- Footer -->
+<footer class="bg-[#0b1326] flex flex-col md:flex-row justify-between items-center w-full px-8 py-12 max-w-[1440px] mx-auto border-t-0 border-[#131b2e]">
+<div class="text-[#45e3ce] font-bold font-['Space_Grotesk'] text-sm mb-4 md:mb-0">
+            typeDiagram
+        </div>
+<div class="font-mono text-[10px] uppercase tracking-widest text-slate-600 mb-4 md:mb-0 text-center">
+            © 2024 TYPEDIAGRAM // ARCHITECTURAL_INTEGRITY_VERIFIED
+        </div>
+<nav class="flex gap-6 font-mono text-[10px] uppercase tracking-widest">
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Source</a>
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Registry</a>
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Legal</a>
+<a class="text-slate-600 hover:text-[#ddb7ff] opacity-80 hover:opacity-100 transition-all" href="#">Connect</a>
+</nav>
+</footer>
+</body></html>

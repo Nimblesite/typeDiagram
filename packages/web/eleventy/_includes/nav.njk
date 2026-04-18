@@ -10,6 +10,23 @@
       <a href="{{ navDocsHref | default('./docs/') }}">Docs</a>
       <a href="{{ navBlogHref | default('./blog/') }}">Blog</a>
       <a href="https://github.com/Nimblesite/typeDiagram">GitHub</a>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle light/dark theme" title="Toggle theme">
+        <span class="material-symbols-outlined theme-toggle-moon" aria-hidden="true">dark_mode</span>
+        <span class="material-symbols-outlined theme-toggle-sun" aria-hidden="true">light_mode</span>
+      </button>
     </div>
   </div>
+  <script>
+    // [WEB-THEME-TOGGLE] Wire the nav toggle. Button exists on every page.
+    (function () {
+      var btn = document.getElementById("theme-toggle");
+      if (btn === null) return;
+      btn.addEventListener("click", function () {
+        var cur = document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+        var next = cur === "light" ? "dark" : "light";
+        document.documentElement.setAttribute("data-theme", next);
+        try { localStorage.setItem("td-theme", next); } catch (_) {}
+      });
+    })();
+  </script>
 </nav>

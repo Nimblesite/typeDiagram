@@ -21,13 +21,13 @@ describe("[WEB-EVAL-HOOKS] evalHooks", () => {
     expect(evalHooks("   \n  \n").hooks).toBeUndefined();
   });
 
-  it("comments-only code returns ok with empty-but-present hooks object", () => {
+  it("comments-only code returns ok with NO hooks (preserves the optional invariant)", () => {
+    // Even though the body runs and `const hooks = {}` is returned, the
+    // evaluator must treat zero-property hooks as "no hooks" so that the
+    // renderer receives no `hooks` option at all — identical to empty input.
     const r = evalHooks("// just a comment\n");
     expect(r.ok).toBe(true);
-    // The body declares `const hooks = {}` and returns it — an empty hooks
-    // object is returned even if the user assigned nothing.
-    expect(r.hooks).toBeDefined();
-    expect(Object.keys(r.hooks ?? {})).toHaveLength(0);
+    expect(r.hooks).toBeUndefined();
   });
 
   it("assigning a node hook produces a callable RenderHooks.node", () => {

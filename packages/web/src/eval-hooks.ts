@@ -41,6 +41,11 @@ export const evalHooks = (code: string): EvalResult => {
     if (out === undefined) {
       return { ok: true };
     }
+    // If the user assigned zero hook properties (e.g. comments-only code), treat
+    // it as "no hooks" — the renderer must not see an empty `{ hooks: {} }`.
+    if (Object.keys(out).length === 0) {
+      return { ok: true };
+    }
     return { ok: true, hooks: out };
   } catch (err) {
     const msg = err instanceof Error ? `${err.name}: ${err.message}` : String(err);

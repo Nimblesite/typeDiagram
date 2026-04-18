@@ -18,23 +18,35 @@ structuredData:
   description: "Release notes, deep dives, and tips for typeDiagram."
   inLanguage: "en"
 ---
-<main class="main-content">
-  <header class="hero">
-    <h1 class="hero-title"><span class="hero-accent">Blog</span></h1>
-    <p class="hero-sub">Updates, deep dives, and release notes.</p>
+<main class="blog-index-main">
+  <header class="blog-index-header">
+    <span class="blog-index-eyebrow">Architecture Log</span>
+    <h1 class="blog-index-title">The typeDiagram Blog</h1>
+    <p class="blog-index-sub">Updates, deep dives, and release notes from the people building the DSL, parser, layout engine, and renderer.</p>
   </header>
-  <section class="features">
-    <div class="features-inner">
-      <ul class="docs-nav">
-        {% for post in collections.post | reverse %}
-          {% if post.url != page.url %}
-            <li>
-              <a href="{{ post.url }}">{{ post.data.title }}</a>
-              <small> — <time datetime="{{ post.date | isoDate }}">{{ post.date | isoDate }}</time></small>
-            </li>
-          {% endif %}
-        {% endfor %}
-      </ul>
+  {% set posts = collections.post | reverse %}
+  {% if posts.length %}
+    <div class="blog-grid">
+      {% for post in posts %}
+        {% if post.url != page.url %}
+          <a class="blog-card" href="{{ post.url }}">
+            <div class="blog-card-meta">
+              <time datetime="{{ post.date | isoDate }}">{{ post.date | isoDate }}</time>
+              {% if post.data.author %}
+                <span class="blog-card-meta-dot"></span>
+                <span>{{ post.data.author }}</span>
+              {% endif %}
+            </div>
+            <h2 class="blog-card-title">{{ post.data.title }}</h2>
+            {% if post.data.description %}
+              <p class="blog-card-desc">{{ post.data.description }}</p>
+            {% endif %}
+            <span class="blog-card-read">Read post →</span>
+          </a>
+        {% endif %}
+      {% endfor %}
     </div>
-  </section>
+  {% else %}
+    <div class="blog-index-empty">No posts yet. Check back soon.</div>
+  {% endif %}
 </main>

@@ -85,6 +85,7 @@ const handwritten: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "cli", label: "CLI" },
   { slug: "multi-language-pipeline", label: "Multi-Language Pipeline" },
   { slug: "converters", label: "Converters" },
+  { slug: "render-hooks", label: "Render Hooks" },
   { slug: "api", label: "Node.js API" },
 ];
 

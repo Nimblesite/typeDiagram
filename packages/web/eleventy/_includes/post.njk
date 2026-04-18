@@ -26,17 +26,19 @@ eleventyComputed:
     mainEntityOfPage: "https://typediagram.dev{{ page.url }}"
     inLanguage: "en"
 ---
-<main class="docs-layout">
-  <aside class="docs-sidebar">
-    <ul class="docs-nav">
-      <li><a href="/blog/">← All posts</a></li>
-    </ul>
-  </aside>
-  <article class="docs-content">
-    <header>
-      <h1>{{ title }}</h1>
-      <p><small><time datetime="{{ page.date | isoDate }}">{{ page.date | isoDate }}</time>{% if author %} · {{ author }}{% endif %}</small></p>
-    </header>
+<main class="post-main">
+  <header class="post-header">
+    <div class="post-meta">
+      <time datetime="{{ page.date | isoDate }}">{{ page.date | isoDate }}</time>
+      {% if author %}
+        <span class="post-meta-dot"></span>
+        <span>{{ author }}</span>
+      {% endif %}
+    </div>
+    <h1 class="post-title">{{ title }}</h1>
+    {% if description %}<p class="post-lede">{{ description }}</p>{% endif %}
+  </header>
+  <article class="post-article">
     {{ content | safe }}
   </article>
 </main>

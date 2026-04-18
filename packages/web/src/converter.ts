@@ -326,6 +326,33 @@ const LANGUAGES: readonly SupportedLang[] = ["typescript", "rust", "python", "go
 let currentLang: SupportedLang = "typescript";
 let flipped = false;
 
+const convStorageKey = (lang: SupportedLang, isFlipped: boolean): string =>
+  `td-conv-${lang}-${isFlipped ? "td" : "src"}`;
+
+const readConvStorage = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const writeConvStorage = (key: string, value: string): void => {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    // localStorage unavailable or full — silently skip.
+  }
+};
+
+const loadConvEditor = (lang: SupportedLang, isFlipped: boolean): string => {
+  const saved = readConvStorage(convStorageKey(lang, isFlipped));
+  if (saved !== null) {
+    return saved;
+  }
+  return isFlipped ? TD_SAMPLE : SAMPLES[lang];
+};
+
 const buildDom = (container: HTMLElement) => {
   container.innerHTML = `
     <div class="conv-toolbar">
@@ -465,9 +492,10 @@ export const mountConverter = (container: HTMLElement) => {
     void run();
   }, 150);
 
-  editor.value = SAMPLES[currentLang];
+  editor.value = loadConvEditor(currentLang, flipped);
   syncHighlight?.();
   editor.addEventListener("input", () => {
+    writeConvStorage(convStorageKey(currentLang, flipped), editor.value);
     debounced();
     syncHighlight?.();
   });
@@ -481,7 +509,7 @@ export const mountConverter = (container: HTMLElement) => {
     const lang = btn.dataset["lang"] as SupportedLang;
     currentLang = lang;
     langTabs.querySelectorAll(".conv-lang-tab").forEach((t) => t.classList.toggle("conv-lang-tab--active", t === btn));
-    editor.value = flipped ? TD_SAMPLE : SAMPLES[lang];
+    editor.value = loadConvEditor(currentLang, flipped);
     updateLabels();
     syncHighlight?.();
     void run();
@@ -489,7 +517,7 @@ export const mountConverter = (container: HTMLElement) => {
 
   flipBtn.addEventListener("click", () => {
     flipped = !flipped;
-    editor.value = flipped ? TD_SAMPLE : SAMPLES[currentLang];
+    editor.value = loadConvEditor(currentLang, flipped);
     updateLabels();
     syncHighlight?.();
     void run();
