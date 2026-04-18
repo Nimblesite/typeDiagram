@@ -1,4 +1,15 @@
 // [CONV-TS] TypeScript <-> typeDiagram bidirectional converter.
+//
+// SOMEWHAT LOSSY on round-trip: TypeScript has no canonical Option type, so
+// we collapse four nullable shapes into the same Option<T>:
+//   T | undefined         -> Option<T>
+//   T | null              -> Option<T>
+//   T | undefined | null  -> Option<T>
+//   T | null | undefined  -> Option<T>
+// On emit we always print `T | undefined`. A `T | undefined | null` input
+// therefore becomes `T | undefined` after a full TS -> TD -> TS round-trip.
+// TODO: revisit — a future option could let the user pick the emit shape, or
+// preserve the original nullability form in the model.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
 import type { Model, ResolvedTypeRef } from "../model/types.js";
