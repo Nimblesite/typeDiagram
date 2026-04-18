@@ -13,6 +13,7 @@
     "build": "npm run clean && npm run typedoc && npm run eleventy && vite build",
     "preview": "vite preview dist",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "pretest": "npm run typedoc && npm run eleventy",
     "test": "vitest run --coverage"
   },
   "dependencies": {
