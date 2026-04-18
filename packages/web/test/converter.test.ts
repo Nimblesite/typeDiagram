@@ -3,24 +3,25 @@ import { describe, expect, it, beforeEach, vi } from "vitest";
 
 // Mock the converter-render module since it depends on the full typediagram package
 vi.mock("../src/converter-render.js", () => ({
-  convertSource: vi.fn().mockResolvedValue({
-    tdSource: "typeDiagram\n\ntype Foo {\n  name: String\n}\n",
-    svgHtml: "<svg></svg>",
-  }),
   convertFromTd: vi.fn().mockResolvedValue({
     tdSource: "export interface Foo {\n  name: string;\n}\n",
+    svgHtml: "<svg></svg>",
+  }),
+  convertSource: vi.fn().mockResolvedValue({
+    tdSource: "typeDiagram\n\ntype Foo {\n  name: String\n}\n",
     svgHtml: "<svg></svg>",
   }),
 }));
 
 import { mountConverter } from "../src/converter.js";
-import { convertSource, convertFromTd } from "../src/converter-render.js";
+import { convertFromTd, convertSource } from "../src/converter-render.js";
 
 describe("[WEB-CONVERTER] mountConverter()", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     container = document.createElement("div");
     document.body.appendChild(container);
   });
@@ -48,15 +49,25 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     expect(activeTab?.textContent).toBe("TypeScript");
   });
 
-  it("renders editor textarea with sample code", () => {
+  it("starts with typeDiagram on the left and target language on the right", () => {
+    mountConverter(container);
+
+    const leftLabel = container.querySelector("#conv-left-label");
+    const rightLabel = container.querySelector("#conv-right-label");
+    expect(leftLabel?.textContent).toBe("typediagram");
+    expect(rightLabel?.textContent).toBe("typescript");
+  });
+
+  it("loads the single typeDiagram sample into the editor on startup", () => {
     mountConverter(container);
 
     const editor = container.querySelector<HTMLTextAreaElement>("#conv-editor");
     expect(editor).toBeTruthy();
-    expect(editor?.value).toContain("interface");
+    expect(editor?.value).toContain("typeDiagram");
+    expect(editor?.value).toContain("type ChatRequest");
   });
 
-  it("renders typediagram output area", () => {
+  it("renders output area", () => {
     mountConverter(container);
 
     const tdOutput = container.querySelector("#conv-td");
@@ -70,7 +81,7 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     expect(preview).toBeTruthy();
   });
 
-  it("renders a splitter between source and td output", () => {
+  it("renders a splitter between the two panels", () => {
     mountConverter(container);
 
     const splitter = container.querySelector("#conv-splitter");
@@ -92,23 +103,36 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     expect(tsTab?.classList.contains("conv-lang-tab--active")).toBe(false);
   });
 
-  it("updates editor content when switching languages", () => {
+  it("keeps the typeDiagram editor content when switching languages (unflipped)", () => {
+    mountConverter(container);
+
+    const editorBefore = container.querySelector<HTMLTextAreaElement>("#conv-editor");
+    const originalValue = editorBefore?.value;
+
+    const rustTab = container.querySelector('[data-lang="rust"]') as HTMLButtonElement;
+    rustTab.click();
+
+    const editorAfter = container.querySelector<HTMLTextAreaElement>("#conv-editor");
+    expect(editorAfter?.value).toBe(originalValue);
+    expect(editorAfter?.value).toContain("typeDiagram");
+  });
+
+  it("updates the right label when switching languages (unflipped)", () => {
     mountConverter(container);
 
     const rustTab = container.querySelector('[data-lang="rust"]') as HTMLButtonElement;
     rustTab.click();
 
-    const editor = container.querySelector<HTMLTextAreaElement>("#conv-editor");
-    expect(editor).not.toBeNull();
-    expect(editor?.value).toContain("struct");
+    const rightLabel = container.querySelector("#conv-right-label");
+    expect(rightLabel?.textContent).toBe("rust");
   });
 
-  it("calls convertSource on mount", async () => {
+  it("calls convertFromTd on mount (unflipped)", async () => {
     mountConverter(container);
-    // Give the async render time to settle
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(convertSource).toHaveBeenCalled();
+    expect(convertFromTd).toHaveBeenCalled();
+    expect(convertSource).not.toHaveBeenCalled();
   });
 
   it("creates backdrop for syntax highlighting", () => {
@@ -126,7 +150,7 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     expect(flipBtn).toBeTruthy();
   });
 
-  it("flips direction and swaps labels on flip click", async () => {
+  it("swaps panel labels when the flip button is clicked", async () => {
     mountConverter(container);
 
     const flipBtn = container.querySelector<HTMLButtonElement>("#conv-flip");
@@ -139,18 +163,21 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
       return;
     }
 
-    expect(leftLabel.textContent).toBe("source");
-    expect(rightLabel.textContent).toBe("typediagram");
+    expect(leftLabel.textContent).toBe("typediagram");
+    expect(rightLabel.textContent).toBe("typescript");
 
     flipBtn.click();
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(leftLabel.textContent).toBe("typediagram");
+    expect(leftLabel.textContent).toBe("typescript");
+    expect(rightLabel.textContent).toBe("typediagram");
     expect(flipBtn.classList.contains("conv-flip-btn--active")).toBe(true);
   });
 
-  it("calls convertFromTd when flipped", async () => {
+  it("calls convertSource when flipped", async () => {
     mountConverter(container);
+    await new Promise((r) => setTimeout(r, 10));
+    vi.clearAllMocks();
 
     const flipBtn = container.querySelector<HTMLButtonElement>("#conv-flip");
     expect(flipBtn).not.toBeNull();
@@ -160,10 +187,10 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     flipBtn.click();
     await new Promise((r) => setTimeout(r, 10));
 
-    expect(convertFromTd).toHaveBeenCalled();
+    expect(convertSource).toHaveBeenCalled();
   });
 
-  it("loads typediagram sample in editor when flipped", () => {
+  it("clears the editor when flipping to language mode with no saved content", () => {
     mountConverter(container);
 
     const flipBtn = container.querySelector<HTMLButtonElement>("#conv-flip");
@@ -175,6 +202,6 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
 
     const editor = container.querySelector<HTMLTextAreaElement>("#conv-editor");
     expect(editor).not.toBeNull();
-    expect(editor?.value).toContain("typeDiagram");
+    expect(editor?.value).toBe("");
   });
 });
