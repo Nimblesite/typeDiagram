@@ -5,8 +5,8 @@
   "projects": {
     "packages/typediagram": {
       "statements": 95,
-      "branches": 90.76,
-      "functions": 98.5,
+      "branches": 90.89,
+      "functions": 98.58,
       "lines": 95
     },
     "packages/cli": {

@@ -128,16 +128,21 @@ public static int ComputeHash(string input) => input.GetHashCode();
     expect(nullable?.kind).toBe("record");
     expect(nullable?.kind === "record" ? nullable.fields.length : 0).toBe(3);
 
-    // Config — CLASS_RE uses [^}]* which stops at the first } from { get; set; },
-    // so properties don't get captured. Class is detected but fields are empty.
+    // Config — class with property-bag fields is captured with balanced-brace parser
     const cfg = model.decls.find((d) => d.name === "Config");
     expect(cfg?.kind).toBe("record");
-    expect(cfg?.kind === "record" ? cfg.fields.length : 0).toBe(0);
+    const cfgFields = cfg?.kind === "record" ? cfg.fields : [];
+    expect(cfgFields).toHaveLength(3);
+    expect(cfgFields.find((f) => f.name === "Host")?.type.name).toBe("String");
+    expect(cfgFields.find((f) => f.name === "Port")?.type.name).toBe("Int");
+    expect(cfgFields.find((f) => f.name === "Debug")?.type.name).toBe("Bool");
 
-    // GenericContainer<T> — same issue, class detected but fields lost
+    // GenericContainer<T> — property-bag class with fields captured
     const gc = model.decls.find((d) => d.name === "GenericContainer");
     expect(gc?.kind).toBe("record");
     expect(gc?.generics).toContain("T");
+    const gcFields = gc?.kind === "record" ? gc.fields : [];
+    expect(gcFields).toHaveLength(2);
 
     // ContentType — enum with 4 variants (comment line ignored)
     const ct = model.decls.find((d) => d.name === "ContentType");
@@ -205,30 +210,30 @@ alias Wrapper<T> = List<T>
     const model = unwrap(buildModel(unwrap(parse(td))));
     const output = csharp.toSource(model);
 
-    // ChatRequest — record with type mappings
-    expect(output).toContain("public record ChatRequest");
-    expect(output).toContain("string message");
-    expect(output).toContain("bool active");
-    expect(output).toContain("double score");
-    expect(output).toContain("int count");
-    expect(output).toContain("void nothing");
-    expect(output).toContain("List<string> tags");
-    expect(output).toContain("Dictionary<string, int> metadata");
+    // ChatRequest — property-bag record with JsonPropertyName + PascalCase
+    expect(output).toContain("public sealed record ChatRequest");
+    expect(output).toContain('[JsonPropertyName("message")]');
+    expect(output).toContain("public string Message { get; init; }");
+    expect(output).toContain("public bool Active { get; init; }");
+    expect(output).toContain("public double Score { get; init; }");
+    expect(output).toContain("public int Count { get; init; }");
+    expect(output).toContain("public IReadOnlyList<string> Tags { get; init; }");
+    expect(output).toContain("public IReadOnlyDictionary<string, int> Metadata { get; init; }");
 
     // GenericBox<T>
-    expect(output).toContain("public record GenericBox<T>");
-    expect(output).toContain("T value");
+    expect(output).toContain("public sealed record GenericBox<T>");
+    expect(output).toContain("public T Value { get; init; }");
 
-    // ContentType — enum
+    // ContentType — bare enum (no payloads)
     expect(output).toContain("public enum ContentType");
     expect(output).toContain("Text");
     expect(output).toContain("Image");
     expect(output).toContain("Code");
     expect(output).toContain("Divider");
 
-    // Aliases
-    expect(output).toContain("using Email = string");
-    expect(output).toContain("using Wrapper<T> = List<T>");
+    // Aliases inlined — no `using X = Y;` emitted
+    expect(output).not.toContain("using Email =");
+    expect(output).not.toContain("using Wrapper");
   });
 });
 
@@ -330,7 +335,7 @@ type Req {
     const firstTypeIdx = out.search(/\b(public\s+(?:sealed\s+)?record|public\s+enum|public\s+interface)\b/);
     const usingMatches = [...out.matchAll(/^using\s/gm)];
     for (const u of usingMatches) {
-      expect(u.index ?? -1).toBeLessThan(firstTypeIdx);
+      expect(u.index).toBeLessThan(firstTypeIdx);
     }
   });
 });

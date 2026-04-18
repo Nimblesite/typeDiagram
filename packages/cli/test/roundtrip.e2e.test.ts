@@ -79,7 +79,7 @@ describe("[CLI-ROUNDTRIP-FROM] language source → diagram", () => {
 
 describe("[CLI-ROUNDTRIP-EMIT] .td → language output", () => {
   it.each([
-    { lang: "csharp", markers: ["public record User", "public record Address"] },
+    { lang: "csharp", markers: ["public sealed record User", "public sealed record Address"] },
     { lang: "python", markers: ["@dataclass", "class User:", "class Address:"] },
     {
       lang: "rust",
@@ -148,7 +148,7 @@ describe("[CLI-ROUNDTRIP-CHAIN] C# → .td → Rust → .td → Python → .td �
     // Step 8: .td → C# via --to csharp (full circle, piped from step 7)
     const step8 = await runStdin(["--to", "csharp"], td4);
     expect(step8.code).toBe(0);
-    expect(step8.stdout).toContain("public record User");
+    expect(step8.stdout).toContain("public sealed record User");
   });
 });
 
@@ -163,7 +163,7 @@ describe("[CLI-ROUNDTRIP-CROSS] source lang → .td → every target lang", () =
   ] as const;
 
   const targets = [
-    { lang: "csharp", marker: "public record" },
+    { lang: "csharp", marker: "public sealed record" },
     { lang: "python", marker: "@dataclass" },
     { lang: "rust", marker: "pub struct" },
     { lang: "typescript", marker: "export interface" },
