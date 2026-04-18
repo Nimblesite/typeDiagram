@@ -4,6 +4,8 @@
 
 **Live demo:** [typediagram.dev](https://typediagram.dev)
 
+![TypeDiagram VS Code extension with live SVG preview](https://typediagram.dev/vscode-screenshot.png)
+
 ## Install
 
 ```sh

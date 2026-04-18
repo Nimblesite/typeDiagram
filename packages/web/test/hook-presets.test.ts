@@ -142,7 +142,13 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
       expect(floodColor).toMatch(/^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i);
       // Quick brightness check: sum of RGB components must be high.
       const hex = floodColor.replace(/^#/, "");
-      const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+      const full =
+        hex.length === 3
+          ? hex
+              .split("")
+              .map((c) => c + c)
+              .join("")
+          : hex;
       const r = parseInt(full.slice(0, 2), 16);
       const g = parseInt(full.slice(2, 4), 16);
       const b = parseInt(full.slice(4, 6), 16);

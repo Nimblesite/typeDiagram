@@ -68,9 +68,9 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
   const panel: WebviewPanelLike = {
     webview: {
       html: "",
-      printToPDF: overrides.noPrintToPdf ? undefined : printToPDF,
+      printToPDF: overrides.noPrintToPdf === true ? undefined : printToPDF,
       onDidReceiveMessage: (handler) => {
-        if (!overrides.skipLoadMessage) {
+        if (overrides.skipLoadMessage !== true) {
           queueMicrotask(() => {
             handler({ kind: "td-print-ready" });
           });
@@ -320,7 +320,9 @@ describe("[PDF-PRINT] renderHtmlToPdf", () => {
         },
         printToPDF: () => Promise.resolve(new TextEncoder().encode(PDF_MAGIC + "1.7\n")),
         onDidReceiveMessage: (h) => {
-          queueMicrotask(() => h({}));
+          queueMicrotask(() => {
+            h({});
+          });
           return { dispose: vi.fn() };
         },
       },

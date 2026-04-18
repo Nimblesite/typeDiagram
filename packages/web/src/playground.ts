@@ -190,7 +190,18 @@ const STORAGE_HOOKS_KEY = "td-playground-hooks";
 
 export const mountPlayground = (container: HTMLElement) => {
   const refs = buildDom(container);
-  const { editor, hooksEditor, hooksBackdrop, hooksToolbar, hooksDiag, hooksBadge, preview, splitter, backdrop, editorWrap } = refs;
+  const {
+    editor,
+    hooksEditor,
+    hooksBackdrop,
+    hooksToolbar,
+    hooksDiag,
+    hooksBadge,
+    preview,
+    splitter,
+    backdrop,
+    editorWrap,
+  } = refs;
   initSplitter(container, splitter);
   const vp = createViewport(preview);
   createZoomControls(preview, vp);

@@ -255,11 +255,7 @@ export async function writeNextToSource(
 
 const inFlight = new Map<string, Promise<void>>();
 
-export async function exportPdf(
-  sourceUri: vscode.Uri,
-  opts: { theme: Theme },
-  deps: ExportPdfDeps
-): Promise<void> {
+export async function exportPdf(sourceUri: vscode.Uri, opts: { theme: Theme }, deps: ExportPdfDeps): Promise<void> {
   const log = getLogger().child({ scope: "export-pdf" });
   const key = sourceUri.toString();
   const existing = inFlight.get(key);
@@ -317,17 +313,19 @@ function titleFromPath(path: string): string {
 }
 
 function notifySaved(saved: vscode.Uri, deps: ExportPdfDeps, log: ReturnType<typeof getLogger>): void {
-  void deps.showInformationMessage(`TypeDiagram PDF written: ${saved.path}`, "Open PDF", "Reveal in File Explorer").then(
-    (choice) => {
-      if (choice === "Open PDF") {
-        void deps.openExternal(saved);
-      } else if (choice === "Reveal in File Explorer") {
-        void deps.executeCommand("revealFileInOS", saved);
+  void deps
+    .showInformationMessage(`TypeDiagram PDF written: ${saved.path}`, "Open PDF", "Reveal in File Explorer")
+    .then(
+      (choice) => {
+        if (choice === "Open PDF") {
+          void deps.openExternal(saved);
+        } else if (choice === "Reveal in File Explorer") {
+          void deps.executeCommand("revealFileInOS", saved);
+        }
+        log.info("notification dismissed", { choice: choice ?? "(none)" });
+      },
+      (err: unknown) => {
+        log.error("notification failed", { err: String(err) });
       }
-      log.info("notification dismissed", { choice: choice ?? "(none)" });
-    },
-    (err: unknown) => {
-      log.error("notification failed", { err: String(err) });
-    }
-  );
+    );
 }

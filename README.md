@@ -22,7 +22,7 @@ The full thing runs in your browser. Playground, converter, docs — all live. P
 
 ## VS Code extension ★★★★★
 
-![TypeDiagram VS Code extension with live SVG preview](docs/vscode-screenshot.png)
+![TypeDiagram VS Code extension with live SVG preview](https://typediagram.dev/vscode-screenshot.png)
 
 Live SVG preview, syntax highlighting, hover docs, and **PDF export** — right next to your schema. Right-click any `.md` file and pick **Export to PDF with typeDiagrams** to get a printable document with every ` ```typediagram ` fence rendered as a **vector** diagram (not a screenshot — zoom in, pixels stay sharp).
 

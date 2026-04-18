@@ -4,7 +4,7 @@
 // Separately walks the built .eleventy-out/ tree to assert every doc page actually ships
 // with highlighted code (the pipeline is wired correctly end-to-end for all pages).
 import { readdirSync, readFileSync, existsSync, statSync } from "node:fs";
-import { resolve, dirname, sep, relative } from "node:path";
+import { resolve, dirname, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import docs from "../eleventy/_data/docs.js";
@@ -18,7 +18,9 @@ const allDocs = docs as ReadonlyArray<Doc>;
 
 const byslug = (s: string): Doc => {
   const d = allDocs.find((x) => x.slug === s);
-  if (d === undefined) throw new Error(`missing doc: ${s}`);
+  if (d === undefined) {
+    throw new Error(`missing doc: ${s}`);
+  }
   return d;
 };
 

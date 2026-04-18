@@ -2,6 +2,8 @@
 
 **Type-safe diagrams and source code from one schema — live inside VS Code.** Syntax highlighting and a live SVG preview for the [typeDiagram](https://typediagram.dev) DSL.
 
+![TypeDiagram VS Code extension with live SVG preview](https://typediagram.dev/vscode-screenshot.png)
+
 ## Features
 
 - Syntax highlighting for `.td` and `.typediagram` files
