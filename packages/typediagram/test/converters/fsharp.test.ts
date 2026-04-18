@@ -266,58 +266,13 @@ alias Email = String
 
 describe("[CONV-FS-RT] F# round-trip TD -> F# -> TD", () => {
   it("losslessly round-trips the home-page example through F# (TD text preserved)", () => {
-    // Build the canonical printed form of the original TD source. This is
-    // the printer's canonical output — it will differ from HOME_PAGE_TD in
-    // whitespace/comments (printer drops them), but must be identical after
-    // the F# round-trip below.
+    // Round-trip: TD -> F# -> TD. Must be byte-for-byte identical to the
+    // original HOME_PAGE_TD source.
     const originalModel = unwrap(buildModel(unwrap(parse(HOME_PAGE_TD))));
-    const originalTd = printSource(originalModel);
-
-    // Round-trip: TD -> F# -> TD
     const fsCode = fsharp.toSource(originalModel);
     const roundTripModel = unwrap(fsharp.fromSource(fsCode));
     const roundTripTd = printSource(roundTripModel);
 
-    // The TD must be EXACTLY the same after the round-trip.
-    expect(roundTripTd).toBe(originalTd);
-
-    // Sanity assertions on the intermediate model: every decl survived with
-    // the same kind. If the equality above ever breaks, these pinpoint which
-    // decl was corrupted.
-    expect(roundTripModel.decls.map((d) => d.name)).toEqual(originalModel.decls.map((d) => d.name));
-    expect(roundTripModel.decls.map((d) => d.kind)).toEqual(originalModel.decls.map((d) => d.kind));
-
-    // Specific decls that stress different features (records with aligned
-    // fields, unions with unit + record variants, generic unions, aliases).
-    const names = roundTripModel.decls.map((d) => d.name);
-    expect(names).toContain("ChatRequest");
-    expect(names).toContain("ChatTurnInput");
-    expect(names).toContain("ToolResult");
-    expect(names).toContain("ToolResultContent");
-    expect(names).toContain("ContentItem");
-    expect(names).toContain("TextPart");
-    expect(names).toContain("UriPart");
-    expect(names).toContain("UriKind");
-    expect(names).toContain("Option");
-    expect(names).toContain("Email");
-
-    // ToolResultContent: mixed unit + record variants with Map/List generics.
-    const trc = roundTripModel.decls.find((d) => d.name === "ToolResultContent");
-    expect(trc?.kind).toBe("union");
-    const trcVariants = trc?.kind === "union" ? trc.variants : [];
-    expect(trcVariants.map((v) => v.name)).toEqual(["None", "Scalar", "Dict", "List"]);
-    expect(trcVariants[0]?.fields).toHaveLength(0);
-    expect(trcVariants[2]?.fields[0]?.type.name).toBe("Map");
-    expect(trcVariants[3]?.fields[0]?.type.name).toBe("List");
-
-    // Option<T>: generic union.
-    const opt = roundTripModel.decls.find((d) => d.name === "Option");
-    expect(opt?.kind).toBe("union");
-    expect(opt?.generics).toEqual(["T"]);
-
-    // Email: alias.
-    const email = roundTripModel.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(roundTripTd).toBe(HOME_PAGE_TD);
   });
 });
