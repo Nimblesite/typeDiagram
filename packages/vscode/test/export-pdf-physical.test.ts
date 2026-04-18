@@ -18,7 +18,17 @@ import { readFileSync, writeFileSync, statSync, mkdirSync, existsSync } from "no
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import PDFDocument from "pdfkit";
-import SVGtoPDF from "svg-to-pdfkit";
+// svg-to-pdfkit has no @types package — narrow its shape to what we actually call
+// so eslint's no-unsafe-call stops complaining about `any`.
+import SVGtoPDFUntyped from "svg-to-pdfkit";
+type SVGtoPDFFn = (
+  doc: PDFKit.PDFDocument,
+  svg: string,
+  x: number,
+  y: number,
+  options?: { width?: number; height?: number; assumePt?: boolean }
+) => void;
+const SVGtoPDF: SVGtoPDFFn = SVGtoPDFUntyped as unknown as SVGtoPDFFn;
 import { warmupSyncRender } from "typediagram-core";
 import { composeHtml, extractSvgs } from "../src/export-pdf.js";
 
