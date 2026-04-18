@@ -236,11 +236,11 @@ alias Email = String
     expect(output).toContain("name: str");
     expect(output).toContain("ok: bool");
 
-    // ContentItem — mixed union: dataclasses for payload variants, type alias
-    expect(output).toContain("class Text:");
+    // ContentItem — mixed union: dataclasses for payload variants (prefixed), type alias
+    expect(output).toContain("class ContentItemText:");
     expect(output).toContain("body: str");
     expect(output).toContain("format: str");
-    expect(output).toContain("class Image:");
+    expect(output).toContain("class ContentItemImage:");
     expect(output).toContain("url: str");
     expect(output).toContain("width: int");
     expect(output).toContain("ContentItem =");
@@ -293,5 +293,112 @@ union Color { Red\n Green\n Blue }
     const color = model2.decls.find((d) => d.name === "Color");
     expect(color?.kind).toBe("union");
     expect(color?.kind === "union" ? color.variants.length : 0).toBe(3);
+  });
+});
+
+describe("[CONV-PY-BUG-6] pydantic style emits BaseModel, not dataclass", () => {
+  it("emits pydantic.BaseModel subclasses when style=pydantic", () => {
+    const td = `
+type ChatRequest {
+  message: Option<String>
+  session_id: Option<String>
+  tags: List<String>
+  metadata: Map<String, Int>
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = python.toSource(model, { style: "pydantic" });
+
+    expect(out).toContain("from pydantic import BaseModel");
+    expect(out).toContain("from pydantic import Field");
+    expect(out).toContain("class ChatRequest(BaseModel):");
+    expect(out).not.toContain("@dataclass");
+    expect(out).toContain("message: str | None = None");
+    expect(out).toContain("session_id: str | None = None");
+    expect(out).toContain("tags: list[str] = Field(default_factory=list)");
+    expect(out).toContain("metadata: dict[str, int] = Field(default_factory=dict)");
+  });
+});
+
+describe("[CONV-PY-BUG-7] Any is imported when used", () => {
+  it("imports Any from typing when alias references Any", () => {
+    const td = `
+alias Json = Map<String, Any>
+
+type ToolCallOut {
+  arguments: Json
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = python.toSource(model);
+
+    expect(out).toContain("Any");
+    expect(out).toMatch(/from typing import[^\n]*\bAny\b/);
+  });
+
+  it("does not import Any when unused", () => {
+    const td = `
+type Simple {
+  name: String
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = python.toSource(model);
+    expect(out).not.toMatch(/from typing import[^\n]*\bAny\b/);
+  });
+});
+
+describe("[CONV-PY-BUG-8] union payload variants prefixed with parent name", () => {
+  it("prefixes payload variant class names with union name", () => {
+    const td = `
+union ContentItem {
+  Text  { part: String }
+  Url   { part: String }
+  Str   { value: String }
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = python.toSource(model);
+
+    expect(out).toContain("class ContentItemText:");
+    expect(out).toContain("class ContentItemUrl:");
+    expect(out).toContain("class ContentItemStr:");
+    expect(out).not.toMatch(/^class Text:/m);
+    expect(out).not.toMatch(/^class Url:/m);
+    expect(out).not.toMatch(/^class Str:/m);
+    expect(out).toContain("ContentItem = ContentItemText | ContentItemUrl | ContentItemStr");
+  });
+});
+
+describe("[CONV-PY-BUG-9] Optional fields default to None in dataclass", () => {
+  it("appends = None to Optional fields", () => {
+    const td = `
+type ChatRequest {
+  message:      Option<String>
+  session_id:   Option<String>
+  tool_results: Option<List<String>>
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = python.toSource(model);
+
+    expect(out).toContain("message: Optional[str] = None");
+    expect(out).toContain("session_id: Optional[str] = None");
+    expect(out).toContain("tool_results: Optional[list[str]] = None");
+  });
+
+  it("uses default_factory for List and Map required fields", () => {
+    const td = `
+type Req {
+  tags: List<String>
+  meta: Map<String, Int>
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = python.toSource(model);
+
+    expect(out).toContain("from dataclasses import dataclass, field");
+    expect(out).toContain("tags: list[str] = field(default_factory=list)");
+    expect(out).toContain("meta: dict[str, int] = field(default_factory=dict)");
   });
 });

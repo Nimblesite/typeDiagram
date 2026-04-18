@@ -273,3 +273,134 @@ alias Email = String
     expect(variants[2]?.name).toBe("Pending");
   });
 });
+
+describe("[CONV-CS-BUG-13] Option<T> renders as T? with #nullable enable", () => {
+  it("emits T? not Nullable<T> and adds #nullable enable", () => {
+    const td = `
+type UrlPart {
+  url: String
+  media_type: Option<String>
+  maybe_count: Option<Int>
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = csharp.toSource(model);
+
+    expect(out).toContain("#nullable enable");
+    expect(out).not.toContain("Nullable<");
+    expect(out).toMatch(/string\?\s/);
+    expect(out).toMatch(/int\?\s/);
+  });
+});
+
+describe("[CONV-CS-BUG-12] aliases inlined, no mid-file using directives, Any mapped to object", () => {
+  it("inlines aliases at emit time and maps Any to object", () => {
+    const td = `
+alias Uuid = String
+alias Json = Map<String, Any>
+alias ToolResultContent = Any
+
+type ToolResultIn {
+  id: Uuid
+  payload: Json
+  content: ToolResultContent
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = csharp.toSource(model);
+
+    expect(out).not.toContain("using Uuid =");
+    expect(out).not.toContain("using Json =");
+    expect(out).not.toContain("using ToolResultContent =");
+    expect(out).not.toMatch(/\bAny\b/);
+    expect(out).toMatch(/string\s+id/i);
+    expect(out).toMatch(/Dictionary<string,\s*object>/);
+    expect(out).toMatch(/\bobject\s+[A-Za-z]+/);
+  });
+
+  it("places any using directives at top of file, before namespace/types", () => {
+    const td = `
+type Req {
+  tags: List<String>
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = csharp.toSource(model);
+
+    const firstTypeIdx = out.search(/\b(public\s+(?:sealed\s+)?record|public\s+enum|public\s+interface)\b/);
+    const usingMatches = [...out.matchAll(/^using\s/gm)];
+    for (const u of usingMatches) {
+      expect(u.index ?? -1).toBeLessThan(firstTypeIdx);
+    }
+  });
+});
+
+describe("[CONV-CS-BUG-11] records use property-bag style with JsonPropertyName", () => {
+  it("emits PascalCase properties with JsonPropertyName on snake_case source", () => {
+    const td = `
+type ChatResponse {
+  response: String
+  session_id: String
+  conversation_id: String
+  tool_calls: List<String>
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = csharp.toSource(model);
+
+    expect(out).toContain("using System.Text.Json.Serialization;");
+    expect(out).toContain("public sealed record ChatResponse");
+    expect(out).toContain('[JsonPropertyName("response")]');
+    expect(out).toContain("public string Response { get; init; }");
+    expect(out).toContain('[JsonPropertyName("session_id")]');
+    expect(out).toContain("public string SessionId { get; init; }");
+    expect(out).toContain('[JsonPropertyName("conversation_id")]');
+    expect(out).toContain("public string ConversationId { get; init; }");
+    expect(out).toContain('[JsonPropertyName("tool_calls")]');
+    expect(out).toContain("public IReadOnlyList<string> ToolCalls { get; init; }");
+    expect(out).not.toMatch(/public record ChatResponse\(/);
+  });
+});
+
+describe("[CONV-CS-BUG-10] payload unions emit records per variant, not flat enum", () => {
+  it("emits one record per variant with a kind discriminator", () => {
+    const td = `
+type TextPart { text: String }
+type UrlPart { url: String }
+
+union ContentItem {
+  Text  { part: TextPart }
+  Url   { part: UrlPart }
+  Str   { value: String }
+  Num   { value: Float }
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = csharp.toSource(model);
+
+    expect(out).toContain("public interface IContentItem");
+    expect(out).toContain("public sealed record ContentItemText");
+    expect(out).toContain("public sealed record ContentItemUrl");
+    expect(out).toContain("public sealed record ContentItemStr");
+    expect(out).toContain("public sealed record ContentItemNum");
+    expect(out).toContain(": IContentItem");
+    expect(out).toContain('[JsonPropertyName("kind")]');
+    expect(out).toMatch(/Kind\s*\{\s*get;\s*init;\s*\}\s*=\s*"text"/);
+    expect(out).toMatch(/Kind\s*\{\s*get;\s*init;\s*\}\s*=\s*"url"/);
+    expect(out).toMatch(/TextPart\s+Part\s*\{\s*get;\s*init;\s*\}/);
+    expect(out).not.toContain("public enum ContentItem");
+  });
+
+  it("keeps bare unions (no payloads) as enum", () => {
+    const td = `
+union Color { Red\n Green\n Blue }
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = csharp.toSource(model);
+
+    expect(out).toContain("public enum Color");
+    expect(out).toContain("Red");
+    expect(out).toContain("Green");
+    expect(out).toContain("Blue");
+  });
+});
