@@ -1,6 +1,11 @@
 // [WEB-ELEVENTY-CONFIG] Eleventy builds HTML into .eleventy-out/; Vite consumes from there.
 import { pathToFileURL } from "node:url";
 
+// [WEB-BLOG-MARKDOWN] Dynamic import keeps the .ts path out of acorn's reach
+// (acorn parses this config file for --watch dependency scanning and can't read TS).
+const markedModuleUrl = new URL("./eleventy/markedInstance.ts", import.meta.url).href;
+const { mdToHtml } = await import(markedModuleUrl);
+
 export default function (eleventyConfig) {
   eleventyConfig.addDataExtension("ts", {
     parser: async (_contents, filePath) => {
@@ -8,6 +13,10 @@ export default function (eleventyConfig) {
       return mod.default;
     },
     read: false,
+  });
+
+  eleventyConfig.setLibrary("md", {
+    render: (content) => mdToHtml(content),
   });
 
   eleventyConfig.addFilter("isoDate", (d) => {

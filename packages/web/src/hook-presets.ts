@@ -24,14 +24,15 @@ const begin = (id: PresetId): string => `// --- preset:${id} ---`;
 const end = (id: PresetId): string => `// --- /preset:${id} ---`;
 
 const dropShadowSrc = `${begin("drop-shadow")}
-// Drop shadow behind every node. To COMPOSE with other presets, each hook
-// captures any previously-assigned hook and chains into it.
+// LOUD coloured glow behind every node — a bright cyan bloom with a big
+// offset + full opacity so it pops against a dark background. Chains onto
+// any existing defs/node hook.
 {
   const prevDefs = hooks.defs;
   hooks.defs = (ctx) => {
     const prev = prevDefs ? prevDefs(ctx) : undefined;
-    const mine = svg\`<filter id="td-preset-drop" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="1.5" dy="3" stdDeviation="2.5" flood-opacity="0.35"/>
+    const mine = svg\`<filter id="td-preset-drop" x="-40%" y="-40%" width="180%" height="180%">
+      <feDropShadow dx="8" dy="10" stdDeviation="6" flood-opacity="1" flood-color="#8ed5ff"/>
     </filter>\`;
     return prev ? svg\`\${prev}\${mine}\` : mine;
   };
@@ -44,7 +45,8 @@ const dropShadowSrc = `${begin("drop-shadow")}
 ${end("drop-shadow")}`;
 
 const fieldColorSrc = `${begin("field-color")}
-// Color-code rows by field name / type. Chains onto any existing row hook.
+// LOUD field accent: a thick coloured bar along the left edge of every
+// matching row. Chains onto any existing row hook.
 {
   const FIELD_COLORS = [
     [/^id\\b|Id\\b/, "#ffd400"],
@@ -59,7 +61,7 @@ const fieldColorSrc = `${begin("field-color")}
     const base = prevRow ? (prevRow(ctx, def) ?? def) : def;
     for (const [re, color] of FIELD_COLORS) {
       if (re.test(ctx.row.text)) {
-        return svg\`\${base}<rect x="\${ctx.x}" y="\${ctx.y}" width="3" height="\${ctx.height}" fill="\${color}"/>\`;
+        return svg\`\${base}<rect x="\${ctx.x}" y="\${ctx.y}" width="8" height="\${ctx.height}" fill="\${color}"/>\`;
       }
     }
     return prevRow ? base : undefined;
@@ -68,13 +70,14 @@ const fieldColorSrc = `${begin("field-color")}
 ${end("field-color")}`;
 
 const gridBgSrc = `${begin("grid-bg")}
-// Blueprint-style grid pattern painted under the whole diagram. Chains defs.
+// LOUD blueprint grid: thicker strokes in a saturated blue so the background
+// CLEARLY changes the moment this preset is on. Chains defs + background.
 {
   const prevDefs = hooks.defs;
   hooks.defs = (ctx) => {
     const prev = prevDefs ? prevDefs(ctx) : undefined;
-    const mine = svg\`<pattern id="td-preset-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(142,213,255,0.15)" stroke-width="0.5"/>
+    const mine = svg\`<pattern id="td-preset-grid" width="24" height="24" patternUnits="userSpaceOnUse">
+      <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#38bdf8" stroke-width="1.25" stroke-opacity="0.8"/>
     </pattern>\`;
     return prev ? svg\`\${prev}\${mine}\` : mine;
   };
@@ -88,7 +91,8 @@ const gridBgSrc = `${begin("grid-bg")}
 ${end("grid-bg")}`;
 
 const classesSrc = `${begin("classes")}
-// Add td-kind-* classes and a <style> block. Chains onto any existing node/post hooks.
+// LOUD class-based styling: saturated outlines on every node kind via a
+// post-injected <style> block so the effect is undeniable.
 {
   const prevNode = hooks.node;
   hooks.node = (ctx, def) => {
@@ -98,20 +102,27 @@ const classesSrc = `${begin("classes")}
   const prevPost = hooks.post;
   hooks.post = (ctx) => {
     const body = prevPost ? prevPost(ctx) : ctx.svg;
-    return svg\`\${body}<style>.td-kind-union{filter:brightness(1.05);}.td-kind-alias{opacity:0.92;}</style>\`;
+    return svg\`\${body}<style>
+      .td-kind-record rect:first-of-type{stroke:#38bdf8 !important;stroke-width:4 !important;}
+      .td-kind-union rect:first-of-type{stroke:#ff3bd4 !important;stroke-width:4 !important;filter:brightness(1.3);}
+      .td-kind-alias rect:first-of-type{stroke:#4ade80 !important;stroke-width:4 !important;}
+    </style>\`;
   };
 }
 ${end("classes")}`;
 
 const glowUnionSrc = `${begin("glow-union")}
-// Gaussian-blur glow around union nodes only. Conditional via ctx.isUnion.
+// LOUD union glow: a big gaussian bloom in magenta so union nodes clearly
+// pop. Conditional via ctx.isUnion so records/aliases are untouched.
 {
   const prevDefs = hooks.defs;
   hooks.defs = (ctx) => {
     const prev = prevDefs ? prevDefs(ctx) : undefined;
-    const mine = svg\`<filter id="td-preset-glow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="2.2" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    const mine = svg\`<filter id="td-preset-glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feFlood flood-color="#ff3bd4" flood-opacity="0.9" result="c"/>
+      <feComposite in="c" in2="b" operator="in" result="glow"/>
+      <feMerge><feMergeNode in="glow"/><feMergeNode in="SourceGraphic"/></feMerge>
     </filter>\`;
     return prev ? svg\`\${prev}\${mine}\` : mine;
   };

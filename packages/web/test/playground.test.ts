@@ -111,22 +111,22 @@ describe("[WEB-PLAYGROUND]", () => {
 
   // [WEB-PLAYGROUND-HOOKS-PREFILLED] The hooks textarea starts pre-filled with
   // a commented-out real code example the user can uncomment. No overlay.
-  it("hooks textarea is pre-populated with a SINGLE block-comment example on first mount", () => {
+  it("hooks textarea is pre-populated with a `//` header + a `/* … */` code block", () => {
     mountPlayground(container);
     const hooksEditor = container.querySelector<HTMLTextAreaElement>("#hooks-editor");
     expect(hooksEditor).not.toBeNull();
     const value = hooksEditor?.value ?? "";
     expect(value.length).toBeGreaterThan(0);
-    // Must use /* … */ so the user can delete two markers to activate the whole block,
-    // not chase `//` on every line.
-    expect(value).toContain("/*");
-    expect(value).toContain("*/");
-    // No line-comment slashes.
-    expect(value).not.toMatch(/^\s*\/\//m);
-    // Must reference a hook property so it's a real example.
-    expect(value).toMatch(/hooks\.(defs|node|row|edge|background|post)/);
-    // Must reference the hooks docs path so users can discover the full docs.
+    // Header lines are `//` prose so the docs link renders inline without triggering the block.
+    expect(value).toMatch(/^\s*\/\/.*Render hooks/m);
     expect(value).toContain("/docs/render-hooks.html");
+    // The hook CODE lives inside a /* … */ block so the user deletes two markers to activate it,
+    // instead of stripping `//` from every line.
+    const blockMatch = value.match(/\/\*([\s\S]*?)\*\//);
+    expect(blockMatch).not.toBeNull();
+    if (blockMatch === null) return;
+    const blockBody = blockMatch[1] ?? "";
+    expect(blockBody).toMatch(/hooks\.(defs|node|row|edge|background|post)/);
   });
 
   it("no overlay hint element is present — textarea IS the source of truth", () => {

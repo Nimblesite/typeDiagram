@@ -61,6 +61,9 @@
   /* — Motion — */
   --td-ease: 150ms ease-in-out;
 
+  --td-content-max: 1200px;
+  --td-wide-max: 1600px;
+
   color-scheme: dark;
 }
 
@@ -213,7 +216,7 @@ body {
 }
 
 .nav-inner {
-  max-width: 1600px;
+  max-width: var(--td-wide-max);
   margin: 0 auto;
   padding: 0 var(--td-space-xl);
   height: 56px;
@@ -293,7 +296,7 @@ body {
 
 .hero {
   padding: var(--td-space-4xl) var(--td-space-xl) var(--td-space-2xl);
-  max-width: 900px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
   text-align: center;
 }
@@ -331,7 +334,7 @@ body {
 }
 
 .playground-embed {
-  max-width: 1600px;
+  max-width: var(--td-wide-max);
   margin: 0 auto;
   border-radius: var(--td-radius-xl);
   border: 1px solid var(--td-border-card);
@@ -896,7 +899,7 @@ pre[class*="language-"] {
 }
 
 .features-inner {
-  max-width: 1200px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
 }
 
@@ -999,7 +1002,7 @@ pre[class*="language-"] {
    ========================================================================== */
 
 .cta-section {
-  max-width: 1200px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
   padding: 0 var(--td-space-xl) var(--td-space-4xl);
 }
@@ -1080,7 +1083,7 @@ pre[class*="language-"] {
 }
 
 .footer-inner {
-  max-width: 1600px;
+  max-width: var(--td-wide-max);
   margin: 0 auto;
   display: flex;
   align-items: center;
@@ -1204,7 +1207,7 @@ body {
 .docs-layout {
   display: grid;
   grid-template-columns: 256px 1fr;
-  max-width: 1440px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
   min-height: calc(100vh - 56px);
 }
@@ -1274,10 +1277,6 @@ body {
   line-height: 1.7;
   color: var(--td-on-surface);
   background: var(--td-surface);
-}
-
-.docs-content > * {
-  max-width: 896px;
 }
 
 .docs-content h1 {
@@ -1415,7 +1414,7 @@ body {
 .blog-index-main {
   flex-grow: 1;
   width: 100%;
-  max-width: 1200px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
   padding: var(--td-space-4xl) var(--td-space-xl);
 }
@@ -1568,7 +1567,7 @@ body {
 .post-main {
   flex-grow: 1;
   width: 100%;
-  max-width: 800px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
   padding: var(--td-space-4xl) var(--td-space-xl);
 }
@@ -1803,7 +1802,7 @@ body {
 
 .conv-header {
   padding: var(--td-space-2xl) var(--td-space-xl) var(--td-space-lg);
-  max-width: 900px;
+  max-width: var(--td-content-max);
   margin: 0 auto;
   text-align: center;
 }
@@ -1826,7 +1825,7 @@ body {
 
 .converter-mount {
   padding: 0 var(--td-space-xl) var(--td-space-2xl);
-  max-width: 1600px;
+  max-width: var(--td-wide-max);
   margin: 0 auto;
 }
 

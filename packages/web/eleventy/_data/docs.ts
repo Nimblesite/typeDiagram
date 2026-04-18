@@ -2,80 +2,13 @@
 import { readFileSync, readdirSync, existsSync, statSync } from "node:fs";
 import { resolve, dirname, relative, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Marked } from "marked";
-import Prism from "prismjs";
-import loadLanguages from "prismjs/components/index.js";
-import { highlight as highlightTd } from "../../src/highlight.js";
+import { mdToHtml } from "../markedInstance.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DOCS_DIR = resolve(__dirname, "../../../../docs/specs");
 const TYPEDOC_DIR = resolve(__dirname, "../../.typedoc-out");
 
-const TD_LANGS = new Set(["", "td", "typediagram"]);
-
-// [WEB-PRISM-LANGS] Preload grammars for every language we highlight.
-loadLanguages(["typescript", "rust", "yaml", "json", "bash", "python", "go", "csharp", "makefile"]);
-
-// Canonicalise markdown code-fence language identifiers to Prism's keys.
-const LANG_ALIAS: Record<string, string> = {
-  ts: "typescript",
-  tsx: "tsx",
-  js: "javascript",
-  javascript: "javascript",
-  typescript: "typescript",
-  rs: "rust",
-  rust: "rust",
-  yml: "yaml",
-  yaml: "yaml",
-  json: "json",
-  sh: "bash",
-  shell: "bash",
-  bash: "bash",
-  zsh: "bash",
-  py: "python",
-  python: "python",
-  go: "go",
-  cs: "csharp",
-  csharp: "csharp",
-  make: "makefile",
-  makefile: "makefile",
-  gitignore: "bash",
-};
-
-const escHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-const prismHighlight = (code: string, prismLang: string): string => {
-  const grammar = Prism.languages[prismLang];
-  if (grammar === undefined) {
-    return escHtml(code);
-  }
-  return Prism.highlight(code, grammar, prismLang);
-};
-
-const codeRenderer = ({ text, lang }: { text: string; lang?: string | null }): string => {
-  const key = (lang ?? "").toLowerCase();
-  if (TD_LANGS.has(key)) {
-    return `<pre class="language-typediagram"><code class="language-typediagram">${highlightTd(text)}</code></pre>`;
-  }
-  const prismLang = LANG_ALIAS[key];
-  if (prismLang === undefined) {
-    return `<pre><code>${escHtml(text)}</code></pre>`;
-  }
-  const cls = `language-${prismLang}`;
-  return `<pre class="${cls}"><code class="${cls}">${prismHighlight(text, prismLang)}</code></pre>`;
-};
-
-const markedInstance = new Marked({ renderer: { code: codeRenderer } });
-
 const toPosix = (p: string): string => p.split(sep).join("/");
-
-// TypeDoc emits relative links ending in .md — rewrite them to .html so the browser can follow.
-const rewriteMdLinks = (md: string): string =>
-  md.replace(/\]\(([^)]+\.md)(#[^)]*)?\)/g, (_m, path: string, hash?: string) => {
-    return `](${path.replace(/\.md$/, ".html")}${hash ?? ""})`;
-  });
-
-const mdToHtml = (md: string): string => markedInstance.parse(rewriteMdLinks(md)) as string;
 
 type DocEntry = { slug: string; label: string; title: string; html: string; isTopLevel: boolean };
 
