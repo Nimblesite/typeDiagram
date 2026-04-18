@@ -4,7 +4,7 @@
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web
+.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web clean-start
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -67,10 +67,13 @@ fmt:
 	@echo "==> Formatting (write)..."
 	npx prettier --write .
 
-## clean: Remove all build artifacts (dist, coverage, eleventy + typedoc output)
+## clean: Remove all build artifacts from every package (dist, per-package
+##        coverage, root coverage, eleventy + typedoc output).
 clean:
-	@echo "==> Cleaning..."
-	$(RM) packages/typediagram/dist packages/cli/dist packages/web/dist packages/vscode/dist coverage
+	@echo "==> Cleaning all packages..."
+	$(RM) packages/typediagram/dist packages/cli/dist packages/web/dist packages/vscode/dist
+	$(RM) packages/typediagram/coverage packages/cli/coverage packages/web/coverage packages/vscode/coverage
+	$(RM) coverage
 	$(RM) packages/web/.eleventy-out packages/web/.typedoc-out
 
 ## ci: full CI simulation. Fail-fast on every gate, in order:
@@ -140,3 +143,34 @@ dev-web:
 	npm run -w typediagram-core build
 	@echo "==> Starting web dev server (clean + eleventy --watch + vite)..."
 	npm run -w packages/web dev
+
+## clean-start: Full clean -> build -> dev. Use this when stale dist/ output
+##              from another package (e.g. typediagram-core) is being served
+##              by the web dev server and you need a guaranteed-fresh state.
+##              Also kills any process already bound to the Vite dev port
+##              (default 5173) so the new server can bind cleanly.
+clean-start:
+	@$(MAKE) _kill_dev_port
+	@$(MAKE) clean
+	@$(MAKE) build
+	@$(MAKE) dev
+
+# Vite dev server port. Kept here (not as an env var) so `make clean-start`
+# always targets the same port the dev server will bind to.
+DEV_PORT := 5173
+
+ifeq ($(OS),Windows_NT)
+_kill_dev_port:
+	@echo "==> Killing any process on port $(DEV_PORT)..."
+	@powershell -NoProfile -Command "Get-NetTCPConnection -LocalPort $(DEV_PORT) -State Listen -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $$_.OwningProcess -Force -ErrorAction SilentlyContinue }"
+else
+_kill_dev_port:
+	@echo "==> Killing any process on port $(DEV_PORT)..."
+	@PIDS=$$(lsof -ti tcp:$(DEV_PORT) 2>/dev/null || true); \
+	if [ -n "$$PIDS" ]; then \
+	  echo "  killing PIDs: $$PIDS"; \
+	  kill -9 $$PIDS 2>/dev/null || true; \
+	else \
+	  echo "  port $(DEV_PORT) is free"; \
+	fi
+endif

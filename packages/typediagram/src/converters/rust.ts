@@ -43,10 +43,31 @@ const RS_TO_TD: Record<string, string> = {
 
 // ── From Rust ──
 
-const STRUCT_RE = /(?:pub\s+)?struct\s+(\w+)(?:<([^>]+)>)?\s*\{([^}]*)}/g;
-const ENUM_RE = /(?:pub\s+)?enum\s+(\w+)(?:<([^>]+)>)?\s*\{([^}]*)}/g;
+// Header-only regexes: capture `[pub] struct Name<Gens> {` but NOT the body.
+// The body is extracted below with a brace-balanced scan so nested `{}`
+// (struct-style enum variants) are captured correctly.
+const STRUCT_HEAD_RE = /(?:pub\s+)?struct\s+(\w+)(?:<([^>]+)>)?\s*\{/g;
+const ENUM_HEAD_RE = /(?:pub\s+)?enum\s+(\w+)(?:<([^>]+)>)?\s*\{/g;
 const TYPE_ALIAS_RE = /(?:pub\s+)?type\s+(\w+)(?:<([^>]+)>)?\s*=\s*([^;]+);/g;
 const FIELD_RE = /(?:pub\s+)?(\w+)\s*:\s*(.+)/;
+
+/** Given a position just past an opening `{`, return the contents up to the
+ *  matching `}`, respecting nesting. Returns null if no matching brace. */
+const extractBracedBody = (source: string, startIdx: number): string | null => {
+  let depth = 1;
+  for (let i = startIdx; i < source.length; i++) {
+    const c = source.charAt(i);
+    if (c === "{") {
+      depth += 1;
+    } else if (c === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return source.slice(startIdx, i);
+      }
+    }
+  }
+  return null;
+};
 
 const splitGenericArgs = (s: string): string[] => {
   const parts: string[] = [];
@@ -80,9 +101,29 @@ const mapRsType = (t: string): string => {
   return RS_TO_TD[cleaned] ?? cleaned;
 };
 
+// Split a struct/variant body on commas, respecting angle-bracket and brace
+// depth so `HashMap<String, String>` is not mis-split.
+const splitRsFieldList = (body: string): string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body.charAt(i);
+    if (c === "<" || c === "{" || c === "(") {
+      depth += 1;
+    } else if (c === ">" || c === "}" || c === ")") {
+      depth -= 1;
+    } else if (c === "," && depth === 0) {
+      parts.push(body.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  const last = body.slice(start).trim();
+  return last.length > 0 ? [...parts, last] : parts;
+};
+
 const parseRsFields = (body: string) =>
-  body
-    .split(",")
+  splitRsFieldList(body)
     .map((l) => l.trim())
     .filter((l) => l.length > 0 && !l.startsWith("//"))
     .map((l) => {
@@ -154,11 +195,15 @@ const fromRust = (source: string): Result<Model, Diagnostic[]> => {
   const builder = new ModelBuilder();
   let found = false;
 
-  STRUCT_RE.lastIndex = 0;
+  STRUCT_HEAD_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = STRUCT_RE.exec(source)) !== null) {
-    const [, name, gens, body] = m;
-    if (name === undefined || body === undefined) {
+  while ((m = STRUCT_HEAD_RE.exec(source)) !== null) {
+    const [, name, gens] = m;
+    if (name === undefined) {
+      continue;
+    }
+    const body = extractBracedBody(source, m.index + m[0].length);
+    if (body === null) {
       continue;
     }
     found = true;
@@ -166,10 +211,14 @@ const fromRust = (source: string): Result<Model, Diagnostic[]> => {
     builder.add(record(name, fields, rsGenerics(gens)));
   }
 
-  ENUM_RE.lastIndex = 0;
-  while ((m = ENUM_RE.exec(source)) !== null) {
-    const [, name, gens, body] = m;
-    if (name === undefined || body === undefined) {
+  ENUM_HEAD_RE.lastIndex = 0;
+  while ((m = ENUM_HEAD_RE.exec(source)) !== null) {
+    const [, name, gens] = m;
+    if (name === undefined) {
+      continue;
+    }
+    const body = extractBracedBody(source, m.index + m[0].length);
+    if (body === null) {
       continue;
     }
     found = true;
