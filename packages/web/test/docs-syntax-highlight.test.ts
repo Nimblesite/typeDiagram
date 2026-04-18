@@ -33,11 +33,8 @@ import loadLanguages from "prismjs/components/index.js";
 // Reuse the same renderer wiring as the data file to guarantee parity.
 loadLanguages(["typescript", "rust", "yaml", "json", "bash", "python", "go", "csharp", "makefile"]);
 
-const fenced = (lang: string, body: string) => "```" + lang + "\n" + body + "\n```\n";
-
 const rendererFromData = async () => {
-  const mod = await import("../eleventy/_data/docs.js");
-  return mod; // just to ensure module initialised
+  await import("../eleventy/_data/docs.js");
 };
 
 describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
@@ -95,6 +92,9 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
         shell: "bash",
       };
       const prismLang = ALIAS[lang];
+      if (prismLang === undefined) {
+        throw new Error(`no alias for ${lang}`);
+      }
       const grammar = Prism.languages[prismLang];
       expect(grammar, `grammar for ${prismLang}`).toBeDefined();
       const html = `<pre class="language-${prismLang}"><code class="language-${prismLang}">${
@@ -107,7 +107,7 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
       expect(html).toMatch(/<span class="token/);
     });
 
-    it("unknown language falls back to escaped HTML with no tokens", async () => {
+    it("unknown language falls back to escaped HTML with no tokens", () => {
       const md = new Marked();
       const html = md.parse("```brainfuck\n+++\n```\n") as string;
       expect(html).not.toMatch(/class="token/);
@@ -193,21 +193,31 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
     it.each(handwrittenSlugs)("%s: fenced blocks produce Prism (or typediagram) token spans", (slug) => {
       const doc = byslug(slug);
       const srcMd = readFileSync(resolve(DOCS_DIR, `${slug}.md`), "utf-8");
-      const fenced = (srcMd.match(/```[a-z]*/g) ?? []).filter((f) => f !== "```").length;
-      if (fenced === 0) return; // page has no code — nothing to assert
+      const fencedCount = (srcMd.match(/```[a-z]*/g) ?? []).filter((f) => f !== "```").length;
+      if (fencedCount === 0) {
+        return;
+      }
       const prismSpans = (doc.html.match(/<span class="token/g) ?? []).length;
       const tdSpans = (doc.html.match(/<span class="hl-/g) ?? []).length;
-      expect(prismSpans + tdSpans, `${slug} had ${fenced} fenced blocks but no highlighting spans`).toBeGreaterThan(0);
+      expect(
+        prismSpans + tdSpans,
+        `${slug} had ${String(fencedCount)} fenced blocks but no highlighting spans`
+      ).toBeGreaterThan(0);
     });
   });
 
   describe("built .eleventy-out tree ships the highlighting", () => {
     const walkHtml = (dir: string, acc: string[] = []): string[] => {
-      if (!existsSync(dir)) return acc;
+      if (!existsSync(dir)) {
+        return acc;
+      }
       for (const name of readdirSync(dir)) {
         const full = resolve(dir, name);
-        if (statSync(full).isDirectory()) walkHtml(full, acc);
-        else if (name.endsWith(".html")) acc.push(full);
+        if (statSync(full).isDirectory()) {
+          walkHtml(full, acc);
+        } else if (name.endsWith(".html")) {
+          acc.push(full);
+        }
       }
       return acc;
     };
@@ -222,7 +232,9 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
       const html = readFileSync(path, "utf-8");
       for (const cls of ["language-rust", "language-yaml", "language-json", "language-bash", "language-typescript"]) {
         // typescript may be absent if the doc has no TS fence; rust/yaml/json/bash must be present.
-        if (cls === "language-typescript") continue;
+        if (cls === "language-typescript") {
+          continue;
+        }
         expect(html, `${cls} missing from built page`).toContain(cls);
       }
       // Loads of tokens, not just a handful

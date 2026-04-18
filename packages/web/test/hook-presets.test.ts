@@ -127,13 +127,15 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
       const svgOut = await compileAndRender(["drop-shadow"]);
       const filterDef = svgOut.match(/<filter id="td-preset-drop"[^>]*>[\s\S]*?<feDropShadow ([^/]+)\/>/);
       expect(filterDef).not.toBeNull();
-      if (filterDef === null) return;
+      if (filterDef === null) {
+        return;
+      }
       const attrs = filterDef[1] ?? "";
-      const dx = parseFloat((attrs.match(/dx="(-?[\d.]+)"/) ?? [, "0"])[1] ?? "0");
-      const dy = parseFloat((attrs.match(/dy="(-?[\d.]+)"/) ?? [, "0"])[1] ?? "0");
-      const stdDev = parseFloat((attrs.match(/stdDeviation="(-?[\d.]+)"/) ?? [, "0"])[1] ?? "0");
-      const opacity = parseFloat((attrs.match(/flood-opacity="(-?[\d.]+)"/) ?? [, "0"])[1] ?? "0");
-      const floodColor = (attrs.match(/flood-color="([^"]+)"/) ?? [, ""])[1] ?? "";
+      const dx = parseFloat((attrs.match(/dx="(-?[\d.]+)"/) ?? ["", "0"])[1] ?? "0");
+      const dy = parseFloat((attrs.match(/dy="(-?[\d.]+)"/) ?? ["", "0"])[1] ?? "0");
+      const stdDev = parseFloat((attrs.match(/stdDeviation="(-?[\d.]+)"/) ?? ["", "0"])[1] ?? "0");
+      const opacity = parseFloat((attrs.match(/flood-opacity="(-?[\d.]+)"/) ?? ["", "0"])[1] ?? "0");
+      const floodColor = (attrs.match(/flood-color="([^"]+)"/) ?? ["", ""])[1] ?? "";
       expect(Math.abs(dx) + Math.abs(dy) + stdDev).toBeGreaterThan(12);
       expect(opacity).toBeGreaterThanOrEqual(0.85);
       // Black shadow disappears on a dark background — must be a bright colour.
@@ -159,16 +161,20 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
       const svgOut = await compileAndRender(["grid-bg"]);
       const bgRect = svgOut.match(/<rect[^>]*fill="url\(#td-preset-grid\)"[^>]*\/>/);
       expect(bgRect).not.toBeNull();
-      if (bgRect === null) return;
+      if (bgRect === null) {
+        return;
+      }
       const tag = bgRect[0];
-      const w = parseFloat((tag.match(/width="([\d.]+)"/) ?? [, "0"])[1] ?? "0");
-      const h = parseFloat((tag.match(/height="([\d.]+)"/) ?? [, "0"])[1] ?? "0");
+      const w = parseFloat((tag.match(/width="([\d.]+)"/) ?? ["", "0"])[1] ?? "0");
+      const h = parseFloat((tag.match(/height="([\d.]+)"/) ?? ["", "0"])[1] ?? "0");
       expect(w).toBeGreaterThan(200);
       expect(h).toBeGreaterThan(200);
       // And the pattern stroke must be visible (not near-transparent).
       const pattern = svgOut.match(/<pattern id="td-preset-grid"[\s\S]*?<\/pattern>/);
       expect(pattern).not.toBeNull();
-      if (pattern === null) return;
+      if (pattern === null) {
+        return;
+      }
       const strokeMatch = pattern[0].match(/stroke="([^"]+)"/);
       expect(strokeMatch).not.toBeNull();
       const stroke = strokeMatch?.[1] ?? "";
@@ -184,8 +190,10 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
       const svgOut = await compileAndRender(["field-color"]);
       const rect = svgOut.match(/<rect[^>]*fill="#ffd400"[^>]*\/>/);
       expect(rect).not.toBeNull();
-      if (rect === null) return;
-      const width = parseFloat((rect[0].match(/width="([\d.]+)"/) ?? [, "0"])[1] ?? "0");
+      if (rect === null) {
+        return;
+      }
+      const width = parseFloat((rect[0].match(/width="([\d.]+)"/) ?? ["", "0"])[1] ?? "0");
       expect(width).toBeGreaterThanOrEqual(6);
     });
 
@@ -193,7 +201,9 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
       const svgOut = await compileAndRender(["glow-union"]);
       const blur = svgOut.match(/<feGaussianBlur[^>]*stdDeviation="([\d.]+)"/);
       expect(blur).not.toBeNull();
-      if (blur === null) return;
+      if (blur === null) {
+        return;
+      }
       const stdDev = parseFloat(blur[1] ?? "0");
       expect(stdDev).toBeGreaterThanOrEqual(4);
     });
@@ -202,7 +212,9 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
       const svgOut = await compileAndRender(["classes"]);
       const styleBlock = svgOut.match(/<style>([\s\S]*?)<\/style>/);
       expect(styleBlock).not.toBeNull();
-      if (styleBlock === null) return;
+      if (styleBlock === null) {
+        return;
+      }
       const css = styleBlock[1] ?? "";
       // Either brightness(1.2+) or a saturated outline/background — anything OBVIOUS.
       const brightness = css.match(/brightness\(([\d.]+)\)/);

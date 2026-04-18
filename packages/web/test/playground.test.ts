@@ -124,7 +124,9 @@ describe("[WEB-PLAYGROUND]", () => {
     // instead of stripping `//` from every line.
     const blockMatch = value.match(/\/\*([\s\S]*?)\*\//);
     expect(blockMatch).not.toBeNull();
-    if (blockMatch === null) return;
+    if (blockMatch === null) {
+      return;
+    }
     const blockBody = blockMatch[1] ?? "";
     expect(blockBody).toMatch(/hooks\.(defs|node|row|edge|background|post)/);
   });
