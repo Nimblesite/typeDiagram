@@ -67,35 +67,7 @@ const LANG_LABELS: Record<SupportedLang, string> = {
 
 const LANGUAGES: readonly SupportedLang[] = ["typescript", "rust", "python", "go", "csharp", "fsharp"];
 
-const TD_STORAGE_KEY = "td-conv-td";
-const LANG_STORAGE_KEY = (lang: SupportedLang): string => `td-conv-lang-${lang}`;
-
 const DEFAULT_LANG: SupportedLang = "typescript";
-
-const readConvStorage = (key: string): string | null => {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-};
-
-const writeConvStorage = (key: string, value: string): void => {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // localStorage unavailable or full — silently skip.
-  }
-};
-
-const loadEditorContent = (lang: SupportedLang, isFlipped: boolean): string => {
-  const key = isFlipped ? LANG_STORAGE_KEY(lang) : TD_STORAGE_KEY;
-  const saved = readConvStorage(key);
-  if (saved !== null) {
-    return saved;
-  }
-  return isFlipped ? "" : TD_SAMPLE;
-};
 
 const buildDom = (container: HTMLElement, initialLang: SupportedLang) => {
   container.innerHTML = `
@@ -190,6 +162,10 @@ export const mountConverter = (container: HTMLElement) => {
   // flipped = false: TD editor on left, language output on right (default)
   // flipped = true:  language editor on left, TD output on right
   let flipped = false;
+  // Last-known TD source. Starts as the sample; overwritten whenever the TD
+  // side (editor when unflipped, output when flipped) is updated. Used to
+  // re-render when the user switches language while in flipped mode.
+  let lastTdSource = TD_SAMPLE;
 
   const {
     langTabs,
@@ -229,11 +205,16 @@ export const mountConverter = (container: HTMLElement) => {
   };
 
   const run = async () => {
-    const result = flipped
-      ? await convertSource(editor.value, currentLang)
-      : await convertFromTd(editor.value, currentLang);
-
-    tdCode.innerHTML = flipped ? highlight(result.tdSource) : highlightLang(result.tdSource, currentLang);
+    if (flipped) {
+      const result = await convertSource(editor.value, currentLang);
+      tdCode.innerHTML = highlight(result.tdSource);
+      lastTdSource = result.tdSource;
+      setViewportContent(preview, result.svgHtml);
+      return;
+    }
+    const result = await convertFromTd(editor.value, currentLang);
+    tdCode.innerHTML = highlightLang(result.tdSource, currentLang);
+    lastTdSource = editor.value;
     setViewportContent(preview, result.svgHtml);
   };
 
@@ -241,15 +222,22 @@ export const mountConverter = (container: HTMLElement) => {
     void run();
   }, 150);
 
-  editor.value = loadEditorContent(currentLang, flipped);
+  editor.value = TD_SAMPLE;
   syncHighlight?.();
   updateLabels();
   editor.addEventListener("input", () => {
-    const key = flipped ? LANG_STORAGE_KEY(currentLang) : TD_STORAGE_KEY;
-    writeConvStorage(key, editor.value);
     debounced();
     syncHighlight?.();
   });
+
+  // Produce language source from the last known TD source (used when
+  // switching language while flipped, so the editor always has fresh content).
+  const seedLanguageEditor = async () => {
+    const result = await convertFromTd(lastTdSource, currentLang);
+    editor.value = result.tdSource;
+    syncHighlight?.();
+    await run();
+  };
 
   langTabs.addEventListener("click", (e) => {
     const btn = (e.target as HTMLElement).closest<HTMLButtonElement>("[data-lang]");
@@ -260,18 +248,26 @@ export const mountConverter = (container: HTMLElement) => {
     const lang = btn.dataset["lang"] as SupportedLang;
     currentLang = lang;
     langTabs.querySelectorAll(".conv-lang-tab").forEach((t) => t.classList.toggle("conv-lang-tab--active", t === btn));
-    if (flipped) {
-      editor.value = loadEditorContent(currentLang, flipped);
-    }
     updateLabels();
+    if (flipped) {
+      void seedLanguageEditor();
+      return;
+    }
     syncHighlight?.();
     void run();
   });
 
   flipBtn.addEventListener("click", () => {
     flipped = !flipped;
-    editor.value = loadEditorContent(currentLang, flipped);
     updateLabels();
+    if (flipped) {
+      // Flipping to language-editor mode: seed with the generated language
+      // source derived from the current TD source.
+      void seedLanguageEditor();
+      return;
+    }
+    // Flipping back to TD-editor mode: restore the last known TD source.
+    editor.value = lastTdSource;
     syncHighlight?.();
     void run();
   });

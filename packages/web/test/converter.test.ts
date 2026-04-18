@@ -21,7 +21,6 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    localStorage.clear();
     container = document.createElement("div");
     document.body.appendChild(container);
   });
@@ -190,8 +189,9 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     expect(convertSource).toHaveBeenCalled();
   });
 
-  it("clears the editor when flipping to language mode with no saved content", () => {
+  it("seeds the editor with the generated language source when flipping (no saved content)", async () => {
     mountConverter(container);
+    await new Promise((r) => setTimeout(r, 10));
 
     const flipBtn = container.querySelector<HTMLButtonElement>("#conv-flip");
     expect(flipBtn).not.toBeNull();
@@ -199,9 +199,58 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
       return;
     }
     flipBtn.click();
+    await new Promise((r) => setTimeout(r, 10));
 
     const editor = container.querySelector<HTMLTextAreaElement>("#conv-editor");
     expect(editor).not.toBeNull();
-    expect(editor?.value).toBe("");
+    // The mocked convertFromTd returns this TS source; after flipping, the
+    // editor should be seeded with it rather than being cleared to empty.
+    expect(editor?.value).toBe("export interface Foo {\n  name: string;\n}\n");
+  });
+
+  it("after tapping Rust then flip, all three panels show generated content", async () => {
+    // Steps from bug report:
+    //   1. Tap Rust
+    //   2. Tap flip
+    // Expected: editor, output, and diagram panels all have generated content.
+    mountConverter(container);
+    await new Promise((r) => setTimeout(r, 10));
+
+    const rustTab = container.querySelector<HTMLButtonElement>('[data-lang="rust"]');
+    expect(rustTab).not.toBeNull();
+    if (rustTab === null) {
+      return;
+    }
+    rustTab.click();
+    await new Promise((r) => setTimeout(r, 10));
+
+    const flipBtn = container.querySelector<HTMLButtonElement>("#conv-flip");
+    expect(flipBtn).not.toBeNull();
+    if (flipBtn === null) {
+      return;
+    }
+    flipBtn.click();
+    await new Promise((r) => setTimeout(r, 10));
+
+    // Panel 1: the editor (left side, now in flipped/language mode) must contain
+    // the generated language source — NOT be empty and NOT trigger a
+    // "No Rust type definitions found" error.
+    const editor = container.querySelector<HTMLTextAreaElement>("#conv-editor");
+    expect(editor).not.toBeNull();
+    expect(editor?.value.length).toBeGreaterThan(0);
+
+    // Panel 2: the right-side output must show typeDiagram source derived from
+    // the editor content (via convertSource, since we're flipped).
+    expect(convertSource).toHaveBeenCalled();
+    const tdOutput = container.querySelector("#conv-td code");
+    expect(tdOutput).not.toBeNull();
+    expect(tdOutput?.textContent?.length ?? 0).toBeGreaterThan(0);
+    expect(tdOutput?.textContent).toContain("typeDiagram");
+
+    // Panel 3: the diagram preview must contain an SVG, not an error message.
+    const preview = container.querySelector("#conv-preview");
+    expect(preview).not.toBeNull();
+    expect(preview?.innerHTML ?? "").toContain("<svg");
+    expect(preview?.textContent ?? "").not.toContain("No Rust type definitions found");
   });
 });
