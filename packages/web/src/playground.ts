@@ -13,6 +13,7 @@ import { initEditorZoom } from "./editor-zoom.js";
 import { createZoomControls } from "./zoom-controls.js";
 import { evalHooks } from "./eval-hooks.js";
 import { PRESETS, togglePresetInCode, presetsInCode, type PresetId } from "./hook-presets.js";
+import { initJsHighlight } from "./highlight-js.js";
 
 const INITIAL_SOURCE = `typeDiagram
 
@@ -78,19 +79,6 @@ union Option<T> {
 alias Email = String
 `;
 
-const HOOKS_PLACEHOLDER = `// Optional render hooks. Write plain JS — in scope:
-//   svg   — tagged template for safe SVG fragments
-//   raw   — wrap a trusted raw SVG string (bypasses escaping)
-//   hooks — assign your hook functions onto this object
-//
-// Example:
-//
-// hooks.defs = () => svg\`<filter id="drop"><feDropShadow dx="1" dy="2" stdDeviation="2"/></filter>\`;
-// hooks.node = (ctx, def) => svg\`<g filter="url(#drop)">\${def}</g>\`;
-//
-// Leave this empty to render with NO hooks.
-`;
-
 const buildDom = (container: HTMLElement) => {
   container.classList.add("playground");
   container.innerHTML = `
@@ -104,7 +92,9 @@ const buildDom = (container: HTMLElement) => {
         <textarea id="editor" spellcheck="false" autocomplete="off"></textarea>
       </div>
       <div class="editor-wrap editor-wrap--hidden" data-editor="hooks">
-        <textarea id="hooks-editor" spellcheck="false" autocomplete="off" placeholder="${HOOKS_PLACEHOLDER.replace(/"/g, "&quot;")}"></textarea>
+        <pre class="editor-backdrop" id="hooks-backdrop" aria-hidden="true"><code></code></pre>
+        <textarea id="hooks-editor" spellcheck="false" autocomplete="off"></textarea>
+        <div class="hooks-empty-hint" id="hooks-empty-hint">Tap a <b>chip</b> below to paste an example. <a href="/docs/render-hooks/">hooks docs →</a></div>
         <div class="hooks-toolbar" id="hooks-toolbar"></div>
         <div class="hooks-diag" id="hooks-diag" hidden></div>
       </div>
@@ -125,6 +115,8 @@ const buildDom = (container: HTMLElement) => {
   return {
     editor: q("#editor") as HTMLTextAreaElement,
     hooksEditor: q("#hooks-editor") as HTMLTextAreaElement,
+    hooksBackdrop: q("#hooks-backdrop") as HTMLElement,
+    hooksEmptyHint: q("#hooks-empty-hint") as HTMLElement,
     hooksToolbar: q("#hooks-toolbar") as HTMLElement,
     hooksDiag: q("#hooks-diag") as HTMLElement,
     hooksBadge: q("#hooks-badge") as HTMLElement,
@@ -176,7 +168,19 @@ const activateTab = (tabId: "source" | "hooks", refs: ReturnType<typeof buildDom
 
 export const mountPlayground = (container: HTMLElement) => {
   const refs = buildDom(container);
-  const { editor, hooksEditor, hooksToolbar, hooksDiag, hooksBadge, preview, splitter, backdrop, editorWrap } = refs;
+  const {
+    editor,
+    hooksEditor,
+    hooksBackdrop,
+    hooksEmptyHint,
+    hooksToolbar,
+    hooksDiag,
+    hooksBadge,
+    preview,
+    splitter,
+    backdrop,
+    editorWrap,
+  } = refs;
   initSplitter(container, splitter);
   const vp = createViewport(preview);
   createZoomControls(preview, vp);
@@ -184,13 +188,21 @@ export const mountPlayground = (container: HTMLElement) => {
   editor.value = INITIAL_SOURCE;
   initHighlight(editor, backdrop);
   initEditorZoom(editorWrap, editor, backdrop);
+  initJsHighlight(hooksEditor, hooksBackdrop);
+
+  const syncEmptyHint = () => {
+    hooksEmptyHint.hidden = hooksEditor.value.trim().length > 0;
+  };
+  syncEmptyHint();
 
   buildPresetButtons(
     hooksToolbar,
     () => hooksEditor.value,
     (next) => {
       hooksEditor.value = next;
+      hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
       syncPresetButtons(hooksToolbar, next);
+      syncEmptyHint();
       void run();
     }
   );
@@ -223,6 +235,7 @@ export const mountPlayground = (container: HTMLElement) => {
   editor.addEventListener("input", debounced);
   hooksEditor.addEventListener("input", () => {
     syncPresetButtons(hooksToolbar, hooksEditor.value);
+    syncEmptyHint();
     debounced();
   });
   for (const tab of refs.tabs) {

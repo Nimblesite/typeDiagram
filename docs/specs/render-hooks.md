@@ -31,7 +31,7 @@ Six phases, executed in this order for each `renderSvg` call:
 
 **Ordering rationale**: `defs` first so subsequent phases can reference gradient/filter/pattern IDs. `background` after `defs` and before nodes so grid backgrounds / watermarks render underneath. `post` last so it can wrap the entire output (e.g. inject `<style>`, add a root `<g transform>`).
 
-**`node` vs `row`**: if a `node` hook returns a value, `row` hooks for that node are NOT called — the `node` hook owns the whole node subtree. This keeps composition predictable (no half-overridden nodes).
+**`node` vs `row`**: row hooks always run FIRST, per row. The `def` passed to a `node` hook is the full default node WITH row-hook output baked in. A `node` hook that wraps `def` preserves row effects automatically; a `node` hook that returns a completely new `<g>` discards them — that is the user's explicit choice, visible in their code. Rationale: this makes preset composition work correctly (e.g. a `field-color` row hook and a `drop-shadow` node hook stack without interference), and is what users expect from "decorate the default".
 
 ## Context types
 

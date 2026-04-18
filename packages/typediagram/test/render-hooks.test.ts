@@ -176,8 +176,8 @@ describe("[HOOK-TEST-NODE-WRAPS-DEFAULT] node hook wraps default", () => {
   });
 });
 
-describe("[HOOK-TEST-ROW-SKIP-WHEN-NODE] row hook not called when node overrides", () => {
-  it("row hook is skipped for any node whose node hook returned a value", async () => {
+describe("[HOOK-TEST-ROW-ALWAYS-FIRST] row hooks always run and feed their output into the node hook's `def`", () => {
+  it("row hook fires for EVERY node including any whose node hook returns a value", async () => {
     const g = await graphFor(SMALL_EXAMPLE);
     let rowCallsForUser = 0;
     let rowCallsForOthers = 0;
@@ -199,8 +199,26 @@ describe("[HOOK-TEST-ROW-SKIP-WHEN-NODE] row hook not called when node overrides
         },
       },
     });
-    expect(rowCallsForUser).toBe(0);
+    // User has rows; row hook MUST have been called for each of them.
+    expect(rowCallsForUser).toBeGreaterThan(0);
     expect(rowCallsForOthers).toBeGreaterThan(0);
+  });
+
+  it("node hook's `def` parameter reflects row-hook transformations", async () => {
+    const g = await graphFor(SMALL_EXAMPLE);
+    let sawRowMarkerInDef = false;
+    renderSvg(g, {
+      hooks: {
+        row: (_ctx, def) => svg`${def}<rect data-row-marker="1"/>`,
+        node: (_ctx, def) => {
+          if (def.value.includes(`data-row-marker="1"`)) {
+            sawRowMarkerInDef = true;
+          }
+          return undefined;
+        },
+      },
+    });
+    expect(sawRowMarkerInDef).toBe(true);
   });
 });
 

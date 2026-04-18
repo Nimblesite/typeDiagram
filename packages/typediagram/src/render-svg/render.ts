@@ -166,27 +166,20 @@ function buildNodeCtx(n: NodeBox, ctx: RenderCtx, geo: NodeGeometry): NodeCtx {
 function renderNodeWithHook(n: NodeBox, ctx: RenderCtx): SafeSvg {
   const geo = nodeGeometry(n, ctx);
   const nodeCtx = buildNodeCtx(n, ctx, geo);
-  // [HOOK-TEST-ROW-SKIP-WHEN-NODE] When a node hook is present, first build a
-  // default WITHOUT invoking row hooks — if the node hook replaces the node,
-  // row hooks must not fire. If the node hook returns undefined, re-render rows
-  // with row hooks enabled.
+  // [HOOK-NODE-ROW-COMPOSE] Row hooks always run first, so the `def` passed to
+  // the node hook already reflects any per-row customizations. A node hook
+  // that wraps `def` preserves those row effects. A node hook that returns a
+  // completely new <g> discards them — that is the user's decision, made
+  // visible by the code they wrote.
+  const defaultWithRowHooks = renderDefaultNode(n, ctx, geo, nodeCtx, true);
   const nodeHook = ctx.hooks?.node;
   if (nodeHook === undefined) {
-    return renderDefaultNode(n, ctx, geo, nodeCtx, true);
+    return defaultWithRowHooks;
   }
-  const defaultNoRowHooks = renderDefaultNode(n, ctx, geo, nodeCtx, false);
-  const { overridden, svg: out } = invokeHook<NodeCtx>(
-    nodeHook,
-    nodeCtx,
-    defaultNoRowHooks,
-    "node",
-    ctx.hooks?.onError,
-    { nodeId: n.id }
-  );
-  if (overridden) {
-    return out;
-  }
-  return renderDefaultNode(n, ctx, geo, nodeCtx, true);
+  const { svg: out } = invokeHook<NodeCtx>(nodeHook, nodeCtx, defaultWithRowHooks, "node", ctx.hooks?.onError, {
+    nodeId: n.id,
+  });
+  return out;
 }
 
 function renderDefaultNode(

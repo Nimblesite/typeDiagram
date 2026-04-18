@@ -421,22 +421,69 @@ body {
 .editor-wrap--hidden {
   display: none;
 }
+#hooks-backdrop,
 #hooks-editor {
   margin: 0;
   padding: var(--td-space-lg) var(--td-space-lg) 44px;
-  width: 100%;
-  height: 100%;
   font-family: var(--td-font-mono);
   font-size: var(--td-size-code);
   line-height: 1.6;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  border: 0;
+  tab-size: 2;
+}
+#hooks-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: auto;
   color: var(--td-on-surface);
   background: var(--td-surface-low);
-  border: 0;
+  pointer-events: none;
+}
+#hooks-backdrop code {
+  display: block;
+  font: inherit;
+  color: inherit;
+}
+#hooks-editor {
+  position: relative;
+  width: 100%;
+  height: 100%;
   outline: 0;
   resize: none;
+  color: transparent;
+  background: transparent;
   caret-color: var(--td-primary);
-  white-space: pre-wrap;
-  tab-size: 2;
+  z-index: 1;
+}
+#hooks-editor::selection {
+  background: rgba(142, 213, 255, 0.2);
+}
+.hooks-empty-hint {
+  position: absolute;
+  top: var(--td-space-lg);
+  left: var(--td-space-lg);
+  right: var(--td-space-lg);
+  z-index: 2;
+  pointer-events: auto;
+  font-family: var(--td-font-mono);
+  font-size: var(--td-size-label);
+  color: var(--td-outline);
+}
+.hooks-empty-hint a {
+  color: var(--td-primary);
+  text-decoration: none;
+}
+.hooks-empty-hint a:hover {
+  text-decoration: underline;
+}
+.hooks-empty-hint[hidden] {
+  display: none;
+}
+.hl-string {
+  color: var(--td-tertiary);
 }
 .hooks-toolbar {
   position: absolute;

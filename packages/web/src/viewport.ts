@@ -147,17 +147,28 @@ export const createViewport = (container: HTMLElement): ViewportControls => {
   };
 };
 
-/** Move rendered content into the viewport wrapper, then fit to container. */
+/**
+ * [WEB-VIEWPORT-PRESERVE] Move rendered content into the viewport wrapper.
+ * Fit-to-container runs ONLY on the first ever render — once the user has
+ * interacted (or any non-identity transform is set) we leave it alone so
+ * their pan/zoom survives subsequent re-renders.
+ */
 export const setViewportContent = (container: HTMLElement, html: string) => {
   const wrapper = container.querySelector<HTMLElement>(".viewport-wrapper");
   const target = wrapper ?? container;
+  const priorTransform = wrapper?.style.transform ?? "";
   target.innerHTML = html;
 
   const svg = target.querySelector("svg");
   const hasWrapper = wrapper instanceof HTMLElement;
-  if (svg !== null && hasWrapper) {
-    fitSvg(container, wrapper, svg);
+  if (svg === null || !hasWrapper) {
+    return;
   }
+  if (priorTransform === "") {
+    fitSvg(container, wrapper, svg);
+    return;
+  }
+  wrapper.style.transform = priorTransform;
 };
 
 const FIT_PADDING = 16;

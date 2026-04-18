@@ -3,6 +3,8 @@ import { vi } from "vitest";
 
 export const ViewColumn = { Beside: 2, Active: -1 } as const;
 
+const FAKE_PDF = new TextEncoder().encode("%PDF-1.7\n" + "x".repeat(2048) + "\n%%EOF\n");
+
 export const mockPanel = {
   webview: {
     html: "",
@@ -11,12 +13,23 @@ export const mockPanel = {
       toString: () => uri.path,
     })),
     cspSource: "https://mock.csp",
+    // [PDF-PRINT-MOCK] printToPDF returns a minimal PDF-shaped buffer so
+    // renderHtmlToPdf succeeds in tests.
+    printToPDF: vi.fn(() => Promise.resolve(FAKE_PDF)),
+    onDidReceiveMessage: vi.fn((handler: (msg: unknown) => void) => {
+      // Fire a synthetic load-ready message so the extension's awaited promise resolves.
+      queueMicrotask(() => {
+        handler({ kind: "td-print-ready" });
+      });
+      return { dispose: vi.fn() };
+    }),
   },
   reveal: vi.fn(),
   onDidDispose: vi.fn((cb: () => void) => {
     mockPanel._disposeCb = cb;
     return { dispose: vi.fn() };
   }),
+  dispose: vi.fn(),
   _disposeCb: undefined as (() => void) | undefined,
   // Set to true by the extension when it wants createWebviewPanel to NOT steal focus.
   // Tests inspect this to model VS Code's real focus behavior.

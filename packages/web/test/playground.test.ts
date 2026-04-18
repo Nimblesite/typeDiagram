@@ -105,6 +105,25 @@ describe("[WEB-PLAYGROUND]", () => {
     expect(opts?.hooks).toBeUndefined();
   });
 
+  // [WEB-PLAYGROUND-HOOKS-EMPTY-HINT] When the hooks editor is empty, a concise
+  // hint is visible — just "tap a chip" + a docs link. Placeholder verbosity is
+  // a bug: users don't need to read a tutorial inside the textarea.
+  it("empty hooks editor shows a short hint with a docs link (no multi-line tutorial)", () => {
+    mountPlayground(container);
+    const hint = container.querySelector<HTMLElement>(".hooks-empty-hint");
+    expect(hint).not.toBeNull();
+    const text = (hint?.textContent ?? "").trim();
+    // Must be short — no more than ~120 characters including the link text.
+    expect(text.length).toBeGreaterThan(0);
+    expect(text.length).toBeLessThan(140);
+    // Must mention chips/tap-a-chip.
+    expect(text.toLowerCase()).toMatch(/chip|preset/);
+    // Must contain a link to hooks docs.
+    const link = hint?.querySelector("a");
+    expect(link).not.toBeNull();
+    expect(link?.getAttribute("href") ?? "").toContain("hook");
+  });
+
   // [WEB-PLAYGROUND-HOOKS-HIGHLIGHT] The hooks editor has JS syntax highlighting.
   it("hooks editor has a syntax-highlight backdrop that reflects typed JS tokens", async () => {
     mountPlayground(container);

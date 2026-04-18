@@ -72,7 +72,7 @@ Four steps, each a pure function where possible. IDs are the source of truth —
 `composeHtml(mdSource: string, opts: { theme: "light" | "dark" }): Result<string, Diagnostic[]>`
 
 1. Run `renderMarkdownSync(mdSource, { theme })` from `typediagram-core` → markdown with every ` ```typediagram ` fence replaced by inline `<svg>...`.
-2. Run `markdown-it`'s `render()` on the result. **Crucial:** markdown-it must NOT re-escape the inline SVG. We do this by replacing SVGs with opaque sentinel tokens before markdown-it runs, then substituting them back into the rendered HTML. Sentinel: `<!--TD-SVG-${i}-->`. This preserves the inline SVG as literal HTML in the output.
+2. Run `markdown-it`'s `render()` on the result. **Crucial:** markdown-it must NOT re-escape the inline SVG. We do this by replacing SVGs with opaque sentinel tokens before markdown-it runs, then substituting them back into the rendered HTML. Sentinels use Unicode private-use-area brackets (`\uE000TDSVG${i}\uE001`) so they can't collide with real user content and can't be misinterpreted as HTML, markdown, or URL content by any renderer. This preserves the inline SVG as literal HTML in the output.
 3. Wrap the HTML fragment in a shell (see `[PDF-SHELL]`).
 4. If `renderMarkdownSync` returned diagnostics for any fence, they're in the Result's error list; the composed HTML still ships with the failed fences rendered as `<!-- typediagram error ... -->` comments (consistent with the async path).
 

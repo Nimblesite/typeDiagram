@@ -24,67 +24,104 @@ const begin = (id: PresetId): string => `// --- preset:${id} ---`;
 const end = (id: PresetId): string => `// --- /preset:${id} ---`;
 
 const dropShadowSrc = `${begin("drop-shadow")}
-// Drop shadow behind every node: defs hook adds the filter once,
-// node hook wraps each node <g> in a group referencing it.
-hooks.defs = () =>
-  svg\`<filter id="td-preset-drop" x="-20%" y="-20%" width="140%" height="140%">
-    <feDropShadow dx="1.5" dy="3" stdDeviation="2.5" flood-opacity="0.35"/>
-  </filter>\`;
-hooks.node = (ctx, def) => svg\`<g filter="url(#td-preset-drop)">\${def}</g>\`;
+// Drop shadow behind every node. To COMPOSE with other presets, each hook
+// captures any previously-assigned hook and chains into it.
+{
+  const prevDefs = hooks.defs;
+  hooks.defs = (ctx) => {
+    const prev = prevDefs ? prevDefs(ctx) : undefined;
+    const mine = svg\`<filter id="td-preset-drop" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="1.5" dy="3" stdDeviation="2.5" flood-opacity="0.35"/>
+    </filter>\`;
+    return prev ? svg\`\${prev}\${mine}\` : mine;
+  };
+  const prevNode = hooks.node;
+  hooks.node = (ctx, def) => {
+    const inner = prevNode ? (prevNode(ctx, def) ?? def) : def;
+    return svg\`<g filter="url(#td-preset-drop)">\${inner}</g>\`;
+  };
+}
 ${end("drop-shadow")}`;
 
 const fieldColorSrc = `${begin("field-color")}
-// Color-code rows by field name / type. Appends a small accent rect
-// over the left edge of the row when a rule matches.
-const FIELD_COLORS = [
-  [/^id\\b|Id\\b/, "#ffd400"],
-  [/^email\\b|Email\\b/, "#66ccff"],
-  [/^name\\b|Name\\b/, "#a78bfa"],
-  [/Bool\\b/, "#4ade80"],
-  [/String\\b/, "#f472b6"],
-  [/\\bInt\\b|\\bFloat\\b|\\bNumber\\b/, "#38bdf8"],
-];
-hooks.row = (ctx, def) => {
-  for (const [re, color] of FIELD_COLORS) {
-    if (re.test(ctx.row.text)) {
-      return svg\`\${def}<rect x="\${ctx.x}" y="\${ctx.y}" width="3" height="\${ctx.height}" fill="\${color}"/>\`;
+// Color-code rows by field name / type. Chains onto any existing row hook.
+{
+  const FIELD_COLORS = [
+    [/^id\\b|Id\\b/, "#ffd400"],
+    [/^email\\b|Email\\b/, "#66ccff"],
+    [/^name\\b|Name\\b/, "#a78bfa"],
+    [/Bool\\b/, "#4ade80"],
+    [/String\\b/, "#f472b6"],
+    [/\\bInt\\b|\\bFloat\\b|\\bNumber\\b/, "#38bdf8"],
+  ];
+  const prevRow = hooks.row;
+  hooks.row = (ctx, def) => {
+    const base = prevRow ? (prevRow(ctx, def) ?? def) : def;
+    for (const [re, color] of FIELD_COLORS) {
+      if (re.test(ctx.row.text)) {
+        return svg\`\${base}<rect x="\${ctx.x}" y="\${ctx.y}" width="3" height="\${ctx.height}" fill="\${color}"/>\`;
+      }
     }
-  }
-  return undefined;
-};
+    return prevRow ? base : undefined;
+  };
+}
 ${end("field-color")}`;
 
 const gridBgSrc = `${begin("grid-bg")}
-// Blueprint-style grid pattern painted under the whole diagram.
-hooks.defs = () =>
-  svg\`<pattern id="td-preset-grid" width="20" height="20" patternUnits="userSpaceOnUse">
-    <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(142,213,255,0.15)" stroke-width="0.5"/>
-  </pattern>\`;
-hooks.background = (ctx) =>
-  svg\`<rect x="0" y="0" width="\${ctx.width}" height="\${ctx.height}" fill="url(#td-preset-grid)"/>\`;
+// Blueprint-style grid pattern painted under the whole diagram. Chains defs.
+{
+  const prevDefs = hooks.defs;
+  hooks.defs = (ctx) => {
+    const prev = prevDefs ? prevDefs(ctx) : undefined;
+    const mine = svg\`<pattern id="td-preset-grid" width="20" height="20" patternUnits="userSpaceOnUse">
+      <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(142,213,255,0.15)" stroke-width="0.5"/>
+    </pattern>\`;
+    return prev ? svg\`\${prev}\${mine}\` : mine;
+  };
+  const prevBg = hooks.background;
+  hooks.background = (ctx) => {
+    const prev = prevBg ? prevBg(ctx) : undefined;
+    const mine = svg\`<rect x="0" y="0" width="\${ctx.width}" height="\${ctx.height}" fill="url(#td-preset-grid)"/>\`;
+    return prev ? svg\`\${prev}\${mine}\` : mine;
+  };
+}
 ${end("grid-bg")}`;
 
 const classesSrc = `${begin("classes")}
-// Add td-kind-* classes and data-name attrs, then inject a CSS block
-// via the post hook so users can style the diagram with plain CSS.
-hooks.node = (ctx, def) =>
-  svg\`<g class="td-kind-\${ctx.node.declKind}" data-name="\${ctx.node.declName}">\${def}</g>\`;
-hooks.post = (ctx) =>
-  svg\`\${ctx.svg}<style>.td-kind-union{filter:brightness(1.05);}.td-kind-alias{opacity:0.92;}</style>\`;
+// Add td-kind-* classes and a <style> block. Chains onto any existing node/post hooks.
+{
+  const prevNode = hooks.node;
+  hooks.node = (ctx, def) => {
+    const inner = prevNode ? (prevNode(ctx, def) ?? def) : def;
+    return svg\`<g class="td-kind-\${ctx.node.declKind}" data-name="\${ctx.node.declName}">\${inner}</g>\`;
+  };
+  const prevPost = hooks.post;
+  hooks.post = (ctx) => {
+    const body = prevPost ? prevPost(ctx) : ctx.svg;
+    return svg\`\${body}<style>.td-kind-union{filter:brightness(1.05);}.td-kind-alias{opacity:0.92;}</style>\`;
+  };
+}
 ${end("classes")}`;
 
 const glowUnionSrc = `${begin("glow-union")}
-// Gaussian-blur glow around union nodes only. Demonstrates conditional
-// hook application via the semantic model (ctx.isUnion).
-hooks.defs = () =>
-  svg\`<filter id="td-preset-glow" x="-20%" y="-20%" width="140%" height="140%">
-    <feGaussianBlur stdDeviation="2.2" result="b"/>
-    <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
-  </filter>\`;
-hooks.node = (ctx, def) => {
-  if (!ctx.isUnion) return undefined;
-  return svg\`<g filter="url(#td-preset-glow)">\${def}</g>\`;
-};
+// Gaussian-blur glow around union nodes only. Conditional via ctx.isUnion.
+{
+  const prevDefs = hooks.defs;
+  hooks.defs = (ctx) => {
+    const prev = prevDefs ? prevDefs(ctx) : undefined;
+    const mine = svg\`<filter id="td-preset-glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="2.2" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>\`;
+    return prev ? svg\`\${prev}\${mine}\` : mine;
+  };
+  const prevNode = hooks.node;
+  hooks.node = (ctx, def) => {
+    const inner = prevNode ? (prevNode(ctx, def) ?? def) : def;
+    if (!ctx.isUnion) return prevNode ? inner : undefined;
+    return svg\`<g filter="url(#td-preset-glow)">\${inner}</g>\`;
+  };
+}
 ${end("glow-union")}`;
 
 export const PRESETS: ReadonlyArray<PresetDef> = [

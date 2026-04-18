@@ -114,6 +114,11 @@ describe("[WEB-PRESET-COMPOSE] presets composing in the same hooks editor", () =
     expect(svgOut).toContain(`fill="url(#td-preset-grid)"`);
   });
 
+  it("field-color ALONE => id row gets yellow accent", async () => {
+    const svgOut = await compileAndRender(["field-color"]);
+    expect(svgOut).toContain(`fill="#ffd400"`);
+  });
+
   it("grid + shadow + field-color => grid bg, shadow wrap, AND row accents all present", async () => {
     const svgOut = await compileAndRender(["grid-bg", "drop-shadow", "field-color"]);
     // Grid

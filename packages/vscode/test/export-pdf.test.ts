@@ -9,28 +9,27 @@ vi.mock("vscode", () => mock);
 
 import {
   buildShell,
-  chunkMarkdown,
   composeHtml,
   exportPdf,
   extractSvgs,
   readMarkdown,
   reinjectSvgs,
-  renderToPdf,
+  renderHtmlToPdf,
   siblingPdfPath,
   writeNextToSource,
   type ExportPdfDeps,
+  type WebviewPanelLike,
 } from "../src/export-pdf.js";
 
 const PDF_MAGIC = "%PDF-";
 
-// ---------------------------------------------------------------------------
-// Shared test dep factory
-// ---------------------------------------------------------------------------
-
 interface TestDepsOverrides {
+  pdfBuffer?: Uint8Array;
   readFileContent?: string;
   readFileThrows?: Error;
   writeFileThrows?: Error;
+  skipLoadMessage?: boolean;
+  noPrintToPdf?: boolean;
 }
 
 function makeDeps(overrides: TestDepsOverrides = {}): {
@@ -38,6 +37,9 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
   spies: {
     readFile: ReturnType<typeof vi.fn>;
     writeFile: ReturnType<typeof vi.fn>;
+    printToPDF: ReturnType<typeof vi.fn>;
+    createWebviewPanel: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
     showInformationMessage: ReturnType<typeof vi.fn>;
     showErrorMessage: ReturnType<typeof vi.fn>;
     openExternal: ReturnType<typeof vi.fn>;
@@ -45,6 +47,8 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
     uriWithPath: ReturnType<typeof vi.fn>;
   };
 } {
+  const pdfBuffer =
+    overrides.pdfBuffer ?? new TextEncoder().encode(`${PDF_MAGIC}1.7\n${"x".repeat(2048)}\n% /Pattern m l re\n%%EOF\n`);
   const readContent = overrides.readFileContent ?? "# hello\n\n```typediagram\ntype X { a: Int }\n```\n";
 
   const readFile = vi.fn(() => {
@@ -59,6 +63,24 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
     }
     return Promise.resolve();
   });
+  const printToPDF = vi.fn(() => Promise.resolve(pdfBuffer));
+  const dispose = vi.fn();
+  const panel: WebviewPanelLike = {
+    webview: {
+      html: "",
+      printToPDF: overrides.noPrintToPdf ? undefined : printToPDF,
+      onDidReceiveMessage: (handler) => {
+        if (!overrides.skipLoadMessage) {
+          queueMicrotask(() => {
+            handler({ kind: "td-print-ready" });
+          });
+        }
+        return { dispose: vi.fn() };
+      },
+    },
+    dispose,
+  };
+  const createWebviewPanel = vi.fn(() => panel);
   const showInformationMessage = vi.fn(() => Promise.resolve(undefined));
   const showErrorMessage = vi.fn();
   const openExternal = vi.fn(() => Promise.resolve(true));
@@ -73,6 +95,7 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
     deps: {
       readFile: readFile as unknown as ExportPdfDeps["readFile"],
       writeFile: writeFile as unknown as ExportPdfDeps["writeFile"],
+      createWebviewPanel: createWebviewPanel as unknown as ExportPdfDeps["createWebviewPanel"],
       uriWithPath: uriWithPath as unknown as ExportPdfDeps["uriWithPath"],
       showInformationMessage: showInformationMessage as unknown as ExportPdfDeps["showInformationMessage"],
       showErrorMessage,
@@ -82,6 +105,9 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
     spies: {
       readFile,
       writeFile,
+      printToPDF,
+      createWebviewPanel,
+      dispose,
       showInformationMessage,
       showErrorMessage,
       openExternal,
@@ -92,9 +118,9 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
 }
 
 const SAMPLE_URI = {
-  path: "/repo/packages/vscode/examples/doc.md",
+  path: "/repo/packages/vscode/examples/spec.md",
   scheme: "file",
-  toString: () => "file:///repo/packages/vscode/examples/doc.md",
+  toString: () => "file:///repo/packages/vscode/examples/spec.md",
 } as unknown as vscodeTypes.Uri;
 
 // ---------------------------------------------------------------------------
@@ -106,7 +132,6 @@ describe("[PDF-COMPOSE] extractSvgs / reinjectSvgs", () => {
     const md = "prose\n\n<svg>one</svg>\n\nmore\n\n<svg>two</svg>\n\nend";
     const { skeleton, svgs } = extractSvgs(md);
     expect(skeleton).not.toContain("<svg");
-    // Sentinels use Unicode private-use characters so markdown-it never html-escapes them.
     expect(skeleton).toContain("\uE000TDSVG0\uE001");
     expect(skeleton).toContain("\uE000TDSVG1\uE001");
     expect(svgs).toEqual(["<svg>one</svg>", "<svg>two</svg>"]);
@@ -168,9 +193,19 @@ describe("[PDF-SHELL] buildShell", () => {
     expect(html).toContain("&lt;/title&gt;");
   });
 
-  it("uses a system font stack (no font-file URL)", () => {
+  it("uses a system font stack — no bundled font files", () => {
     const html = buildShell("t", "");
     expect(html).toMatch(/font-family:\s*-apple-system/);
+    expect(html).toMatch(/Helvetica/);
+    expect(html).toMatch(/Courier New|ui-monospace/);
+    // No font URL references
+    expect(html).not.toMatch(/font-file|\.woff|\.ttf|\.otf/i);
+  });
+
+  it("includes the load-handshake script that posts td-print-ready", () => {
+    const html = buildShell("t", "");
+    expect(html).toContain("acquireVsCodeApi");
+    expect(html).toContain("td-print-ready");
   });
 });
 
@@ -181,14 +216,6 @@ describe("[PDF-SHELL] buildShell", () => {
 describe("[PDF-COMPOSE] composeHtml", () => {
   beforeAll(async () => {
     await warmupSyncRender();
-    // Also warm the subpath-resolved module instance. vitest + package exports map
-    // can sometimes land these on different module graphs; belt and braces.
-    const mdModule = (await import("typediagram-core/markdown")) as {
-      warmupSyncRender?: () => Promise<void>;
-    };
-    if (mdModule.warmupSyncRender) {
-      await mdModule.warmupSyncRender();
-    }
   });
 
   it("passes through markdown with zero typediagram fences", () => {
@@ -264,77 +291,67 @@ describe("[PDF-READ] readMarkdown", () => {
 // [PDF-PRINT]
 // ---------------------------------------------------------------------------
 
-describe("[PDF-PRINT] chunkMarkdown + renderToPdf", () => {
-  beforeAll(async () => {
-    await warmupSyncRender();
-  });
-
-  it("chunkMarkdown splits prose and svg in order", () => {
-    const input = "hi\n<svg>a</svg>\nmore\n<svg>b</svg>\nend";
-    const chunks = chunkMarkdown(input);
-    expect(chunks).toHaveLength(5);
-    expect(chunks[0]).toEqual({ kind: "prose", value: "hi\n" });
-    expect(chunks[1]).toEqual({ kind: "svg", value: "<svg>a</svg>" });
-    expect(chunks[2]).toEqual({ kind: "prose", value: "\nmore\n" });
-    expect(chunks[3]).toEqual({ kind: "svg", value: "<svg>b</svg>" });
-    expect(chunks[4]).toEqual({ kind: "prose", value: "\nend" });
-  });
-
-  it("chunkMarkdown handles input with no svg", () => {
-    const chunks = chunkMarkdown("just text");
-    expect(chunks).toEqual([{ kind: "prose", value: "just text" }]);
-  });
-
-  it("chunkMarkdown handles input that is only svg", () => {
-    const chunks = chunkMarkdown("<svg>x</svg>");
-    expect(chunks).toEqual([{ kind: "svg", value: "<svg>x</svg>" }]);
-  });
-
-  it("renderToPdf produces a PDF buffer starting with %PDF-", async () => {
-    const md =
-      "# Title\n\n<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><rect x='0' y='0' width='10' height='10'/></svg>";
-    const buf = await renderToPdf(md, "test");
-    expect(buf.length).toBeGreaterThan(1024);
+describe("[PDF-PRINT] renderHtmlToPdf", () => {
+  it("creates a webview, awaits load, calls printToPDF, disposes panel", async () => {
+    const { deps, spies } = makeDeps();
+    const buf = await renderHtmlToPdf(buildShell("t", "<p>hi</p>"), deps);
     const prefix = new TextDecoder().decode(buf.slice(0, 5));
     expect(prefix).toBe(PDF_MAGIC);
+    expect(spies.createWebviewPanel).toHaveBeenCalledTimes(1);
+    expect(spies.printToPDF).toHaveBeenCalledTimes(1);
+    expect(spies.dispose).toHaveBeenCalledTimes(1);
+    expect(spies.printToPDF.mock.calls[0]?.[0]).toMatchObject({ pageSize: "A4", printBackground: true });
   });
 
-  it("renderToPdf embeds the SVG as vector path operators (not rasterised)", async () => {
-    const md =
-      "intro\n\n<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'><path d='M0,0 L10,10'/></svg>\n\nend";
-    const buf = await renderToPdf(md, "test");
-    const latin = Buffer.from(buf).toString("latin1");
-    expect(latin).toContain("%PDF-");
-    // Core heuristic: produces a PDF > 1 KB and contains no embedded image XObject
-    expect(latin).not.toContain("/Subtype /Image");
+  it("sets the webview html to the composed shell", async () => {
+    const { deps } = makeDeps();
+    const html = buildShell("t", "<p>hi</p>");
+    await renderHtmlToPdf(html, deps);
+    // Panel was disposed after the print — we need to capture the assignment before that.
+    // Test via a fresh panel instance that records its html setter invocations.
+    let capturedHtml = "";
+    const capturingPanel: WebviewPanelLike = {
+      webview: {
+        set html(v: string) {
+          capturedHtml = v;
+        },
+        get html() {
+          return capturedHtml;
+        },
+        printToPDF: () => Promise.resolve(new TextEncoder().encode(PDF_MAGIC + "1.7\n")),
+        onDidReceiveMessage: (h) => {
+          queueMicrotask(() => h({}));
+          return { dispose: vi.fn() };
+        },
+      },
+      dispose: vi.fn(),
+    };
+    const capturingDeps: Pick<ExportPdfDeps, "createWebviewPanel"> = {
+      createWebviewPanel: () => capturingPanel,
+    };
+    await renderHtmlToPdf(html, capturingDeps);
+    expect(capturedHtml).toBe(html);
   });
 
-  it("renderToPdf emits a PDF with a real Title from the doc info", async () => {
-    const buf = await renderToPdf("hello", "my-title-42");
-    const latin = Buffer.from(buf).toString("latin1");
-    // Title may be escaped/encoded in the PDF — but some form of the string must appear
-    expect(latin).toContain("/Title");
+  it("rejects with a clear message if printToPDF is unavailable", async () => {
+    const { deps } = makeDeps({ noPrintToPdf: true });
+    await expect(renderHtmlToPdf("<html/>", deps)).rejects.toThrow(/printToPDF is not available/);
   });
 
-  it("renderToPdf renders prose with headings at every level", async () => {
-    const md = "# H1\n\n## H2\n\n### H3\n\n#### H4\n\n##### H5\n\n###### H6\n\nparagraph text";
-    const buf = await renderToPdf(md, "headings");
-    expect(buf.length).toBeGreaterThan(1024);
-    expect(new TextDecoder().decode(buf.slice(0, 5))).toBe(PDF_MAGIC);
+  it("rejects if the webview never signals loaded (timeout)", async () => {
+    vi.useFakeTimers();
+    const { deps } = makeDeps({ skipLoadMessage: true });
+    const p = renderHtmlToPdf("<html/>", deps);
+    vi.advanceTimersByTime(15_100);
+    await expect(p).rejects.toThrow(/webview load timeout/);
+    vi.useRealTimers();
   });
 
-  it("renderToPdf renders fenced code blocks in monospace", async () => {
-    const md = "intro\n\n```\ncode line one\ncode line two\n```\n\noutro";
-    const buf = await renderToPdf(md, "code");
-    const latin = Buffer.from(buf).toString("latin1");
-    // Courier font is referenced for the code block
-    expect(latin).toMatch(/Courier/);
-  });
-
-  it("renderToPdf emits empty paragraphs as vertical space (moveDown branch)", async () => {
-    const md = "first\n\n\n\nsecond";
-    const buf = await renderToPdf(md, "spacing");
-    expect(buf.length).toBeGreaterThan(500);
+  it("disposes the panel even when printToPDF fails", async () => {
+    const { deps, spies } = makeDeps();
+    spies.printToPDF.mockRejectedValueOnce(new Error("chrome crashed"));
+    await expect(renderHtmlToPdf("<html/>", deps)).rejects.toThrow(/chrome crashed/);
+    expect(spies.dispose).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -363,15 +380,12 @@ describe("[PDF-SAVE] siblingPdfPath + writeNextToSource", () => {
     const { deps, spies } = makeDeps();
     const buf = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d]);
     const result = await writeNextToSource(buf, SAMPLE_URI, deps);
-    expect(result.path).toBe("/repo/packages/vscode/examples/doc.pdf");
+    expect(result.path).toBe("/repo/packages/vscode/examples/spec.pdf");
     expect(spies.writeFile).toHaveBeenCalledTimes(1);
     expect(spies.writeFile.mock.calls[0]?.[1]).toBe(buf);
   });
 
   it("NEVER calls showSaveDialog", () => {
-    // There is no showSaveDialog in ExportPdfDeps on purpose. This test enforces
-    // by structural contract: if the surface ever gains a showSaveDialog we'd
-    // have to add it here and an assertion would fail.
     const deps = makeDeps().deps as unknown as Record<string, unknown>;
     expect("showSaveDialog" in deps).toBe(false);
   });
@@ -398,17 +412,17 @@ describe("exportPdf composer", () => {
     mock.mockOutputChannel.appendLine.mockClear();
   });
 
-  it("runs read → compose → render-pdf → save in order and notifies", async () => {
+  it("runs read → compose → print → save in order and notifies", async () => {
     const { deps, spies } = makeDeps();
     await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     expect(spies.readFile).toHaveBeenCalledTimes(1);
+    expect(spies.createWebviewPanel).toHaveBeenCalledTimes(1);
+    expect(spies.printToPDF).toHaveBeenCalledTimes(1);
     expect(spies.writeFile).toHaveBeenCalledTimes(1);
     const writtenUri = spies.writeFile.mock.calls[0]?.[0] as { path: string };
-    expect(writtenUri.path).toBe("/repo/packages/vscode/examples/doc.pdf");
-    // Written buffer starts with %PDF-
+    expect(writtenUri.path).toBe("/repo/packages/vscode/examples/spec.pdf");
     const writtenBuf = spies.writeFile.mock.calls[0]?.[1] as Uint8Array;
     expect(new TextDecoder().decode(writtenBuf.slice(0, 5))).toBe(PDF_MAGIC);
-    // Notification is fire-and-forget — give it a microtask to flush.
     await new Promise((r) => setTimeout(r, 0));
     expect(spies.showInformationMessage).toHaveBeenCalledTimes(1);
   });
@@ -421,7 +435,7 @@ describe("exportPdf composer", () => {
     expect(scoped.length).toBeGreaterThanOrEqual(4);
     const findIdx = (needle: string): number => scoped.findIndex((l) => l.includes(needle));
     const invoked = findIdx("export-pdf invoked");
-    const composed = findIdx("composed markdown+svgs");
+    const composed = findIdx("composed HTML");
     const rendered = findIdx("rendered PDF");
     const saved = findIdx("saved PDF");
     expect(invoked).toBeGreaterThanOrEqual(0);
@@ -445,12 +459,21 @@ describe("exportPdf composer", () => {
     const a = exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     const b = exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     await Promise.all([a, b]);
-    // Second call waits for the first — writeFile still called once for A, once deferred for B.
-    // Lock implementation: B awaits A's inFlight promise and then returns (it's not re-queued).
-    // Contract: no double-write during concurrent invocation.
     expect(spies.writeFile).toHaveBeenCalledTimes(1);
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("export-pdf already in progress"))).toBe(true);
+  });
+
+  it("surfaces diagnostics and still writes a PDF when a fence fails to render", async () => {
+    const { deps, spies } = makeDeps({
+      readFileContent: "# hi\n\n```typediagram\ntype X { @bad }\n```\n",
+    });
+    await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
+    expect(spies.writeFile).toHaveBeenCalledTimes(1);
+    const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
+    expect(
+      lines.some((l) => l.includes("composed HTML") && l.includes('"diagnostics":') && !l.includes('"diagnostics":0'))
+    ).toBe(true);
   });
 
   it("Open PDF action triggers openExternal on the saved URI", async () => {
@@ -467,20 +490,6 @@ describe("exportPdf composer", () => {
     await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     await new Promise((r) => setTimeout(r, 0));
     expect(spies.executeCommand).toHaveBeenCalledWith("revealFileInOS", expect.anything());
-  });
-
-  it("surfaces diagnostics and still writes a PDF when a fence fails to render", async () => {
-    const { deps, spies } = makeDeps({
-      readFileContent: "# hi\n\n```typediagram\ntype X { @bad }\n```\n",
-    });
-    await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
-    expect(spies.writeFile).toHaveBeenCalledTimes(1);
-    const writtenBuf = spies.writeFile.mock.calls[0]?.[1] as Uint8Array;
-    expect(new TextDecoder().decode(writtenBuf.slice(0, 5))).toBe(PDF_MAGIC);
-    // The "composed markdown+svgs" log must report ok=false
-    const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
-    expect(lines.some((l) => l.includes("composed markdown+svgs") && l.includes('"ok":false'))).toBe(true);
-    expect(lines.some((l) => l.includes("composed markdown+svgs") && /"diagnostics":[1-9]/.test(l))).toBe(true);
   });
 
   it("logs an error when the notification promise rejects", async () => {
