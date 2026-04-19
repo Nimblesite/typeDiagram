@@ -18,9 +18,20 @@ const LANG_LABELS: Record<SupportedLang, string> = {
   go: "Go",
   csharp: "C#",
   fsharp: "F#",
+  dart: "Dart",
+  protobuf: "Protobuf",
 };
 
-const LANGUAGES: readonly SupportedLang[] = ["typescript", "rust", "python", "go", "csharp", "fsharp"];
+const LANGUAGES: readonly SupportedLang[] = [
+  "typescript",
+  "rust",
+  "python",
+  "go",
+  "csharp",
+  "fsharp",
+  "dart",
+  "protobuf",
+];
 
 const DEFAULT_LANG: SupportedLang = "typescript";
 

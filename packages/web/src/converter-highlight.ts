@@ -90,7 +90,39 @@ const FSHARP_RULES: readonly Rule[] = [
   { re: /[<>{}:;,=|*()[\]]/g, cls: "hl-punct" },
 ];
 
-type SupportedLang = "typescript" | "rust" | "python" | "go" | "csharp" | "fsharp";
+const DART_RULES: readonly Rule[] = [
+  { re: /\/\/.*$/gm, cls: "hl-comment" },
+  { re: /\/\*[\s\S]*?\*\//gm, cls: "hl-comment" },
+  {
+    re: /\b(class|sealed|final|abstract|extends|implements|with|enum|typedef|const|late|static|var|void|new|factory|this|super|return|if|else|switch|case|default|import|library|part|of)\b/g,
+    cls: "hl-keyword",
+  },
+  {
+    re: /\b(bool|int|double|num|String|List|Map|Set|Object|dynamic|Null|Never)\b/g,
+    cls: "hl-builtin",
+  },
+  { re: /\b([a-z_][A-Za-z0-9_]*)\s*(?=;)/g, cls: "hl-field", group: 1 },
+  { re: /\b([A-Z][A-Za-z0-9_]*)\b/g, cls: "hl-type" },
+  { re: /[<>{}:;,=|?()[\]]/g, cls: "hl-punct" },
+];
+
+const PROTOBUF_RULES: readonly Rule[] = [
+  { re: /\/\/.*$/gm, cls: "hl-comment" },
+  { re: /\/\*[\s\S]*?\*\//gm, cls: "hl-comment" },
+  {
+    re: /\b(syntax|message|enum|oneof|service|rpc|returns|package|import|option|reserved|repeated|optional|required|map|group)\b/g,
+    cls: "hl-keyword",
+  },
+  {
+    re: /\b(bool|int32|int64|uint32|uint64|sint32|sint64|fixed32|fixed64|sfixed32|sfixed64|float|double|string|bytes)\b/g,
+    cls: "hl-builtin",
+  },
+  { re: /\b([a-z_][A-Za-z0-9_]*)\s*=\s*\d+/g, cls: "hl-field", group: 1 },
+  { re: /\b([A-Z][A-Za-z0-9_]*)\b/g, cls: "hl-type" },
+  { re: /[<>{}:;,=()[\]]/g, cls: "hl-punct" },
+];
+
+type SupportedLang = "typescript" | "rust" | "python" | "go" | "csharp" | "fsharp" | "dart" | "protobuf";
 
 const LANG_RULES: Record<SupportedLang, readonly Rule[]> = {
   typescript: TYPESCRIPT_RULES,
@@ -99,6 +131,8 @@ const LANG_RULES: Record<SupportedLang, readonly Rule[]> = {
   go: GO_RULES,
   csharp: CSHARP_RULES,
   fsharp: FSHARP_RULES,
+  dart: DART_RULES,
+  protobuf: PROTOBUF_RULES,
 };
 
 type Span = { start: number; end: number; cls: string };

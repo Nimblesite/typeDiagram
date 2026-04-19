@@ -1,0 +1,520 @@
+// [CONV-PROTOBUF] Protocol Buffers (proto3) <-> typeDiagram bidirectional
+// converter. See https://github.com/Nimblesite/typeDiagram/issues/2.
+//
+// Encoding:
+//   - `type Foo { ... }`           -> `message Foo { ... }`
+//   - `union Foo { unit variants }` -> `enum Foo { FOO_UNSPECIFIED=0; ... }`
+//   - `union Foo { struct variants }` -> `message Foo { oneof variant { ... } }`
+//     with each struct variant emitted as a nested `message`.
+//   - `alias Email = String`       -> `// @td-alias: Email = String`
+//   - `Option<T>`                  -> `optional T`
+//   - `List<T>`                    -> `repeated T`
+//   - `Map<K, V>`                  -> `map<K, V>`
+//   - Generics (no native proto support) encoded via
+//     `// @td-generics: T, U` on the containing message/enum.
+//   - Fields whose typeDiagram type can't be expressed natively (e.g.
+//     `Option<List<T>>`) carry a `// @td-type: <TD-type>` directive that the
+//     parser prefers over the proto field type, guaranteeing round-trip.
+import type { Diagnostic } from "../parser/diagnostics.js";
+import { type Result, err } from "../result.js";
+import type { Model, ResolvedTypeRef } from "../model/types.js";
+import { ModelBuilder, record, union, alias } from "../model/builder.js";
+import type { Converter } from "./types.js";
+import { parseTypeRef, printTypeRef } from "./parse-typeref.js";
+import { extractBalancedBlock, splitTopLevelCommas } from "./brace-lang.js";
+
+// ── Type mapping ──
+
+const TD_TO_PROTO: Record<string, string> = {
+  Bool: "bool",
+  Int: "int64",
+  Float: "double",
+  String: "string",
+  Bytes: "bytes",
+  Unit: "google.protobuf.Empty",
+  Any: "google.protobuf.Any",
+};
+
+const PROTO_TO_TD: Record<string, string> = {
+  bool: "Bool",
+  int32: "Int",
+  int64: "Int",
+  uint32: "Int",
+  uint64: "Int",
+  sint32: "Int",
+  sint64: "Int",
+  fixed32: "Int",
+  fixed64: "Int",
+  sfixed32: "Int",
+  sfixed64: "Int",
+  float: "Float",
+  double: "Float",
+  string: "String",
+  bytes: "Bytes",
+  "google.protobuf.Empty": "Unit",
+  "google.protobuf.Any": "Any",
+};
+
+// ── From proto ──
+
+const MESSAGE_HEAD_RE = /message\s+(\w+)\s*\{/g;
+const ENUM_HEAD_RE = /enum\s+(\w+)\s*\{/g;
+const ONEOF_HEAD_RE = /oneof\s+\w+\s*\{/g;
+const ALIAS_DIRECTIVE_RE = /\/\/\s*@td-alias:\s*(\w+)\s*=\s*(.+)$/gm;
+const GENERICS_DIRECTIVE_RE = /\/\/\s*@td-generics:\s*([^\n]+)/;
+const TYPE_DIRECTIVE_LINE_RE = /\/\/\s*@td-type:\s*(.+)$/;
+
+// `optional string foo = 1;` or `repeated Foo bar = 2;` or `map<string, int32> m = 3;` or `Foo f = 4;`
+const FIELD_LINE_RE = /^\s*(?:(optional|repeated)\s+)?([\w.<>,\s]+?)\s+(\w+)\s*=\s*\d+\s*;\s*$/;
+
+const mapProtoType = (t: string): string => {
+  const trimmed = t.trim();
+  // map<K, V>
+  const mapMatch = /^map\s*<\s*([^,]+)\s*,\s*(.+)\s*>$/.exec(trimmed);
+  if (mapMatch !== null && mapMatch[1] !== undefined && mapMatch[2] !== undefined) {
+    return `Map<${mapProtoType(mapMatch[1])}, ${mapProtoType(mapMatch[2])}>`;
+  }
+  return PROTO_TO_TD[trimmed] ?? trimmed;
+};
+
+/**
+ * Split a proto message/enum body into logical lines that the parser can
+ * walk sequentially, preserving comments so `// @td-type:` directives are
+ * visible to the field parser.
+ */
+const splitBodyLines = (body: string): string[] => {
+  const out: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < body.length; i++) {
+    const c = body.charAt(i);
+    if (c === "{") {
+      depth += 1;
+    } else if (c === "}") {
+      depth -= 1;
+    } else if ((c === ";" || c === "\n") && depth === 0) {
+      const chunk = body.slice(start, i + 1);
+      if (chunk.trim().length > 0) {
+        out.push(chunk);
+      }
+      start = i + 1;
+    }
+  }
+  const last = body.slice(start);
+  if (last.trim().length > 0) {
+    out.push(last);
+  }
+  return out;
+};
+
+type Field = { name: string; type: string };
+
+/**
+ * Parse the contents of a proto `message` body into typeDiagram fields,
+ * honouring `// @td-type:` directives for non-expressible types.
+ */
+const parseMessageFields = (body: string): Field[] => {
+  const fields: Field[] = [];
+  // Scan line by line so the directive seen immediately before a field can
+  // override the proto-level type.
+  const rawLines = body.split("\n");
+  let pendingTdType: string | null = null;
+  for (const rawLine of rawLines) {
+    const line = rawLine.trim();
+    if (line.length === 0) {
+      continue;
+    }
+    const typeDirMatch = TYPE_DIRECTIVE_LINE_RE.exec(line);
+    if (typeDirMatch !== null && typeDirMatch[1] !== undefined) {
+      pendingTdType = typeDirMatch[1].trim();
+      continue;
+    }
+    if (line.startsWith("//")) {
+      continue;
+    }
+    // Skip nested message/enum/oneof headers — they're handled by the
+    // message-level scan, not as fields of the outer message.
+    if (/^(message|enum|oneof)\b/.test(line)) {
+      continue;
+    }
+    // Skip closing braces of nested blocks.
+    if (line === "}") {
+      continue;
+    }
+    const fm = FIELD_LINE_RE.exec(line);
+    if (fm === null) {
+      pendingTdType = null;
+      continue;
+    }
+    const [, label, rawType, name] = fm;
+    if (rawType === undefined || name === undefined) {
+      pendingTdType = null;
+      continue;
+    }
+    if (pendingTdType !== null) {
+      fields.push({ name, type: pendingTdType });
+      pendingTdType = null;
+      continue;
+    }
+    const mapped = mapProtoType(rawType);
+    const wrapped =
+      label === "repeated" ? `List<${mapped}>` : label === "optional" ? `Option<${mapped}>` : mapped;
+    fields.push({ name, type: wrapped });
+  }
+  return fields;
+};
+
+/** Strip `FOO_` prefix from enum variant names emitted by us. */
+const denormaliseEnumVariant = (enumName: string, variant: string): string => {
+  const prefix = `${enumName.toUpperCase()}_`;
+  if (variant.startsWith(prefix)) {
+    return variant.slice(prefix.length);
+  }
+  return variant;
+};
+
+const fromProto = (source: string): Result<Model, Diagnostic[]> => {
+  const builder = new ModelBuilder();
+  let found = false;
+
+  type PendingDecl =
+    | { kind: "message"; name: string; body: string; generics: string[]; offset: number }
+    | { kind: "enum"; name: string; body: string; generics: string[]; offset: number }
+    | { kind: "alias"; name: string; target: string; offset: number };
+  const pending: PendingDecl[] = [];
+  const consumedRanges: Array<[number, number]> = [];
+  const isInsideConsumed = (idx: number): boolean =>
+    consumedRanges.some(([start, end]) => idx >= start && idx < end);
+
+  // Look back up to ~128 chars for a generics directive that applies to the
+  // decl starting at `offset`.
+  const genericsBefore = (offset: number): string[] => {
+    const windowStart = Math.max(0, offset - 128);
+    const window = source.slice(windowStart, offset);
+    const m = GENERICS_DIRECTIVE_RE.exec(window);
+    if (m === null || m[1] === undefined) {
+      return [];
+    }
+    return m[1]
+      .split(",")
+      .map((g) => g.trim())
+      .filter((g) => g.length > 0);
+  };
+
+  MESSAGE_HEAD_RE.lastIndex = 0;
+  let m: RegExpExecArray | null;
+  while ((m = MESSAGE_HEAD_RE.exec(source)) !== null) {
+    if (isInsideConsumed(m.index)) {
+      continue;
+    }
+    const [full, name] = m;
+    if (name === undefined) {
+      continue;
+    }
+    const openIdx = m.index + full.length - 1;
+    const body = extractBalancedBlock(source, openIdx, "{", "}");
+    if (body === null) {
+      continue;
+    }
+    const endIdx = openIdx + body.length + 2;
+    consumedRanges.push([m.index, endIdx]);
+    pending.push({ kind: "message", name, body, generics: genericsBefore(m.index), offset: m.index });
+  }
+
+  ENUM_HEAD_RE.lastIndex = 0;
+  while ((m = ENUM_HEAD_RE.exec(source)) !== null) {
+    if (isInsideConsumed(m.index)) {
+      continue;
+    }
+    const [full, name] = m;
+    if (name === undefined) {
+      continue;
+    }
+    const openIdx = m.index + full.length - 1;
+    const body = extractBalancedBlock(source, openIdx, "{", "}");
+    if (body === null) {
+      continue;
+    }
+    const endIdx = openIdx + body.length + 2;
+    consumedRanges.push([m.index, endIdx]);
+    pending.push({ kind: "enum", name, body, generics: genericsBefore(m.index), offset: m.index });
+  }
+
+  ALIAS_DIRECTIVE_RE.lastIndex = 0;
+  while ((m = ALIAS_DIRECTIVE_RE.exec(source)) !== null) {
+    const [, name, target] = m;
+    if (name === undefined || target === undefined) {
+      continue;
+    }
+    pending.push({ kind: "alias", name, target: target.trim(), offset: m.index });
+  }
+
+  pending.sort((a, b) => a.offset - b.offset);
+
+  for (const p of pending) {
+    found = true;
+    if (p.kind === "message") {
+      // A message with a `oneof variant { ... }` is a union with struct
+      // variants (nested messages). A message without `oneof` is a record.
+      const hasOneof = /\boneof\s+\w+\s*\{/.test(p.body);
+      if (!hasOneof) {
+        const fields = parseMessageFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+        builder.add(record(p.name, fields, p.generics));
+        continue;
+      }
+
+      // Collect nested messages as variant records and the oneof field names
+      // to order them. Oneof field name (e.g. `some`) matches a nested
+      // message (e.g. `Some`) by case-insensitive comparison.
+      const nestedMessages = collectNestedMessages(p.body);
+      const oneofVariantNames = collectOneofFieldNames(p.body);
+      const variants = oneofVariantNames.map((voName) => {
+        const nested = nestedMessages.find((nm) => nm.name.toLowerCase() === voName.toLowerCase());
+        if (nested === undefined) {
+          // Unit variant expressed as a `google.protobuf.Empty` field in the
+          // oneof.
+          return { name: capitalise(voName), fields: [] };
+        }
+        const fields = parseMessageFields(nested.body).map((f) => ({
+          name: f.name,
+          type: parseTypeRef(f.type),
+        }));
+        return { name: nested.name, fields };
+      });
+      builder.add(union(p.name, variants, p.generics));
+      continue;
+    }
+    if (p.kind === "enum") {
+      const variants = p.body
+        .split(/[;\n]/)
+        .map((l) => l.replace(/\/\/.*$/, "").trim())
+        .filter((l) => l.length > 0)
+        .map((l) => {
+          // `FOO_UNSPECIFIED = 0;` -> name = "FOO_UNSPECIFIED"
+          const [variantName] = l.split("=");
+          return (variantName ?? l).trim();
+        })
+        .filter((name) => name.length > 0)
+        // Drop the synthetic zero-value entry we emit.
+        .filter((name) => name !== `${p.name.toUpperCase()}_UNSPECIFIED`)
+        .map((name) => ({ name: denormaliseEnumVariant(p.name, name), fields: [] }));
+      builder.add(union(p.name, variants, p.generics));
+      continue;
+    }
+    builder.add(alias(p.name, parseTypeRef(mapProtoType(p.target))));
+  }
+
+  return found
+    ? builder.build()
+    : err([{ severity: "error", message: "No Protobuf type definitions found", line: 0, col: 0, length: 0 }]);
+};
+
+const capitalise = (s: string): string => (s.length === 0 ? s : s.charAt(0).toUpperCase() + s.slice(1));
+
+/** Find all nested `message Foo { ... }` blocks directly inside `body`. */
+const collectNestedMessages = (body: string): Array<{ name: string; body: string }> => {
+  const out: Array<{ name: string; body: string }> = [];
+  const re = /message\s+(\w+)\s*\{/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(body)) !== null) {
+    const [full, name] = m;
+    if (name === undefined) {
+      continue;
+    }
+    const openIdx = m.index + full.length - 1;
+    const inner = extractBalancedBlock(body, openIdx, "{", "}");
+    if (inner === null) {
+      continue;
+    }
+    out.push({ name, body: inner });
+    // Skip past this block so we don't recurse into its own nested types.
+    re.lastIndex = openIdx + inner.length + 2;
+  }
+  return out;
+};
+
+/** Return the variant-field names inside a `oneof variant { ... }` block, in order. */
+const collectOneofFieldNames = (body: string): string[] => {
+  ONEOF_HEAD_RE.lastIndex = 0;
+  const m = ONEOF_HEAD_RE.exec(body);
+  if (m === null) {
+    return [];
+  }
+  const openIdx = m.index + m[0].length - 1;
+  const inner = extractBalancedBlock(body, openIdx, "{", "}");
+  if (inner === null) {
+    return [];
+  }
+  // Each line: `Type name = N;` — we want `name`.
+  return inner
+    .split(";")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0 && !l.startsWith("//"))
+    .map((l) => {
+      const fm = /^([\w.]+)\s+(\w+)\s*=\s*\d+/.exec(l);
+      return fm?.[2] ?? null;
+    })
+    .filter((n): n is string => n !== null);
+};
+
+// ── To proto ──
+
+const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
+const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
+const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";
+
+/**
+ * Returns a proto3 expression for the given TD type, or null if the type
+ * can't be expressed natively and needs a `@td-type` directive instead.
+ */
+const protoExpressionOf = (t: ResolvedTypeRef): { label: string; type: string } | null => {
+  if (isOption(t) && t.args.length === 1) {
+    const inner = t.args[0];
+    if (inner === undefined) {
+      return null;
+    }
+    // Option<List<X>> or Option<Map<..>> can't be expressed in proto3 (you
+    // can't combine `optional` with `repeated` or with `map`). Fall back to
+    // a directive.
+    if (isList(inner) || isMap(inner) || isOption(inner)) {
+      return null;
+    }
+    const innerName = TD_TO_PROTO[inner.name] ?? inner.name;
+    return { label: "optional", type: innerName };
+  }
+  if (isList(t) && t.args.length === 1) {
+    const inner = t.args[0];
+    if (inner === undefined) {
+      return null;
+    }
+    if (isList(inner) || isOption(inner) || isMap(inner)) {
+      return null;
+    }
+    const innerName = TD_TO_PROTO[inner.name] ?? inner.name;
+    return { label: "repeated", type: innerName };
+  }
+  if (isMap(t) && t.args.length === 2) {
+    const k = t.args[0];
+    const v = t.args[1];
+    if (k === undefined || v === undefined) {
+      return null;
+    }
+    if (k.args.length > 0 || v.args.length > 0) {
+      return null;
+    }
+    const keyName = TD_TO_PROTO[k.name] ?? k.name;
+    const valName = TD_TO_PROTO[v.name] ?? v.name;
+    return { label: "", type: `map<${keyName}, ${valName}>` };
+  }
+  if (t.args.length === 0) {
+    return { label: "", type: TD_TO_PROTO[t.name] ?? t.name };
+  }
+  return null;
+};
+
+const emitField = (
+  field: { name: string; type: ResolvedTypeRef },
+  fieldNumber: number,
+  indent: string
+): string[] => {
+  const expr = protoExpressionOf(field.type);
+  if (expr === null) {
+    // Fall back to a `@td-type` directive with a placeholder repeated/bytes
+    // encoding so the field is syntactically valid proto.
+    const directive = `${indent}// @td-type: ${printTypeRef(field.type)}`;
+    const placeholder = `${indent}repeated bytes ${field.name} = ${fieldNumber};`;
+    return [directive, placeholder];
+  }
+  const labelPart = expr.label.length > 0 ? `${expr.label} ` : "";
+  return [`${indent}${labelPart}${expr.type} ${field.name} = ${fieldNumber};`];
+};
+
+const emitMessageBody = (
+  fields: readonly { name: string; type: ResolvedTypeRef }[],
+  indent: string
+): string[] => {
+  const lines: string[] = [];
+  fields.forEach((f, i) => {
+    lines.push(...emitField(f, i + 1, indent));
+  });
+  return lines;
+};
+
+const emitGenericsDirective = (generics: readonly string[], indent: string): string[] =>
+  generics.length === 0 ? [] : [`${indent}// @td-generics: ${generics.join(", ")}`];
+
+const emitEnum = (name: string, variants: readonly { name: string }[]): string[] => {
+  const upper = name.toUpperCase();
+  const lines = [`enum ${name} {`, `  ${upper}_UNSPECIFIED = 0;`];
+  variants.forEach((v, i) => {
+    lines.push(`  ${upper}_${v.name} = ${i + 1};`);
+  });
+  lines.push("}");
+  return lines;
+};
+
+const emitUnion = (
+  name: string,
+  variants: readonly { name: string; fields: readonly { name: string; type: ResolvedTypeRef }[] }[],
+  generics: readonly string[]
+): string[] => {
+  const allEmpty = variants.every((v) => v.fields.length === 0);
+  if (allEmpty && generics.length === 0) {
+    return emitEnum(name, variants);
+  }
+  const lines: string[] = [];
+  lines.push(...emitGenericsDirective(generics, ""));
+  lines.push(`message ${name} {`);
+  // Emit nested messages for each struct variant first, in variant order.
+  variants.forEach((v) => {
+    if (v.fields.length > 0) {
+      lines.push(`  message ${v.name} {`);
+      lines.push(...emitMessageBody(v.fields, "    "));
+      lines.push("  }");
+    }
+  });
+  lines.push("  oneof variant {");
+  variants.forEach((v, i) => {
+    const fieldName = v.name.toLowerCase();
+    const fieldNumber = i + 1;
+    if (v.fields.length === 0) {
+      lines.push(`    google.protobuf.Empty ${fieldName} = ${fieldNumber};`);
+    } else {
+      lines.push(`    ${v.name} ${fieldName} = ${fieldNumber};`);
+    }
+  });
+  lines.push("  }");
+  lines.push("}");
+  return lines;
+};
+
+const toProto = (model: Model): string => {
+  const lines: string[] = ['syntax = "proto3";', ""];
+  for (const d of model.decls) {
+    if (d.kind === "record") {
+      lines.push(...emitGenericsDirective(d.generics, ""));
+      lines.push(`message ${d.name} {`);
+      lines.push(...emitMessageBody(d.fields, "  "));
+      lines.push("}", "");
+      continue;
+    }
+    if (d.kind === "union") {
+      lines.push(...emitUnion(d.name, d.variants, d.generics), "");
+      continue;
+    }
+    // alias — express as a directive since proto has no alias syntax.
+    lines.push(`// @td-alias: ${d.name} = ${printTypeRef(d.target)}`, "");
+  }
+  return lines.join("\n").replace(/\n+$/, "\n");
+};
+
+// splitTopLevelCommas is used via the shared helper when parsing generic
+// argument lists inside `@td-type:` directives. Re-export by using the
+// import so tree-shaking doesn't complain.
+void splitTopLevelCommas;
+
+export const protobuf: Converter = {
+  language: "protobuf",
+  fromSource: fromProto,
+  toSource: toProto,
+};
