@@ -1,8 +1,15 @@
 // [CONV-CS] C# <-> typeDiagram bidirectional converter.
+//
+// Discriminated-union encoding: closed hierarchy via `abstract record` with
+// nested `sealed record` variants. Inspired by the RestClient.Net /
+// Outcome library (https://github.com/MelbourneDeveloper/RestClient.Net).
+// Stopgap until C# ships real DUs (https://github.com/dotnet/csharplang/issues/8928).
+//
+// Option<T> <-> T?. Alias <-> `using X = Y;`.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import type { Model, ResolvedAlias, ResolvedDecl, ResolvedTypeRef } from "../model/types.js";
-import { ModelBuilder, record, union } from "../model/builder.js";
+import type { Model, ResolvedTypeRef } from "../model/types.js";
+import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { parseTypeRef } from "./parse-typeref.js";
 
@@ -36,41 +43,106 @@ const CS_TO_TD: Record<string, string> = {
   HashSet: "List",
 };
 
+// Names that appear as aliases / global-usings (e.g. `System.String`, `String`
+// from the `System` namespace). Strip leading `System.` segments so the name
+// matches the base map.
+const stripSystemPrefix = (s: string): string => s.replace(/^System\./, "");
+
 // ── From C# ──
 
-const RECORD_RE = /(?:public\s+)?(?:sealed\s+)?record\s+(\w+)(?:<([^>]+)>)?\s*\(([^)]*)\)\s*;/g;
-const CLASS_OR_RECORD_HEADER_RE = /(?:public\s+)?(?:sealed\s+)?(?:class|record)\s+(\w+)(?:<([^>]+)>)?\s*(?::[^{]+)?\{/g;
-const ENUM_RE = /(?:public\s+)?enum\s+(\w+)\s*\{([^}]*)}/g;
-const PROP_RE = /(?:public\s+)?(\w[\w<>,\s[\]?]*?)\s+(\w+)\s*\{[^}]*\}/;
-const PARAM_RE = /(\w[\w<>,\s[\]?]*?)\s+(\w+)/;
-
-const extractBalancedBody = (source: string, openIdx: number): { body: string; endIdx: number } | null => {
-  if (source.charAt(openIdx) !== "{") {
+// Balanced-brace/paren extractor so nested `{}` inside an abstract record
+// body (holding nested `sealed record` variants) is captured correctly.
+const extractBalancedBlock = (source: string, openIdx: number, open: string, close: string): string | null => {
+  if (source.charAt(openIdx) !== open) {
     return null;
   }
   let depth = 1;
   for (let i = openIdx + 1; i < source.length; i++) {
     const c = source.charAt(i);
-    if (c === "{") {
+    if (c === open) {
       depth++;
-    } else if (c === "}") {
+    } else if (c === close) {
       depth--;
       if (depth === 0) {
-        return { body: source.slice(openIdx + 1, i), endIdx: i };
+        return source.slice(openIdx + 1, i);
       }
     }
   }
   return null;
 };
 
-const mapCsType = (t: string): string => {
-  const cleaned = t.trim().replace(/\?$/, "");
-  return CS_TO_TD[cleaned] ?? cleaned;
+// Recognise `T?`, `T | null`, `T | undefined` etc. as Option<T>. (C# uses `T?`.)
+const extractNullableInner = (t: string): string | null => {
+  const trimmed = t.trim();
+  if (!trimmed.endsWith("?")) {
+    return null;
+  }
+  return trimmed.slice(0, -1).trim();
 };
 
+// Split generic args at top-level commas, respecting angle-bracket depth.
+const splitGenericArgs = (s: string): string[] => {
+  const parts: string[] = [];
+  let depth = 0;
+  let start = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charAt(i);
+    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
+    if (c === "," && depth === 0) {
+      parts.push(s.slice(start, i).trim());
+      start = i + 1;
+    }
+  }
+  const last = s.slice(start).trim();
+  return last.length > 0 ? [...parts, last] : parts;
+};
+
+const mapCsType = (t: string): string => {
+  const trimmed = stripSystemPrefix(t.trim());
+  const nullableInner = extractNullableInner(trimmed);
+  if (nullableInner !== null) {
+    return `Option<${mapCsType(nullableInner)}>`;
+  }
+  // byte[] -> Bytes
+  if (trimmed === "byte[]") {
+    return "Bytes";
+  }
+  const angleBracket = trimmed.indexOf("<");
+  if (angleBracket !== -1) {
+    const baseName = trimmed.slice(0, angleBracket);
+    const mapped = CS_TO_TD[baseName] ?? baseName;
+    const inner = trimmed.slice(angleBracket + 1, trimmed.lastIndexOf(">"));
+    const args = splitGenericArgs(inner).map(mapCsType);
+    return `${mapped}<${args.join(", ")}>`;
+  }
+  return CS_TO_TD[trimmed] ?? trimmed;
+};
+
+const parseGenerics = (s: string | undefined): string[] =>
+  s !== undefined && s.length > 0 ? s.split(",").map((g) => g.trim()) : [];
+
+// `using Email = System.String;`  or  `using Email = string;`
+const USING_ALIAS_RE = /using\s+(\w+)\s*=\s*([^;]+);/g;
+
+// Primary-constructor record: `public sealed record ChatRequest(string Message, ...);`
+const PRIMARY_RECORD_RE = /(?:public\s+)?(?:sealed\s+)?record\s+(\w+)(?:<([^>]+)>)?\s*\(([^)]*)\)\s*;/g;
+
+// Abstract record heading a DU: `public abstract record Foo<T> {`
+const ABSTRACT_RECORD_HEAD_RE = /(?:public\s+)?abstract\s+record\s+(\w+)(?:<([^>]+)>)?\s*\{/g;
+
+// Enum with no payload: `public enum UriKind { Image, Audio, ... }`
+const ENUM_RE = /(?:public\s+)?enum\s+(\w+)\s*\{([^}]*)\}/g;
+
+// Nested variant inside an abstract record body.
+// Struct-variant: `public sealed record Some(T value) : Foo<T>;`
+// Unit-variant:   `public sealed record None : Foo<T>;`
+const NESTED_VARIANT_RE =
+  /(?:public\s+)?sealed\s+record\s+(\w+)(?:<[^>]+>)?\s*(?:\(([^)]*)\))?\s*:\s*\w+(?:<[^>]+>)?\s*;/g;
+
+const PARAM_RE = /^([\w<>,\s\[\]?.]+?)\s+(\w+)$/;
+
 const parseCsParams = (body: string) =>
-  body
-    .split(",")
+  splitGenericArgs(body)
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .map((l) => {
@@ -86,80 +158,130 @@ const parseCsParams = (body: string) =>
     })
     .filter((f): f is { name: string; type: string } => f !== null);
 
-const parseCsProps = (body: string) =>
-  body
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith("//") && !l.startsWith("[") && !l.startsWith("}"))
-    .map((l) => {
-      const m = PROP_RE.exec(l);
-      if (m === null) {
-        return null;
-      }
-      const [, type, name] = m;
-      if (type === undefined || name === undefined) {
-        return null;
-      }
-      return { name, type: mapCsType(type) };
-    })
-    .filter((f): f is { name: string; type: string } => f !== null);
-
-const parseGenerics = (s: string | undefined): string[] =>
-  s !== undefined && s.length > 0 ? s.split(",").map((g) => g.trim()) : [];
-
 const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
   const builder = new ModelBuilder();
   let found = false;
+  // Record which offsets we've already consumed as abstract-record bodies so
+  // the primary-record scan doesn't re-pick-up nested `sealed record` lines.
+  const consumedRanges: Array<[number, number]> = [];
+  const isInsideConsumed = (idx: number): boolean =>
+    consumedRanges.some(([start, end]) => idx >= start && idx < end);
 
-  RECORD_RE.lastIndex = 0;
+  // First pass: locate abstract-record DU bodies and mark them consumed. We
+  // defer adding the unions until we interleave them with records by source
+  // order, so declaration order round-trips.
+  type PendingDecl =
+    | { kind: "record"; name: string; gens: string | undefined; params: string; offset: number }
+    | {
+        kind: "union-abstract";
+        name: string;
+        gens: string | undefined;
+        variants: Array<{ name: string; params: string | undefined }>;
+        offset: number;
+      }
+    | { kind: "union-enum"; name: string; body: string; offset: number }
+    | { kind: "alias"; name: string; target: string; offset: number };
+  const pending: PendingDecl[] = [];
+
+  ABSTRACT_RECORD_HEAD_RE.lastIndex = 0;
   let m: RegExpExecArray | null;
-  while ((m = RECORD_RE.exec(source)) !== null) {
-    const [, name, gens, body] = m;
-    if (name === undefined || body === undefined) {
-      continue;
-    }
-    found = true;
-    const fields = parseCsParams(body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
-    builder.add(record(name, fields, parseGenerics(gens)));
-  }
-
-  CLASS_OR_RECORD_HEADER_RE.lastIndex = 0;
-  while ((m = CLASS_OR_RECORD_HEADER_RE.exec(source)) !== null) {
+  while ((m = ABSTRACT_RECORD_HEAD_RE.exec(source)) !== null) {
     const [full, name, gens] = m;
     if (name === undefined) {
       continue;
     }
-    const braceIdx = m.index + full.length - 1;
-    const bodyRes = extractBalancedBody(source, braceIdx);
-    if (bodyRes === null) {
+    const openIdx = m.index + full.length - 1;
+    const body = extractBalancedBlock(source, openIdx, "{", "}");
+    if (body === null) {
       continue;
     }
-    found = true;
-    const fields = parseCsProps(bodyRes.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
-    builder.add(record(name, fields, parseGenerics(gens)));
-    CLASS_OR_RECORD_HEADER_RE.lastIndex = bodyRes.endIdx;
+    const endIdx = openIdx + body.length + 2;
+    consumedRanges.push([openIdx, endIdx]);
+
+    const variants: Array<{ name: string; params: string | undefined }> = [];
+    NESTED_VARIANT_RE.lastIndex = 0;
+    let vm: RegExpExecArray | null;
+    while ((vm = NESTED_VARIANT_RE.exec(body)) !== null) {
+      const [, vname, vparams] = vm;
+      if (vname === undefined) {
+        continue;
+      }
+      variants.push({ name: vname, params: vparams });
+    }
+    pending.push({ kind: "union-abstract", name, gens, variants, offset: m.index });
+  }
+
+  PRIMARY_RECORD_RE.lastIndex = 0;
+  while ((m = PRIMARY_RECORD_RE.exec(source)) !== null) {
+    if (isInsideConsumed(m.index)) {
+      continue;
+    }
+    const [, name, gens, params] = m;
+    if (name === undefined || params === undefined) {
+      continue;
+    }
+    pending.push({ kind: "record", name, gens, params, offset: m.index });
   }
 
   ENUM_RE.lastIndex = 0;
   while ((m = ENUM_RE.exec(source)) !== null) {
+    if (isInsideConsumed(m.index)) {
+      continue;
+    }
     const [, name, body] = m;
     if (name === undefined || body === undefined) {
       continue;
     }
+    pending.push({ kind: "union-enum", name, body, offset: m.index });
+  }
+
+  USING_ALIAS_RE.lastIndex = 0;
+  while ((m = USING_ALIAS_RE.exec(source)) !== null) {
+    const [, name, target] = m;
+    if (name === undefined || target === undefined) {
+      continue;
+    }
+    pending.push({ kind: "alias", name, target: target.trim(), offset: m.index });
+  }
+
+  pending.sort((a, b) => a.offset - b.offset);
+
+  for (const p of pending) {
     found = true;
-    const cleaned = body
-      .split("\n")
-      .map((l) => l.replace(/\/\/.*$/, "").trim())
-      .join(",");
-    const variants = cleaned
-      .split(",")
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0)
-      .map((l) => {
-        const [variantName] = l.split("=");
-        return { name: (variantName ?? l).trim(), fields: [] };
-      });
-    builder.add(union(name, variants));
+    if (p.kind === "record") {
+      const fields = parseCsParams(p.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      builder.add(record(p.name, fields, parseGenerics(p.gens)));
+      continue;
+    }
+    if (p.kind === "union-abstract") {
+      builder.add(
+        union(
+          p.name,
+          p.variants.map((v) => {
+            const fields =
+              v.params === undefined || v.params.trim().length === 0
+                ? []
+                : parseCsParams(v.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+            return { name: v.name, fields };
+          }),
+          parseGenerics(p.gens)
+        )
+      );
+      continue;
+    }
+    if (p.kind === "union-enum") {
+      const variants = p.body
+        .split(",")
+        .map((l) => l.replace(/\/\/.*$/, "").trim())
+        .filter((l) => l.length > 0)
+        .map((l) => {
+          const [variantName] = l.split("=");
+          return { name: (variantName ?? l).trim(), fields: [] };
+        });
+      builder.add(union(p.name, variants));
+      continue;
+    }
+    builder.add(alias(p.name, parseTypeRef(mapCsType(p.target))));
   }
 
   return found
@@ -170,35 +292,6 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
 // ── To C# ──
 
 const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
-const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
-const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";
-const isString = (t: ResolvedTypeRef): boolean => t.name === "String";
-
-const buildAliasMap = (model: Model): Map<string, ResolvedTypeRef> => {
-  const map = new Map<string, ResolvedTypeRef>();
-  for (const d of model.decls) {
-    if (d.kind === "alias") {
-      map.set(d.name, d.target);
-    }
-  }
-  return map;
-};
-
-const resolveAliases = (t: ResolvedTypeRef, aliases: Map<string, ResolvedTypeRef>, seen: Set<string>): ResolvedTypeRef => {
-  if (aliases.has(t.name) && !seen.has(t.name)) {
-    const target = aliases.get(t.name);
-    if (target !== undefined) {
-      const nextSeen = new Set(seen);
-      nextSeen.add(t.name);
-      return resolveAliases(target, aliases, nextSeen);
-    }
-  }
-  return {
-    name: t.name,
-    args: t.args.map((a) => resolveAliases(a, aliases, seen)),
-    resolution: t.resolution,
-  };
-};
 
 const mapTdToCs = (t: ResolvedTypeRef): string => {
   if (isOption(t) && t.args.length === 1) {
@@ -211,69 +304,40 @@ const mapTdToCs = (t: ResolvedTypeRef): string => {
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToCs).join(", ")}>`;
 };
 
-const toPascalCase = (s: string): string =>
-  s
-    .split(/[_\s-]+/)
-    .filter((p) => p.length > 0)
-    .map((p) => p.charAt(0).toUpperCase() + p.slice(1))
-    .join("");
-
-const defaultValueForField = (t: ResolvedTypeRef): string => {
-  if (isOption(t)) {
-    return "";
+const emitRecord = (name: string, fields: readonly { name: string; type: ResolvedTypeRef }[], generics: string[]): string[] => {
+  const genericsStr = generics.length > 0 ? `<${generics.join(", ")}>` : "";
+  if (fields.length === 0) {
+    return [`public sealed record ${name}${genericsStr}();`];
   }
-  if (isString(t)) {
-    return " = string.Empty";
-  }
-  if (isList(t)) {
-    const inner = t.args[0];
-    return inner === undefined ? " = new()" : ` = new List<${mapTdToCs(inner)}>()`;
-  }
-  if (isMap(t)) {
-    const k = t.args[0];
-    const v = t.args[1];
-    return k === undefined || v === undefined ? " = new()" : ` = new Dictionary<${mapTdToCs(k)}, ${mapTdToCs(v)}>()`;
-  }
-  return "";
+  const params = fields.map((f) => `${mapTdToCs(f.type)} ${f.name}`).join(", ");
+  return [`public sealed record ${name}${genericsStr}(${params});`];
 };
 
-const emitPropLine = (typeStr: string, propName: string, t: ResolvedTypeRef): string => {
-  const def = defaultValueForField(t);
-  return def === ""
-    ? `    public ${typeStr} ${propName} { get; init; }`
-    : `    public ${typeStr} ${propName} { get; init; }${def};`;
-};
-
-const csFieldType = (t: ResolvedTypeRef): string => {
-  if (isList(t) && t.args.length === 1) {
-    const inner = t.args[0];
-    if (inner !== undefined) {
-      return `IReadOnlyList<${mapTdToCs(inner)}>`;
-    }
-  }
-  if (isMap(t) && t.args.length === 2) {
-    const k = t.args[0];
-    const v = t.args[1];
-    if (k !== undefined && v !== undefined) {
-      return `IReadOnlyDictionary<${mapTdToCs(k)}, ${mapTdToCs(v)}>`;
-    }
-  }
-  return mapTdToCs(t);
-};
-
-const emitPropertyBagRecord = (
+const emitUnion = (
   name: string,
-  fields: readonly { name: string; type: ResolvedTypeRef }[],
+  variants: readonly { name: string; fields: readonly { name: string; type: ResolvedTypeRef }[] }[],
   generics: string[]
 ): string[] => {
   const genericsStr = generics.length > 0 ? `<${generics.join(", ")}>` : "";
-  const lines = [`public sealed record ${name}${genericsStr}`, "{"];
-  fields.forEach((f, idx) => {
-    const pascal = toPascalCase(f.name);
-    const typeStr = csFieldType(f.type);
-    lines.push(`    [JsonPropertyName("${f.name}")]`);
-    lines.push(emitPropLine(typeStr, pascal, f.type));
-    if (idx < fields.length - 1) {
+  const allEmpty = variants.every((v) => v.fields.length === 0);
+  if (allEmpty && generics.length === 0) {
+    // Plain enum: compact, familiar.
+    const lines = [`public enum ${name}`, "{"];
+    lines.push(variants.map((v) => `    ${v.name}`).join(",\n"));
+    lines.push("}");
+    return lines;
+  }
+  // Closed hierarchy: abstract record + nested sealed records.
+  const lines = [`public abstract record ${name}${genericsStr}`, "{"];
+  lines.push(`    private ${name}() { }`, "");
+  variants.forEach((v, idx) => {
+    if (v.fields.length === 0) {
+      lines.push(`    public sealed record ${v.name} : ${name}${genericsStr};`);
+    } else {
+      const params = v.fields.map((f) => `${mapTdToCs(f.type)} ${f.name}`).join(", ");
+      lines.push(`    public sealed record ${v.name}(${params}) : ${name}${genericsStr};`);
+    }
+    if (idx < variants.length - 1) {
       lines.push("");
     }
   });
@@ -281,93 +345,27 @@ const emitPropertyBagRecord = (
   return lines;
 };
 
-const variantClassName = (unionName: string, variantName: string): string => `${unionName}${variantName}`;
-
-const emitPayloadUnion = (
-  name: string,
-  variants: readonly { name: string; fields: readonly { name: string; type: ResolvedTypeRef }[] }[]
-): string[] => {
-  const lines: string[] = [`public interface I${name} { string Kind { get; } }`, ""];
-  for (const v of variants) {
-    const cls = variantClassName(name, v.name);
-    const kindTag = v.name.toLowerCase();
-    const hdr = [`public sealed record ${cls} : I${name}`, "{"];
-    hdr.push(`    [JsonPropertyName("kind")]`);
-    hdr.push(`    public string Kind { get; init; } = "${kindTag}";`);
-    for (const f of v.fields) {
-      const pascal = toPascalCase(f.name);
-      const typeStr = csFieldType(f.type);
-      hdr.push("");
-      hdr.push(`    [JsonPropertyName("${f.name}")]`);
-      hdr.push(`    public ${typeStr} ${pascal} { get; init; }${defaultValueForField(f.type)};`);
-    }
-    hdr.push("}");
-    lines.push(...hdr, "");
-  }
-  return lines;
-};
-
-const emitBareEnum = (name: string, variants: readonly { name: string }[]): string[] => {
-  const lines = [`public enum ${name}`, "{"];
-  lines.push(variants.map((v) => `    ${v.name}`).join(",\n"));
-  lines.push("}");
-  return lines;
-};
-
-const buildUsings = (model: Model): string[] => {
-  const usings = new Set<string>();
-  const hasCollections = model.decls.some(
-    (d) =>
-      (d.kind === "record" && d.fields.some((f) => isList(f.type) || isMap(f.type))) ||
-      (d.kind === "union" && d.variants.some((v) => v.fields.some((f) => isList(f.type) || isMap(f.type))))
-  );
-  const hasJson = model.decls.some((d) => d.kind === "record" || (d.kind === "union" && d.variants.some((v) => v.fields.length > 0)));
-  if (hasCollections) {
-    usings.add("System.Collections.Generic");
-  }
-  if (hasJson) {
-    usings.add("System.Text.Json.Serialization");
-  }
-  return [...usings].sort().map((u) => `using ${u};`);
-};
-
-const inlineDecl = (d: ResolvedDecl, aliases: Map<string, ResolvedTypeRef>): ResolvedDecl => {
-  if (d.kind === "record") {
-    return {
-      ...d,
-      fields: d.fields.map((f) => ({ name: f.name, type: resolveAliases(f.type, aliases, new Set()) })),
-    };
-  }
-  if (d.kind === "union") {
-    return {
-      ...d,
-      variants: d.variants.map((v) => ({
-        name: v.name,
-        fields: v.fields.map((f) => ({ name: f.name, type: resolveAliases(f.type, aliases, new Set()) })),
-      })),
-    };
-  }
-  return d;
+const emitAlias = (name: string, target: ResolvedTypeRef): string => {
+  // `using Email = string;` style. System.String-prefixed primitives read
+  // cleaner unqualified, so emit the mapped C# name directly.
+  return `using ${name} = ${mapTdToCs(target)};`;
 };
 
 const toCSharp = (model: Model): string => {
-  const aliases = buildAliasMap(model);
-  const inlinedDecls = model.decls.map((d) => inlineDecl(d, aliases)).filter((d): d is Exclude<ResolvedDecl, ResolvedAlias> => d.kind !== "alias");
-  const inlinedModel: Model = { ...model, decls: inlinedDecls };
-
   const lines: string[] = ["#nullable enable", ""];
-  const usings = buildUsings(inlinedModel);
-  if (usings.length > 0) {
-    lines.push(...usings, "");
-  }
 
-  for (const d of inlinedDecls) {
+  // Emit decls in their original model order. `using X = Y;` is valid at
+  // file scope wherever it appears, so keeping aliases in source order
+  // preserves round-trip order at the cost of the more idiomatic
+  // "usings-at-top" layout.
+  for (const d of model.decls) {
     if (d.kind === "record") {
-      lines.push(...emitPropertyBagRecord(d.name, d.fields, d.generics), "");
-      continue;
+      lines.push(...emitRecord(d.name, d.fields, d.generics), "");
+    } else if (d.kind === "union") {
+      lines.push(...emitUnion(d.name, d.variants, d.generics), "");
+    } else {
+      lines.push(emitAlias(d.name, d.target), "");
     }
-    const allEmpty = d.variants.every((v) => v.fields.length === 0);
-    lines.push(...(allEmpty ? emitBareEnum(d.name, d.variants) : emitPayloadUnion(d.name, d.variants)), "");
   }
 
   return lines.join("\n");
@@ -376,5 +374,5 @@ const toCSharp = (model: Model): string => {
 export const csharp: Converter = {
   language: "csharp",
   fromSource: fromCSharp,
-  toSource: (model) => toCSharp(model),
+  toSource: toCSharp,
 };

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { go } from "../../src/converters/index.js";
 import { parse } from "../../src/parser/index.js";
 import { buildModel } from "../../src/model/index.js";
-import { unwrap } from "./helpers.js";
+import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
 
 describe("[CONV-GO-FROM-COMPLEX] complex Go -> typeDiagram", () => {
   it("parses a messy Go file with structs, interfaces, aliases, and noise", () => {
@@ -230,39 +230,38 @@ alias Email = String
     // Package declaration
     expect(output).toContain("package types");
 
-    // ChatRequest — all type mappings
+    // ChatRequest — all type mappings. Field names are preserved as-is
+    // (lowercase) so TD -> Go -> TD is lossless.
     expect(output).toContain("type ChatRequest struct");
-    expect(output).toContain("Message string");
-    expect(output).toContain("Active bool");
-    expect(output).toContain("Score float64");
-    expect(output).toContain("Count int64");
-    expect(output).toContain("Raw []byte");
-    expect(output).toContain("Nothing struct{}");
-    expect(output).toContain("Tags []string");
-    expect(output).toContain("Metadata map[string]int64");
-    expect(output).toContain("Maybe *string");
+    expect(output).toContain("message string");
+    expect(output).toContain("active bool");
+    expect(output).toContain("score float64");
+    expect(output).toContain("count int64");
+    expect(output).toContain("raw []byte");
+    expect(output).toContain("nothing struct{}");
+    expect(output).toContain("tags []string");
+    expect(output).toContain("metadata map[string]int64");
+    expect(output).toContain("maybe *string");
 
-    // Field names capitalized
-    expect(output).not.toContain("\tmessage ");
-    expect(output).not.toContain("\tactive ");
-
-    // ContentItem — interface + variant structs + marker methods
+    // ContentItem — interface + variant structs + marker methods. Variant
+    // structs are qualified with the union name to avoid top-level collisions
+    // (e.g. `Divider` would otherwise clash across unions).
     expect(output).toContain("type ContentItem interface");
     expect(output).toContain("isContentItem()");
-    expect(output).toContain("type Text struct");
-    expect(output).toContain("Body string");
-    expect(output).toContain("Format string");
-    expect(output).toContain("func (Text) isContentItem()");
-    expect(output).toContain("type Image struct");
-    expect(output).toContain("func (Image) isContentItem()");
-    expect(output).toContain("type Divider struct{}");
-    expect(output).toContain("func (Divider) isContentItem()");
+    expect(output).toContain("type ContentItemText struct");
+    expect(output).toContain("body string");
+    expect(output).toContain("format string");
+    expect(output).toContain("func (ContentItemText) isContentItem()");
+    expect(output).toContain("type ContentItemImage struct");
+    expect(output).toContain("func (ContentItemImage) isContentItem()");
+    expect(output).toContain("type ContentItemDivider struct{}");
+    expect(output).toContain("func (ContentItemDivider) isContentItem()");
 
-    // Direction — all unit variants
+    // Direction — all unit variants, also qualified.
     expect(output).toContain("type Direction interface");
-    expect(output).toContain("type North struct{}");
-    expect(output).toContain("type South struct{}");
-    expect(output).toContain("func (North) isDirection()");
+    expect(output).toContain("type DirectionNorth struct{}");
+    expect(output).toContain("type DirectionSouth struct{}");
+    expect(output).toContain("func (DirectionNorth) isDirection()");
 
     // Alias
     expect(output).toContain("type Email = string");
@@ -314,9 +313,10 @@ alias Tag = String
     expect(cfg?.kind).toBe("record");
     const cfgFields = cfg?.kind === "record" ? cfg.fields : [];
     expect(cfgFields).toHaveLength(3);
-    expect(cfgFields.find((f) => f.name === "Tags")?.type.name).toBe("List");
-    expect(cfgFields.find((f) => f.name === "Metadata")?.type.name).toBe("Map");
-    expect(cfgFields.find((f) => f.name === "Maybe")?.type.name).toBe("Option");
+    // Field names are preserved verbatim (lowercase) for lossless round-trip.
+    expect(cfgFields.find((f) => f.name === "tags")?.type.name).toBe("List");
+    expect(cfgFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
+    expect(cfgFields.find((f) => f.name === "maybe")?.type.name).toBe("Option");
 
     const shape = model2.decls.find((d) => d.name === "Shape");
     expect(shape?.kind).toBe("union");
@@ -324,5 +324,11 @@ alias Tag = String
     const tag = model2.decls.find((d) => d.name === "Tag");
     expect(tag?.kind).toBe("alias");
     expect(tag?.kind === "alias" ? tag.target.name : "").toBe("String");
+  });
+});
+
+describe("[CONV-GO-RT] Go round-trip TD -> Go -> TD", () => {
+  it("losslessly round-trips the home-page example through Go (TD text preserved)", () => {
+    expectLosslessRoundTrip(go);
   });
 });

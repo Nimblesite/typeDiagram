@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { python } from "../../src/converters/index.js";
 import { parse } from "../../src/parser/index.js";
 import { buildModel } from "../../src/model/index.js";
-import { unwrap } from "./helpers.js";
+import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
 
 describe("[CONV-PY-FROM-COMPLEX] complex Python -> typeDiagram", () => {
   it("parses a messy real-world file with dataclasses, enums, TypedDicts, and noise", () => {
@@ -400,5 +400,11 @@ type Req {
     expect(out).toContain("from dataclasses import dataclass, field");
     expect(out).toContain("tags: list[str] = field(default_factory=list)");
     expect(out).toContain("meta: dict[str, int] = field(default_factory=dict)");
+  });
+});
+
+describe("[CONV-PY-RT] Python round-trip TD -> Python -> TD", () => {
+  it("losslessly round-trips the home-page example through Python (TD text preserved)", () => {
+    expectLosslessRoundTrip(python);
   });
 });
