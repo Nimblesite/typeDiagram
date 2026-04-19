@@ -61,7 +61,7 @@ const UNION_ALIAS_RE = /^(\w+)\s*=\s*([\w"'|\s]+)\s*$/gm;
 
 // Plain alias: `Email = str` or `IdList = list[str]`. Same LHS as union-alias
 // but RHS lacks `|`. Parsed in a second pass so we can tell them apart.
-const PLAIN_ALIAS_RE = /^(\w+)\s*=\s*(\w[\w\s\[\],.]*)$/gm;
+const PLAIN_ALIAS_RE = /^(\w+)\s*=\s*(\w[\w\s[\],.]*)$/gm;
 
 // Generic parameters: `class Foo(Generic[T])`, `class Foo(Generic[T, U])`,
 // or `class Foo(Bar, Generic[T])`. We extract the bracketed list.
@@ -120,7 +120,7 @@ const extractGenericsFromBases = (bases: string | undefined): string[] => {
     return [];
   }
   const gm = GENERIC_BASE_RE.exec(bases);
-  if (gm === null || gm[1] === undefined) {
+  if (gm?.[1] === undefined) {
     return [];
   }
   return gm[1]
@@ -183,7 +183,10 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
   UNION_ALIAS_RE.lastIndex = 0;
   while ((m = UNION_ALIAS_RE.exec(source)) !== null) {
     const [, name, rhs] = m;
-    if (name === undefined || rhs === undefined || !rhs.includes("|")) {
+    if (name === undefined || rhs === undefined) {
+      continue;
+    }
+    if (!rhs.includes("|")) {
       continue;
     }
     if (classNames.has(name) || enumNames.has(name)) {
@@ -234,7 +237,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
     const variants: VariantDef[] = [];
     for (const part of parts) {
       const literalMatch = /^["'](.+)["']$/.exec(part);
-      if (literalMatch !== null && literalMatch[1] !== undefined) {
+      if (literalMatch?.[1] !== undefined) {
         variants.push({ name: literalMatch[1], className: null });
         continue;
       }
@@ -293,10 +296,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
       const firstCls = variants
         .map((v) => (v.className === null ? null : pending.find((x) => x.kind === "class" && x.name === v.className)))
         .find((x) => x !== null && x !== undefined);
-      const generics =
-        firstCls !== null && firstCls !== undefined && firstCls.kind === "class"
-          ? extractGenericsFromBases(firstCls.bases)
-          : [];
+      const generics = firstCls?.kind === "class" ? extractGenericsFromBases(firstCls.bases) : [];
       builder.add(union(p.name, builtVariants, generics));
       continue;
     }

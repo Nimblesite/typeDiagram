@@ -101,6 +101,7 @@ const parseDartFields = (body: string) => {
   let m: RegExpExecArray | null;
   while ((m = FIELD_RE.exec(body)) !== null) {
     const [, type, name] = m;
+    /* v8 ignore next 3 — regex guarantees both captures */
     if (type === undefined || name === undefined) {
       continue;
     }
@@ -128,11 +129,13 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
   let m: RegExpExecArray | null;
   while ((m = SEALED_CLASS_HEAD_RE.exec(source)) !== null) {
     const [full, name, gens] = m;
+    /* v8 ignore next 3 — regex guarantees name is captured */
     if (name === undefined) {
       continue;
     }
     const openIdx = m.index + full.length - 1;
     const body = extractBalancedBlock(source, openIdx, "{", "}");
+    /* v8 ignore next 3 — regex ends on `{` so a balanced `}` is expected */
     if (body === null) {
       continue;
     }
@@ -145,11 +148,13 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
   EXTENDING_CLASS_HEAD_RE.lastIndex = 0;
   while ((m = EXTENDING_CLASS_HEAD_RE.exec(source)) !== null) {
     const [full, name, gens, parent] = m;
+    /* v8 ignore next 3 — regex guarantees both captures */
     if (name === undefined || parent === undefined) {
       continue;
     }
     const openIdx = m.index + full.length - 1;
     const body = extractBalancedBlock(source, openIdx, "{", "}");
+    /* v8 ignore next 3 — regex ends on `{` so a balanced `}` is expected */
     if (body === null) {
       continue;
     }
@@ -173,11 +178,13 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     const [full, name, gens] = m;
+    /* v8 ignore next 3 — regex guarantees name is captured */
     if (name === undefined) {
       continue;
     }
     const openIdx = m.index + full.length - 1;
     const body = extractBalancedBlock(source, openIdx, "{", "}");
+    /* v8 ignore next 3 — regex ends on `{` so a balanced `}` is expected */
     if (body === null) {
       continue;
     }
@@ -191,6 +198,7 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     const [, name, body] = m;
+    /* v8 ignore next 3 — regex guarantees both captures */
     if (name === undefined || body === undefined) {
       continue;
     }

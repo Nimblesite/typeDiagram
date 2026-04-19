@@ -18,7 +18,7 @@
     "packages/web": {
       "statements": 95.43,
       "branches": 95.86,
-      "functions": 97.36,
+      "functions": 97.63,
       "lines": 95.43
     },
     "packages/vscode": {

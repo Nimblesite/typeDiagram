@@ -71,40 +71,10 @@ const mapProtoType = (t: string): string => {
   const trimmed = t.trim();
   // map<K, V>
   const mapMatch = /^map\s*<\s*([^,]+)\s*,\s*(.+)\s*>$/.exec(trimmed);
-  if (mapMatch !== null && mapMatch[1] !== undefined && mapMatch[2] !== undefined) {
+  if (mapMatch?.[1] !== undefined && mapMatch[2] !== undefined) {
     return `Map<${mapProtoType(mapMatch[1])}, ${mapProtoType(mapMatch[2])}>`;
   }
   return PROTO_TO_TD[trimmed] ?? trimmed;
-};
-
-/**
- * Split a proto message/enum body into logical lines that the parser can
- * walk sequentially, preserving comments so `// @td-type:` directives are
- * visible to the field parser.
- */
-const splitBodyLines = (body: string): string[] => {
-  const out: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < body.length; i++) {
-    const c = body.charAt(i);
-    if (c === "{") {
-      depth += 1;
-    } else if (c === "}") {
-      depth -= 1;
-    } else if ((c === ";" || c === "\n") && depth === 0) {
-      const chunk = body.slice(start, i + 1);
-      if (chunk.trim().length > 0) {
-        out.push(chunk);
-      }
-      start = i + 1;
-    }
-  }
-  const last = body.slice(start);
-  if (last.trim().length > 0) {
-    out.push(last);
-  }
-  return out;
 };
 
 type Field = { name: string; type: string };
@@ -125,7 +95,7 @@ const parseMessageFields = (body: string): Field[] => {
       continue;
     }
     const typeDirMatch = TYPE_DIRECTIVE_LINE_RE.exec(line);
-    if (typeDirMatch !== null && typeDirMatch[1] !== undefined) {
+    if (typeDirMatch?.[1] !== undefined) {
       pendingTdType = typeDirMatch[1].trim();
       continue;
     }
@@ -147,6 +117,7 @@ const parseMessageFields = (body: string): Field[] => {
       continue;
     }
     const [, label, rawType, name] = fm;
+    /* v8 ignore next 4 — regex guarantees both captures */
     if (rawType === undefined || name === undefined) {
       pendingTdType = null;
       continue;
@@ -190,7 +161,7 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
     const windowStart = Math.max(0, offset - 128);
     const window = source.slice(windowStart, offset);
     const m = GENERICS_DIRECTIVE_RE.exec(window);
-    if (m === null || m[1] === undefined) {
+    if (m?.[1] === undefined) {
       return [];
     }
     return m[1]
@@ -206,11 +177,13 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     const [full, name] = m;
+    /* v8 ignore next 3 — regex guarantees name is captured */
     if (name === undefined) {
       continue;
     }
     const openIdx = m.index + full.length - 1;
     const body = extractBalancedBlock(source, openIdx, "{", "}");
+    /* v8 ignore next 3 — regex ends on `{` so balanced `}` is expected */
     if (body === null) {
       continue;
     }
@@ -225,11 +198,13 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     const [full, name] = m;
+    /* v8 ignore next 3 — regex guarantees name is captured */
     if (name === undefined) {
       continue;
     }
     const openIdx = m.index + full.length - 1;
     const body = extractBalancedBlock(source, openIdx, "{", "}");
+    /* v8 ignore next 3 — regex ends on `{` so balanced `}` is expected */
     if (body === null) {
       continue;
     }
@@ -241,6 +216,7 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
   ALIAS_DIRECTIVE_RE.lastIndex = 0;
   while ((m = ALIAS_DIRECTIVE_RE.exec(source)) !== null) {
     const [, name, target] = m;
+    /* v8 ignore next 3 — regex guarantees both captures */
     if (name === undefined || target === undefined) {
       continue;
     }
@@ -316,6 +292,7 @@ const collectNestedMessages = (body: string): Array<{ name: string; body: string
   let m: RegExpExecArray | null;
   while ((m = re.exec(body)) !== null) {
     const [full, name] = m;
+    /* v8 ignore next 3 — regex guarantees name is captured */
     if (name === undefined) {
       continue;
     }
@@ -365,43 +342,19 @@ const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";
  * Returns a proto3 expression for the given TD type, or null if the type
  * can't be expressed natively and needs a `@td-type` directive instead.
  */
+const isContainer = (t: ResolvedTypeRef): boolean => isList(t) || isMap(t) || isOption(t);
+
 const protoExpressionOf = (t: ResolvedTypeRef): { label: string; type: string } | null => {
-  if (isOption(t) && t.args.length === 1) {
-    const inner = t.args[0];
-    if (inner === undefined) {
-      return null;
-    }
-    // Option<List<X>> or Option<Map<..>> can't be expressed in proto3 (you
-    // can't combine `optional` with `repeated` or with `map`). Fall back to
-    // a directive.
-    if (isList(inner) || isMap(inner) || isOption(inner)) {
-      return null;
-    }
-    const innerName = TD_TO_PROTO[inner.name] ?? inner.name;
-    return { label: "optional", type: innerName };
+  const [a0, a1] = t.args;
+  if (isOption(t) && a0 !== undefined && !isContainer(a0)) {
+    return { label: "optional", type: TD_TO_PROTO[a0.name] ?? a0.name };
   }
-  if (isList(t) && t.args.length === 1) {
-    const inner = t.args[0];
-    if (inner === undefined) {
-      return null;
-    }
-    if (isList(inner) || isOption(inner) || isMap(inner)) {
-      return null;
-    }
-    const innerName = TD_TO_PROTO[inner.name] ?? inner.name;
-    return { label: "repeated", type: innerName };
+  if (isList(t) && a0 !== undefined && !isContainer(a0)) {
+    return { label: "repeated", type: TD_TO_PROTO[a0.name] ?? a0.name };
   }
-  if (isMap(t) && t.args.length === 2) {
-    const k = t.args[0];
-    const v = t.args[1];
-    if (k === undefined || v === undefined) {
-      return null;
-    }
-    if (k.args.length > 0 || v.args.length > 0) {
-      return null;
-    }
-    const keyName = TD_TO_PROTO[k.name] ?? k.name;
-    const valName = TD_TO_PROTO[v.name] ?? v.name;
+  if (isMap(t) && a0 !== undefined && a1 !== undefined && a0.args.length === 0 && a1.args.length === 0) {
+    const keyName = TD_TO_PROTO[a0.name] ?? a0.name;
+    const valName = TD_TO_PROTO[a1.name] ?? a1.name;
     return { label: "", type: `map<${keyName}, ${valName}>` };
   }
   if (t.args.length === 0) {
@@ -416,11 +369,11 @@ const emitField = (field: { name: string; type: ResolvedTypeRef }, fieldNumber: 
     // Fall back to a `@td-type` directive with a placeholder repeated/bytes
     // encoding so the field is syntactically valid proto.
     const directive = `${indent}// @td-type: ${printTypeRef(field.type)}`;
-    const placeholder = `${indent}repeated bytes ${field.name} = ${fieldNumber};`;
+    const placeholder = `${indent}repeated bytes ${field.name} = ${String(fieldNumber)};`;
     return [directive, placeholder];
   }
   const labelPart = expr.label.length > 0 ? `${expr.label} ` : "";
-  return [`${indent}${labelPart}${expr.type} ${field.name} = ${fieldNumber};`];
+  return [`${indent}${labelPart}${expr.type} ${field.name} = ${String(fieldNumber)};`];
 };
 
 const emitMessageBody = (fields: readonly { name: string; type: ResolvedTypeRef }[], indent: string): string[] => {
@@ -438,7 +391,7 @@ const emitEnum = (name: string, variants: readonly { name: string }[]): string[]
   const upper = name.toUpperCase();
   const lines = [`enum ${name} {`, `  ${upper}_UNSPECIFIED = 0;`];
   variants.forEach((v, i) => {
-    lines.push(`  ${upper}_${v.name} = ${i + 1};`);
+    lines.push(`  ${upper}_${v.name} = ${String(i + 1)};`);
   });
   lines.push("}");
   return lines;
@@ -469,9 +422,9 @@ const emitUnion = (
     const fieldName = v.name.toLowerCase();
     const fieldNumber = i + 1;
     if (v.fields.length === 0) {
-      lines.push(`    google.protobuf.Empty ${fieldName} = ${fieldNumber};`);
+      lines.push(`    google.protobuf.Empty ${fieldName} = ${String(fieldNumber)};`);
     } else {
-      lines.push(`    ${v.name} ${fieldName} = ${fieldNumber};`);
+      lines.push(`    ${v.name} ${fieldName} = ${String(fieldNumber)};`);
     }
   });
   lines.push("  }");

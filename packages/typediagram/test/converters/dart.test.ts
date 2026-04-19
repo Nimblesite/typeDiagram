@@ -126,3 +126,68 @@ describe("[CONV-DART-RT] Dart round-trip TD -> Dart -> TD", () => {
     expectLosslessRoundTrip(dart);
   });
 });
+
+describe("[CONV-DART-ERR] error + misc paths", () => {
+  it("returns error on source with no classes or enums", () => {
+    expect(dart.fromSource("import 'dart:async';\n").ok).toBe(false);
+  });
+
+  it("parses an empty enum body as a union with no variants", () => {
+    const model = unwrap(dart.fromSource("enum Empty { }"));
+    const empty = model.decls.find((d) => d.name === "Empty");
+    expect(empty?.kind).toBe("union");
+  });
+
+  it("skips malformed field lines inside a class body", () => {
+    // The first "field" lacks a type; only the well-formed `bool ok` survives.
+    const src = `
+class Foo {
+  final ;
+  final bool ok;
+  const Foo(this.ok);
+}
+`;
+    const model = unwrap(dart.fromSource(src));
+    const foo = model.decls.find((d) => d.name === "Foo");
+    const fields = foo?.kind === "record" ? foo.fields : [];
+    expect(fields.map((f) => f.name)).toEqual(["ok"]);
+  });
+});
+
+describe("[CONV-DART-EDGE] edge cases", () => {
+  it("emits generics on sealed classes and extending variants", () => {
+    const td = `union Box<T> { Some { value: T }\n None }`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = dart.toSource(model);
+    expect(out).toContain("sealed class Box<T>");
+    expect(out).toContain("final class Some<T> extends Box<T>");
+    expect(out).toContain("final class None<T> extends Box<T>");
+  });
+
+  it("preserves generics on records via (Generic<T>)-free first-class params", () => {
+    const td = `type Box<T> { value: T }`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const out = dart.toSource(model);
+    expect(out).toContain("class Box<T> {");
+    const back = unwrap(dart.fromSource(out));
+    const box = back.decls.find((d) => d.name === "Box");
+    expect(box?.generics).toEqual(["T"]);
+  });
+
+  it("parses variant classes that use `implements` instead of `extends`", () => {
+    const src = `
+sealed class Shape { const Shape(); }
+
+final class Circle implements Shape {
+  final double radius;
+  const Circle(this.radius);
+}
+`;
+    const model = unwrap(dart.fromSource(src));
+    const shape = model.decls.find((d) => d.name === "Shape");
+    expect(shape?.kind).toBe("union");
+    const variants = shape?.kind === "union" ? shape.variants : [];
+    expect(variants).toHaveLength(1);
+    expect(variants[0]?.name).toBe("Circle");
+  });
+});

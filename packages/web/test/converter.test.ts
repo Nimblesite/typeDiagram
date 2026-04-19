@@ -245,7 +245,7 @@ describe("[WEB-CONVERTER] mountConverter()", () => {
     expect(convertSource).toHaveBeenCalled();
     const tdOutput = container.querySelector("#conv-td code");
     expect(tdOutput).not.toBeNull();
-    expect(tdOutput?.textContent?.length ?? 0).toBeGreaterThan(0);
+    expect((tdOutput?.textContent ?? "").length).toBeGreaterThan(0);
     expect(tdOutput?.textContent).toContain("typeDiagram");
 
     // Panel 3: the diagram preview must contain an SVG, not an error message.
