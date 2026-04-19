@@ -1,6 +1,6 @@
 {
   "name": "typediagram",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "typeDiagram CLI — parse a .td source file and emit SVG",
   "license": "MIT",
   "repository": {
@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.build.json"
   },
   "dependencies": {
-    "typediagram-core": "0.5.0"
+    "typediagram-core": "0.6.0"
   },
   "devDependencies": {
     "typescript": "^5.6.0",

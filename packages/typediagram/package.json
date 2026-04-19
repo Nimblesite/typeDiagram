@@ -1,6 +1,6 @@
 {
   "name": "typediagram-core",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "A small DSL for diagramming algebraic data types (records + tagged unions). Language-neutral. No methods.",
   "license": "MIT",
   "repository": {
