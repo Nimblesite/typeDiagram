@@ -7,5 +7,6 @@ export { csharp } from "./csharp.js";
 export { fsharp } from "./fsharp.js";
 export { dart } from "./dart.js";
 export { protobuf } from "./protobuf.js";
+export { php } from "./php.js";
 export { parseTypeRef, printTypeRef } from "./parse-typeref.js";
 export type { Converter, Language } from "./types.js";

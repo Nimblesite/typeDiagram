@@ -20,6 +20,7 @@ const LANG_LABELS: Record<SupportedLang, string> = {
   fsharp: "F#",
   dart: "Dart",
   protobuf: "Protobuf",
+  php: "PHP",
 };
 
 const LANGUAGES: readonly SupportedLang[] = [
@@ -31,6 +32,7 @@ const LANGUAGES: readonly SupportedLang[] = [
   "fsharp",
   "dart",
   "protobuf",
+  "php",
 ];
 
 const DEFAULT_LANG: SupportedLang = "typescript";

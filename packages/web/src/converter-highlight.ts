@@ -106,6 +106,23 @@ const DART_RULES: readonly Rule[] = [
   { re: /[<>{}:;,=|?()[\]]/g, cls: "hl-punct" },
 ];
 
+const PHP_RULES: readonly Rule[] = [
+  { re: /\/\/.*$/gm, cls: "hl-comment" },
+  { re: /#.*$/gm, cls: "hl-comment" },
+  { re: /\/\*[\s\S]*?\*\//gm, cls: "hl-comment" },
+  {
+    re: /\b(class|interface|abstract|final|readonly|extends|implements|public|private|protected|static|function|new|return|namespace|use|const|enum|match|self|parent|this)\b/g,
+    cls: "hl-keyword",
+  },
+  {
+    re: /\b(bool|int|float|string|array|object|null|void|mixed|never|iterable|callable|true|false)\b/g,
+    cls: "hl-builtin",
+  },
+  { re: /\$[A-Za-z_][A-Za-z0-9_]*/g, cls: "hl-field" },
+  { re: /\b([A-Z][A-Za-z0-9_]*)\b/g, cls: "hl-type" },
+  { re: /[<>{}:;,=|?()[\]]/g, cls: "hl-punct" },
+];
+
 const PROTOBUF_RULES: readonly Rule[] = [
   { re: /\/\/.*$/gm, cls: "hl-comment" },
   { re: /\/\*[\s\S]*?\*\//gm, cls: "hl-comment" },
@@ -122,7 +139,7 @@ const PROTOBUF_RULES: readonly Rule[] = [
   { re: /[<>{}:;,=()[\]]/g, cls: "hl-punct" },
 ];
 
-type SupportedLang = "typescript" | "rust" | "python" | "go" | "csharp" | "fsharp" | "dart" | "protobuf";
+type SupportedLang = "typescript" | "rust" | "python" | "go" | "csharp" | "fsharp" | "dart" | "protobuf" | "php";
 
 const LANG_RULES: Record<SupportedLang, readonly Rule[]> = {
   typescript: TYPESCRIPT_RULES,
@@ -133,6 +150,7 @@ const LANG_RULES: Record<SupportedLang, readonly Rule[]> = {
   fsharp: FSHARP_RULES,
   dart: DART_RULES,
   protobuf: PROTOBUF_RULES,
+  php: PHP_RULES,
 };
 
 type Span = { start: number; end: number; cls: string };

@@ -1,7 +1,7 @@
 // [WEB-CONV-RENDER] Pipeline: language source ↔ typeDiagram source + SVG.
 // Lazy-loads the typediagram module like render-pane.ts.
 
-export type SupportedLang = "typescript" | "python" | "rust" | "go" | "csharp" | "fsharp" | "dart" | "protobuf";
+export type SupportedLang = "typescript" | "python" | "rust" | "go" | "csharp" | "fsharp" | "dart" | "protobuf" | "php";
 
 const getTheme = () =>
   window.matchMedia("(prefers-color-scheme: dark)").matches ? ("dark" as const) : ("light" as const);
@@ -26,6 +26,7 @@ export const convertSource = async (source: string, lang: SupportedLang): Promis
     fsharp: converters.fsharp,
     dart: converters.dart,
     protobuf: converters.protobuf,
+    php: converters.php,
   } as const;
 
   const conv = converterMap[lang];
@@ -60,6 +61,7 @@ export const convertFromTd = async (tdSource: string, lang: SupportedLang): Prom
     fsharp: converters.fsharp,
     dart: converters.dart,
     protobuf: converters.protobuf,
+    php: converters.php,
   } as const;
 
   const parsed = parser.parse(tdSource);
