@@ -23,10 +23,13 @@ structuredData:
     {% set activeSlug = active.slug %}
     {% include "docs-nav-groups.njk" %}
   </aside>
-  <nav class="docs-mobile-nav" aria-label="Documentation sections">
-    {% set activeSlug = active.slug %}
-    {% include "docs-nav-groups.njk" %}
-  </nav>
+  <details class="docs-mobile-nav">
+    <summary>{{ active.title }}</summary>
+    <nav aria-label="Documentation sections">
+      {% set activeSlug = active.slug %}
+      {% include "docs-nav-groups.njk" %}
+    </nav>
+  </details>
   <main class="docs-content">
     {{ active.html | safe }}
   </main>

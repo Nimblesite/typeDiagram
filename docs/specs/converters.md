@@ -1,6 +1,6 @@
 # Language Converters
 
-typeDiagram includes bidirectional converters for **TypeScript**, **Python**, **Rust**, **Go**, and **C#**. Each converter can parse existing type definitions into a typeDiagram model, and emit type definitions from a model.
+typeDiagram includes bidirectional converters for **TypeScript**, **Python**, **Rust**, **Go**, **C#**, **F#**, **Dart**, **PHP**, and **Protobuf**. Each converter can parse existing type definitions into a typeDiagram model, and emit type definitions from a model. All nine converters losslessly round-trip the canonical home-page sample (`TD → lang → TD` is byte-for-byte identical).
 
 ## How it works
 
@@ -111,9 +111,69 @@ Go doesn't have native sum types. Interfaces are mapped to unions; exported fiel
 
 | C#                                        | typeDiagram            |
 | ----------------------------------------- | ---------------------- |
-| `class User { ... }` / `record User(...)` | `type User { ... }`    |
+| `record User(...)`                        | `type User { ... }`    |
+| `abstract record` + nested `sealed record`| `union Shape { ... }`  |
 | `enum Color { ... }`                      | `union Color { ... }`  |
-| `using Email = string`                    | `alias Email = String` |
+| `using Email = string;`                   | `alias Email = String` |
+
+Tagged unions emit as a closed hierarchy (abstract record + nested sealed records, RestClient.Net / Outcome style). Primary-constructor records preserve the original field names. Aliases emit as `using Email = string;`.
+
+## F#
+
+### What maps
+
+| F#                                 | typeDiagram            |
+| ---------------------------------- | ---------------------- |
+| `type User = { ... }`              | `type User { ... }`    |
+| `type Shape = Circle \| Square`    | `union Shape { ... }`  |
+| `type Email = string`              | `alias Email = String` |
+
+F# discriminated unions map directly. Record syntax is used for struct types.
+
+## Dart
+
+### What maps
+
+| Dart                                    | typeDiagram            |
+| --------------------------------------- | ---------------------- |
+| `final class User { ... }`              | `type User { ... }`    |
+| `sealed class Shape` + `extends`/`implements` variants | `union Shape { ... }` |
+| `typedef Email = String`                | `alias Email = String` |
+| `T?`                                    | `Option<T>`            |
+| `List<T>`                               | `List<T>`              |
+| `Map<K,V>`                              | `Map<K,V>`             |
+
+Uses Dart 3 `sealed class` for tagged unions. First-class generics are preserved.
+
+## PHP
+
+### What maps
+
+| PHP                                               | typeDiagram            |
+| ------------------------------------------------- | ---------------------- |
+| `final readonly class User { ... }`               | `type User { ... }`    |
+| sealed `interface` + implementing classes         | `union Shape { ... }`  |
+| `@typediagram-kind alias` docblock                | `alias Email = String` |
+| `?string`                                         | `Option<String>`       |
+| `@param list<T>`                                  | `List<T>`              |
+| `@param array<K,V>`                               | `Map<K,V>`             |
+
+Emits `final readonly class` DTOs with constructor-promoted `public` params, `declare(strict_types=1)`, and PHPStan docblocks for generics. Tagged unions use a sealed `interface` with implementing classes and `@var 'Kind'` tags. Note: `Option<Unit>` is not round-trippable because both collapse to PHP `null` on parse.
+
+## Protobuf
+
+### What maps
+
+| Protobuf                           | typeDiagram                        |
+| ---------------------------------- | ---------------------------------- |
+| `message User { ... }`             | `type User { ... }`                |
+| `enum Color { ... }`               | `union Color { Red, Green, Blue }` |
+| `oneof` + nested `message` variants| `union Shape { ... }`              |
+| `optional T`                       | `Option<T>`                        |
+| `repeated T`                       | `List<T>`                          |
+| `map<K,V>`                         | `Map<K,V>`                         |
+
+Uses proto3 syntax. Because proto3 can't natively express generics, `Option<List<T>>`, or type aliases, the converter encodes these via comment directives: `// @td-generics:`, `// @td-type:`, `// @td-alias:`. Unit-only unions emit as `enum`; struct-variant unions emit as `oneof` with nested `message` types.
 
 ## Programmatic API
 
@@ -143,6 +203,10 @@ converters.python;
 converters.rust;
 converters.go;
 converters.csharp;
+converters.fsharp;
+converters.dart;
+converters.php;
+converters.protobuf;
 ```
 
 Each converter implements the `Converter` interface:

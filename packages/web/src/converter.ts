@@ -64,7 +64,7 @@ const buildDom = (container: HTMLElement, initialLang: SupportedLang) => {
             <textarea id="conv-editor" spellcheck="false" autocomplete="off"></textarea>
           </div>
         </div>
-        <div class="splitter" id="conv-splitter"></div>
+        <div class="splitter splitter--v" id="conv-splitter"></div>
         <div class="conv-col">
           <label class="pane-label" id="conv-right-label">typescript</label>
           <div class="conv-td-wrap">
@@ -72,6 +72,7 @@ const buildDom = (container: HTMLElement, initialLang: SupportedLang) => {
           </div>
         </div>
       </div>
+      <div class="splitter splitter--h" id="conv-splitter-h"></div>
       <div class="conv-preview-panel">
         <label class="pane-label">diagram</label>
         <div id="conv-preview" class="conv-preview"></div>
@@ -93,6 +94,8 @@ const buildDom = (container: HTMLElement, initialLang: SupportedLang) => {
     tdOutput: q("#conv-td") as HTMLElement,
     preview: q("#conv-preview") as HTMLElement,
     splitter: q("#conv-splitter") as HTMLElement,
+    splitterH: q("#conv-splitter-h") as HTMLElement,
+    panels: q(".conv-panels") as HTMLElement,
     inputPanel: q(".conv-input-panel") as HTMLElement,
     flipBtn: q("#conv-flip") as HTMLButtonElement,
     leftLabel: q("#conv-left-label") as HTMLElement,
@@ -143,13 +146,16 @@ export const mountConverter = (container: HTMLElement) => {
     tdOutput,
     preview,
     splitter,
+    splitterH,
+    panels,
     inputPanel,
     flipBtn,
     leftLabel,
     rightLabel,
   } = buildDom(container, currentLang);
 
-  initSplitter(inputPanel, splitter);
+  initSplitter(inputPanel, splitter, "typediagram-conv-split-v", "auto");
+  initSplitter(panels, splitterH, "typediagram-conv-split-h", "row", 0.55);
   const vp = createViewport(preview);
   createZoomControls(preview, vp);
   initEditorZoom(editorWrap, editor, backdrop);

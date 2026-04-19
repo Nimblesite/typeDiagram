@@ -58,7 +58,7 @@
       <script type="application/ld+json">{{ structuredData | dump | safe }}</script>
     {% endif %}
   </head>
-  <body>
+  <body{% if bodyClass %} class="{{ bodyClass }}"{% endif %}>
     {% include "nav.njk" %}
     {{ content | safe }}
     {% include "footer.njk" %}

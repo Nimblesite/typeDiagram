@@ -7,7 +7,7 @@ pagination:
 permalink: "/docs/{{ doc.slug }}.html"
 eleventyComputed:
   title: "{{ doc.title }} — typeDiagram"
-  description: "{{ doc.title }} — typeDiagram documentation. Language-neutral DSL for describing algebraic data types and generating code in TypeScript, Python, Rust, Go, and C#."
+  description: "{{ doc.title }} — typeDiagram documentation. Language-neutral DSL for describing algebraic data types and generating code in TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, and Protobuf."
   structuredData:
     "@context": "https://schema.org"
     "@type": "TechArticle"
@@ -27,10 +27,13 @@ navBlogHref: /blog/
     {% set activeSlug = doc.slug %}
     {% include "docs-nav-groups.njk" %}
   </aside>
-  <nav class="docs-mobile-nav" aria-label="Documentation sections">
-    {% set activeSlug = doc.slug %}
-    {% include "docs-nav-groups.njk" %}
-  </nav>
+  <details class="docs-mobile-nav">
+    <summary>{{ doc.title }}</summary>
+    <nav aria-label="Documentation sections">
+      {% set activeSlug = doc.slug %}
+      {% include "docs-nav-groups.njk" %}
+    </nav>
+  </details>
   <main class="docs-content">
     {{ doc.html | safe }}
   </main>

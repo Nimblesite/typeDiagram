@@ -2,17 +2,17 @@
 title: "Class Diagrams for Modern Type Systems: Diagram-as-Code and Source Generation with typeDiagram"
 date: 2026-04-18
 author: "The typeDiagram team"
-description: "A practical guide to class diagrams for modern type systems, including records, discriminated unions, and tagged unions. Generate TypeScript, Rust, C#, F#, Go, and Python types from one diagram, render SVG via pluggable hooks, and embed in Markdown — all diagram-as-code, all open source."
+description: "A practical guide to class diagrams for modern type systems, including records, discriminated unions, and tagged unions. Generate TypeScript, Rust, C#, F#, Go, Python, Dart, PHP, and Protobuf types from one diagram, render SVG via pluggable hooks, and embed in Markdown — all diagram-as-code, all open source."
 permalink: "/blog/welcome/index.html"
 ---
 
 If you searched for a **class diagram** tool for modern type systems, a way to **generate types from a diagram**, or an **AI-ready diagram-as-code** workflow, this post answers the three questions developers actually ask in 2026:
 
 1. How do I draw a **class diagram for records, discriminated unions, and tagged unions**?
-2. How do I **generate TypeScript, Rust, C#, F#, Go, or Python types** from one diagram?
+2. How do I **generate TypeScript, Rust, C#, F#, Go, Python, Dart, PHP, or Protobuf types** from one diagram?
 3. How do I get an **AI-assisted class diagram** that stays in sync with my codebase?
 
-The short answer: **typeDiagram**. It is a full diagram-as-code ecosystem — a tiny DSL for records and tagged unions, a parser, a layout engine, an SVG renderer with pluggable render hooks, a source generator for six languages, a Markdown plugin, a CLI, and a VS Code extension. Language-neutral, open source, and designed to slot into Markdown, VS Code, and MCP-based AI workflows.
+The short answer: **typeDiagram**. It is a full diagram-as-code ecosystem — a tiny DSL for records and tagged unions, a parser, a layout engine, an SVG renderer with pluggable render hooks, a source generator for nine languages (TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, Protobuf), a Markdown plugin, a CLI, and a VS Code extension. Language-neutral, open source, and designed to slot into Markdown, VS Code, and MCP-based AI workflows.
 
 ## Class diagrams for the way we actually write types today
 
@@ -57,21 +57,24 @@ Mermaid and PlantUML are excellent, general-purpose diagram-as-code tools. Merma
 typeDiagram is **focused**. It does one thing: class diagrams for records and tagged variants, end-to-end. That focus buys three things general UML renderers do not offer:
 
 - **First-class discriminated unions and tagged unions.** Variants and their payloads are a primitive in the DSL, not a workaround using inheritance or stereotype notes. The layout engine knows the difference between a variant-of edge and a reference edge.
-- **Source generation in six languages.** One diagram round-trips to idiomatic TypeScript, Rust, C#, F#, Go, and Python — and back. No general-purpose UML tool does this.
+- **Source generation in nine languages.** One diagram round-trips to idiomatic TypeScript, Rust, C#, F#, Go, Python, Dart, PHP, and Protobuf — and back, byte-for-byte lossless. No general-purpose UML tool does this.
 - **Pluggable render hooks.** The SVG renderer exposes hooks at every stage — node, row, edge, background, post-render. Custom themes, overlays, hover interactions, annotations, and export pipelines plug in without forking.
 
 Pair them freely. Mermaid for sequence and flowchart, PlantUML for C4 and deployment, **typeDiagram for the type layer** that also generates your code.
 
-## Generate TypeScript, Rust, C#, F#, Go, and Python types from one diagram
+## Generate TypeScript, Rust, C#, F#, Go, Python, Dart, PHP, and Protobuf types from one diagram
 
 This is the feature that changes the workflow. Write the diagram once, get idiomatic types in every language your services use:
 
 - **TypeScript**: discriminated unions with a `kind` tag, `interface`s for records.
 - **Rust**: `enum` with struct variants, `struct`s for records, `serde` attributes optional.
-- **C#**: `record` types, tagged union via the latest discriminated union proposal or sealed record hierarchies.
+- **C#**: primary-constructor `record` types, `abstract record` + nested `sealed record` for tagged unions, `using` for aliases.
 - **F#**: idiomatic `type` with `|` cases and `record` blocks.
-- **Go**: structs plus interface-based tagged unions (the least ugly option Go offers).
-- **Python**: `dataclass` with `Literal` tag fields, `Union` aliases, `match` statements.
+- **Go**: structs plus interface + marker-method tagged unions (the least ugly option Go offers), Go 1.18 generics.
+- **Python**: `dataclass` with per-variant classes and a `Union` alias line, `Generic[T]`/`TypeVar`, `match` statements.
+- **Dart**: `sealed class` tagged unions (Dart 3), `final class` records, `typedef` aliases, `T?` for `Option<T>`.
+- **PHP**: `final readonly class` DTOs with constructor-promoted params, sealed `interface` + implementing classes for unions, PHPStan docblocks for generics.
+- **Protobuf**: proto3 `message` for records, `enum` or `oneof` for unions, `repeated`/`optional`/`map<K,V>` field labels.
 
 Try it in the [converter](/converter.html) — paste a diagram on the left, pick a language on the right, copy the source into your project. Round-trip works too: paste existing types, get a diagram back.
 
@@ -110,7 +113,7 @@ All four consume the same public API. No duplicated parsing or layout logic. Wha
 
 ## "I already use Mermaid or PlantUML — do I need typeDiagram?"
 
-Add, don't switch. Keep Mermaid or PlantUML for sequence, flowchart, state, ER, C4, and deployment diagrams. Reach for typeDiagram when you want the **type layer** — the records, the discriminated unions, the domain model — to also generate code in six languages and to render through customisable hooks. They render side-by-side in the same Markdown file.
+Add, don't switch. Keep Mermaid or PlantUML for sequence, flowchart, state, ER, C4, and deployment diagrams. Reach for typeDiagram when you want the **type layer** — the records, the discriminated unions, the domain model — to also generate code in nine languages and to render through customisable hooks. They render side-by-side in the same Markdown file.
 
 ## Getting started in 60 seconds
 
