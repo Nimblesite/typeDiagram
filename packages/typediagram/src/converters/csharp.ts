@@ -12,6 +12,13 @@ import type { Model, ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { parseTypeRef } from "./parse-typeref.js";
+import {
+  extractBalancedBlock,
+  extractTrailingNullable,
+  formatGenericsDecl,
+  parseGenericParamList,
+  splitTopLevelCommas,
+} from "./brace-lang.js";
 
 // ── Type mapping tables ──
 
@@ -50,59 +57,12 @@ const stripSystemPrefix = (s: string): string => s.replace(/^System\./, "");
 
 // ── From C# ──
 
-// Balanced-brace/paren extractor so nested `{}` inside an abstract record
-// body (holding nested `sealed record` variants) is captured correctly.
-const extractBalancedBlock = (source: string, openIdx: number, open: string, close: string): string | null => {
-  if (source.charAt(openIdx) !== open) {
-    return null;
-  }
-  let depth = 1;
-  for (let i = openIdx + 1; i < source.length; i++) {
-    const c = source.charAt(i);
-    if (c === open) {
-      depth++;
-    } else if (c === close) {
-      depth--;
-      if (depth === 0) {
-        return source.slice(openIdx + 1, i);
-      }
-    }
-  }
-  return null;
-};
-
-// Recognise `T?`, `T | null`, `T | undefined` etc. as Option<T>. (C# uses `T?`.)
-const extractNullableInner = (t: string): string | null => {
-  const trimmed = t.trim();
-  if (!trimmed.endsWith("?")) {
-    return null;
-  }
-  return trimmed.slice(0, -1).trim();
-};
-
-// Split generic args at top-level commas, respecting angle-bracket depth.
-const splitGenericArgs = (s: string): string[] => {
-  const parts: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charAt(i);
-    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
-    if (c === "," && depth === 0) {
-      parts.push(s.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  const last = s.slice(start).trim();
-  return last.length > 0 ? [...parts, last] : parts;
-};
-
 const mapCsType = (t: string): string => {
-  const trimmed = stripSystemPrefix(t.trim());
-  const nullableInner = extractNullableInner(trimmed);
+  const nullableInner = extractTrailingNullable(stripSystemPrefix(t.trim()));
   if (nullableInner !== null) {
     return `Option<${mapCsType(nullableInner)}>`;
   }
+  const trimmed = stripSystemPrefix(t.trim());
   // byte[] -> Bytes
   if (trimmed === "byte[]") {
     return "Bytes";
@@ -112,14 +72,11 @@ const mapCsType = (t: string): string => {
     const baseName = trimmed.slice(0, angleBracket);
     const mapped = CS_TO_TD[baseName] ?? baseName;
     const inner = trimmed.slice(angleBracket + 1, trimmed.lastIndexOf(">"));
-    const args = splitGenericArgs(inner).map(mapCsType);
+    const args = splitTopLevelCommas(inner).map(mapCsType);
     return `${mapped}<${args.join(", ")}>`;
   }
   return CS_TO_TD[trimmed] ?? trimmed;
 };
-
-const parseGenerics = (s: string | undefined): string[] =>
-  s !== undefined && s.length > 0 ? s.split(",").map((g) => g.trim()) : [];
 
 // `using Email = System.String;`  or  `using Email = string;`
 const USING_ALIAS_RE = /using\s+(\w+)\s*=\s*([^;]+);/g;
@@ -142,7 +99,7 @@ const NESTED_VARIANT_RE =
 const PARAM_RE = /^([\w<>,\s\[\]?.]+?)\s+(\w+)$/;
 
 const parseCsParams = (body: string) =>
-  splitGenericArgs(body)
+  splitTopLevelCommas(body)
     .map((l) => l.trim())
     .filter((l) => l.length > 0)
     .map((l) => {
@@ -250,7 +207,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
     found = true;
     if (p.kind === "record") {
       const fields = parseCsParams(p.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
-      builder.add(record(p.name, fields, parseGenerics(p.gens)));
+      builder.add(record(p.name, fields, parseGenericParamList(p.gens)));
       continue;
     }
     if (p.kind === "union-abstract") {
@@ -264,7 +221,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
                 : parseCsParams(v.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
             return { name: v.name, fields };
           }),
-          parseGenerics(p.gens)
+          parseGenericParamList(p.gens)
         )
       );
       continue;

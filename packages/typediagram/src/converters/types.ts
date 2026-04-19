@@ -3,7 +3,7 @@ import type { Diagnostic } from "../parser/diagnostics.js";
 import type { Result } from "../result.js";
 import type { Model } from "../model/types.js";
 
-export type Language = "typescript" | "python" | "rust" | "go" | "csharp" | "fsharp";
+export type Language = "typescript" | "python" | "rust" | "go" | "csharp" | "fsharp" | "dart" | "protobuf";
 
 export interface PythonOpts {
   readonly style?: "dataclass" | "pydantic";
