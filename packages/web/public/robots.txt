@@ -1,4 +1,5 @@
 User-agent: *
 Allow: /
+Disallow: /e2e-harness.html
 
 Sitemap: https://typediagram.dev/sitemap.xml

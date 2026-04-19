@@ -36,6 +36,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Playwright needs chromium for the packages/web E2E tests. --with-deps
+      # ensures required OS libraries are present on ubuntu-latest.
+      - name: Install Playwright browsers
+        run: npx --workspace=@typediagram/web playwright install chromium --with-deps
+
       # Single `make ci` step runs the full pipeline (fmt-check -> lint -> test -> build -> bundle-size).
       - name: CI (make ci)
         run: make ci

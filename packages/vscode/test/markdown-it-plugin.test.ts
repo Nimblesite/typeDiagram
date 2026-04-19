@@ -165,6 +165,133 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
     expect(lines.some((l) => l.includes('"scope":"md-plugin"'))).toBe(true);
   });
 
+  // [VSCODE-MD-INTERLEAVED] Proves that when real markdown-it renders a doc mixing
+  // prose, headings, lists, quotes, and js fences around typediagram blocks, every
+  // section survives and the SVGs land in the correct order.
+  it("preserves heading → prose → typediagram → list → typediagram → quote order through real markdown-it", () => {
+    const src = [
+      "# Title",
+      "",
+      "Intro with **bold** and `code`.",
+      "",
+      "```typediagram",
+      "type A { x: Int }",
+      "```",
+      "",
+      "- item one",
+      "- item two",
+      "",
+      "```typediagram",
+      "type B { y: String }",
+      "```",
+      "",
+      "> closing quote",
+    ].join("\n");
+    const html = render(src);
+    // Structural HTML tags from markdown-it prove prose survived.
+    expect(html).toContain("<h1>Title</h1>");
+    expect(html).toContain("<strong>bold</strong>");
+    expect(html).toContain("<code>code</code>");
+    expect(html).toContain("<li>item one</li>");
+    expect(html).toContain("<li>item two</li>");
+    expect(html).toContain("<blockquote>");
+    expect(html).toContain("closing quote");
+    // Both diagrams rendered inline, in order.
+    const svgs = [...html.matchAll(/<svg/g)];
+    expect(svgs.length).toBe(2);
+    const iH1 = html.indexOf("<h1>Title");
+    const iSvg0 = svgs[0]?.index ?? -1;
+    const iList = html.indexOf("<li>item one");
+    const iSvg1 = svgs[1]?.index ?? -1;
+    const iQuote = html.indexOf("<blockquote>");
+    expect(iH1).toBeGreaterThanOrEqual(0);
+    expect(iSvg0).toBeGreaterThan(iH1);
+    expect(iList).toBeGreaterThan(iSvg0);
+    expect(iSvg1).toBeGreaterThan(iList);
+    expect(iQuote).toBeGreaterThan(iSvg1);
+    // No leaked fence source.
+    expect(html).not.toContain("type A { x: Int }");
+    expect(html).not.toContain("type B { y: String }");
+    expect(html).not.toContain("```typediagram");
+  });
+
+  it("wraps each typediagram fence in <div class=\"typediagram\">, one wrapper per diagram", () => {
+    const src = [
+      "prose",
+      "",
+      "```typediagram",
+      "type A { x: Int }",
+      "```",
+      "",
+      "more prose",
+      "",
+      "```typediagram",
+      "type B { y: Int }",
+      "```",
+    ].join("\n");
+    const html = render(src);
+    const wrappers = [...html.matchAll(/<div class="typediagram">/g)];
+    expect(wrappers.length).toBe(2);
+    // Each wrapper contains a real SVG (not an error block, not a placeholder).
+    expect(html).not.toContain("typediagram-error");
+    expect(html).not.toContain("typediagram-pending");
+  });
+
+  it("does not corrupt a js fence that sits between two typediagram fences", () => {
+    const src = [
+      "```typediagram",
+      "type A { x: Int }",
+      "```",
+      "",
+      "```js",
+      "const secret = 42;",
+      "```",
+      "",
+      "```typediagram",
+      "type B { y: Int }",
+      "```",
+    ].join("\n");
+    const html = render(src);
+    // js fence renders as <pre><code> with the original content intact.
+    expect(html).toContain("const secret = 42");
+    expect((html.match(/<svg/g) ?? []).length).toBe(2);
+    // The js block appears strictly between the two SVGs.
+    const svgs = [...html.matchAll(/<svg/g)];
+    const iJs = html.indexOf("const secret");
+    expect(svgs[0]?.index).toBeLessThan(iJs);
+    expect(iJs).toBeLessThan(svgs[1]?.index ?? -1);
+  });
+
+  it("emits SVG as raw HTML (not escaped) so the browser actually paints it", () => {
+    const html = render("before\n\n```typediagram\ntype A { x: Int }\n```\n\nafter");
+    expect(html).toContain("<svg");
+    expect(html).not.toContain("&lt;svg");
+    expect(html).toContain("<p>before</p>");
+    expect(html).toContain("<p>after</p>");
+  });
+
+  it("one bad typediagram between two good ones — good ones still produce SVG, bad one produces an error block", () => {
+    const src = [
+      "```typediagram",
+      "type A { x: Int }",
+      "```",
+      "",
+      "middle paragraph",
+      "",
+      "```typediagram",
+      "type X { @bad }",
+      "```",
+      "",
+      "```typediagram",
+      "type B { y: Int }",
+      "```",
+    ].join("\n");
+    const html = render(src);
+    expect((html.match(/<svg/g) ?? []).length).toBe(2);
+    expect(html).toContain("typediagram-error");
+    expect(html).toContain("<p>middle paragraph</p>");
+  });
+
   it("handles missing previous fence rule gracefully (emits empty string)", () => {
     // Force-delete markdown-it's default fence rule so previousFence is undefined.
     const md = new MarkdownIt();

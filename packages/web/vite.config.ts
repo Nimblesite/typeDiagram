@@ -19,16 +19,21 @@ export default defineConfig({
     outDir: resolve(__dirname, "dist"),
     emptyOutDir: true,
     target: "es2022",
+    // Source maps required so Playwright coverage can map built assets back
+    // to src/ for threshold enforcement.
+    sourcemap: true,
     rollupOptions: {
       input: {
         main: resolve(ELEVENTY_OUT, "index.html"),
         converter: resolve(ELEVENTY_OUT, "converter.html"),
+        harness: resolve(ELEVENTY_OUT, "e2e-harness.html"),
       },
     },
   },
   resolve: {
     alias: {
       "/src": resolve(__dirname, "src"),
+      "/e2e": resolve(__dirname, "e2e"),
     },
   },
   plugins: [copyEleventyPlugin(ELEVENTY_OUT), eleventyDevReloadPlugin(ELEVENTY_OUT)],

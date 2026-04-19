@@ -4,7 +4,7 @@
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web clean-start
+.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web clean-start e2e
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -41,6 +41,8 @@ build:
 ## test: Fail-fast tests + coverage + threshold enforcement + ratchet.
 ##       See REPO-STANDARDS-SPEC [TEST-RULES] and [COVERAGE-THRESHOLDS-JSON].
 ##       Runs each package sequentially so coverage threshold failures exit non-zero.
+##       packages/web runs vitest AND Playwright (desktop + mobile) and enforces
+##       the threshold against their MERGED coverage — see packages/web/scripts/merge-coverage.ts.
 ##       After all tests pass, ratchets coverage-thresholds.json UP to max(current, measured - 1%).
 test:
 	@echo "==> Testing (fail-fast + coverage + threshold)..."
@@ -51,6 +53,13 @@ test:
 	$(MAKE) _coverage_check
 	@echo "==> Ratcheting coverage thresholds..."
 	node scripts/ratchet-coverage.mjs
+
+## e2e: Run Playwright end-to-end tests only (packages/web), both desktop and
+##      mobile viewports. Does NOT run vitest or enforce coverage threshold —
+##      for that, use `make test`. Useful for iterating on UI tests.
+e2e:
+	@echo "==> Playwright E2E (desktop + mobile)..."
+	npm run -w packages/web test:e2e
 
 ## lint: Run all linters/analyzers (read-only). Does NOT format. Fails fast on first error.
 ##       Chains: typecheck -> eslint -> banned-deps.

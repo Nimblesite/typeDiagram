@@ -1,0 +1,17 @@
+---
+layout: base.njk
+title: E2E harness
+permalink: /e2e-harness.html
+stylesHref: /src/styles.css
+scriptSrc: /e2e/harness.ts
+bodyClass: e2e-harness-body
+eleventyExcludeFromCollections: true
+---
+<!-- [WEB-E2E-HARNESS] Minimal page for Playwright tests. Exposes module
+     mounts on window.__E2E so specs can driven each UI module in a real
+     browser and CSS context. Not shipped publicly — guarded by robots + no
+     internal links. -->
+<main id="e2e-main" class="e2e-harness">
+  <div id="e2e-mount"></div>
+  <div id="e2e-extra"></div>
+</main>

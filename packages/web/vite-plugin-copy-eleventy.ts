@@ -6,7 +6,7 @@ import { readdir, readFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import type { Plugin } from "vite";
 
-const ENTRY_HTML = new Set(["index.html", "converter.html"]);
+const ENTRY_HTML = new Set(["index.html", "converter.html", "e2e-harness.html"]);
 
 const walk = async (dir: string): Promise<string[]> => {
   const entries = await readdir(dir, { withFileTypes: true });

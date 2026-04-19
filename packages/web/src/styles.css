@@ -1848,6 +1848,7 @@ body {
 .conv-toolbar {
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: var(--td-space-md);
   padding: var(--td-space-sm) 0;
   flex: 0 0 auto;
