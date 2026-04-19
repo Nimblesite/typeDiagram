@@ -16,21 +16,16 @@ defaults:
 
 jobs:
   ci:
-    name: CI (Node ${{ matrix.node-version }})
+    name: CI
     runs-on: ubuntu-latest
     # TIMEOUT EXCEPTION: vitest + bundle-size + eslint across 4 workspaces exceeds 10 min on cold npm cache.
     timeout-minutes: 15
-    strategy:
-      # fail-fast: cancel the other matrix leg the moment any leg fails.
-      fail-fast: true
-      matrix:
-        node-version: [20, 22]
     steps:
       - uses: actions/checkout@v4
 
       - uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
+          node-version: 22
           cache: npm
 
       - name: Install dependencies
@@ -49,7 +44,7 @@ jobs:
         uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: coverage-report-${{ matrix.node-version }}
+          name: coverage-report
           path: |
             coverage/
             packages/*/coverage/
