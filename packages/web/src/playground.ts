@@ -160,7 +160,9 @@ export const mountPlayground = (container: HTMLElement) => {
       hooksEditor.value = next;
       hooksEditor.dispatchEvent(new Event("input", { bubbles: true }));
       syncPresetButtons(hooksToolbar, next);
-      void run();
+      run().catch((err: unknown) => {
+        console.error("[playground] preset render failed", err);
+      });
     }
   );
   syncPresetButtons(hooksToolbar, hooksEditor.value);
@@ -186,7 +188,9 @@ export const mountPlayground = (container: HTMLElement) => {
     setViewportContent(preview, html);
   };
   const debounced = debounce(() => {
-    void run();
+    run().catch((err: unknown) => {
+      console.error("[playground] render failed", err);
+    });
   }, 120);
 
   editor.addEventListener("input", () => {
@@ -207,5 +211,7 @@ export const mountPlayground = (container: HTMLElement) => {
     });
   }
   activateTab("source", refs);
-  void run();
+  run().catch((err: unknown) => {
+    console.error("[playground] initial render failed", err);
+  });
 };
