@@ -24,7 +24,8 @@ typeDiagram is a small DSL for diagramming algebraic data types (records + tagge
 - complex diagram text- > programming language type text
 - complex programming language type text example -> diagram
 - complex diagram text -> SVG
-- Loads of assertions in each test
+- Loads of user interactions and assertions in each test
+- Don't split tests for assertions or user interactions. Merge them.
 - Avoid fine grained unit tests
 
 - **Never delete or skip tests. Never remove assertions.** Fix the code or the expectation. 100% coverage is the goal.

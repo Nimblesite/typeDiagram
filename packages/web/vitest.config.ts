@@ -12,7 +12,7 @@ export default defineConfig({
     include: ["test/**/*.test.ts"],
     coverage: {
       provider: "v8",
-      reporter: ["text", "html", "json-summary"],
+      reporter: ["text", "html", "json-summary", "json"],
       reportsDirectory: "coverage/vitest",
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.d.ts", "src/main.ts", "src/converter-main.ts"],

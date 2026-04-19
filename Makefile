@@ -4,7 +4,7 @@
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web clean-start e2e
+.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web clean-start test-playwright
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -54,10 +54,11 @@ test:
 	@echo "==> Ratcheting coverage thresholds..."
 	node scripts/ratchet-coverage.mjs
 
-## e2e: Run Playwright end-to-end tests only (packages/web), both desktop and
-##      mobile viewports. Does NOT run vitest or enforce coverage threshold —
-##      for that, use `make test`. Useful for iterating on UI tests.
-e2e:
+## test-playwright: Run Playwright end-to-end tests only (packages/web), both
+##                  desktop and mobile viewports. Does NOT run vitest or enforce
+##                  coverage threshold — for that, use `make test`. Useful for
+##                  iterating on UI tests.
+test-playwright:
 	@echo "==> Playwright E2E (desktop + mobile)..."
 	npm run -w packages/web test:e2e
 

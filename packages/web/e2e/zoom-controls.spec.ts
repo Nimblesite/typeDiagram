@@ -28,44 +28,70 @@ test.describe("[WEB-ZOOM-CONTROLS]", () => {
     });
   });
 
-  test("appends a .zoom-controls element", async ({ page }) => {
+  test("renders bar with 5 buttons and routes clicks to each action", async ({ page }) => {
     await expect(page.locator("#e2e-mount .zoom-controls")).toHaveCount(1);
-  });
-
-  test("renders five zoom buttons", async ({ page }) => {
-    await expect(page.locator("#e2e-mount .zoom-btn")).toHaveCount(5);
-  });
-
-  test("+ button calls zoomIn once", async ({ page }) => {
-    await page.locator("#e2e-mount .zoom-btn").nth(0).click();
-    const calls = await page.evaluate(() => window.__E2E_ZC_CALLS);
-    expect(calls.zoomIn).toBe(1);
-    expect(calls.zoomOut).toBe(0);
-  });
-
-  test("− button calls zoomOut once", async ({ page }) => {
-    await page.locator("#e2e-mount .zoom-btn").nth(1).click();
-    const calls = await page.evaluate(() => window.__E2E_ZC_CALLS);
-    expect(calls.zoomOut).toBe(1);
-  });
-
-  test("1:1 button calls reset once", async ({ page }) => {
-    await page.locator("#e2e-mount .zoom-btn").nth(2).click();
-    const calls = await page.evaluate(() => window.__E2E_ZC_CALLS);
-    expect(calls.reset).toBe(1);
-  });
-
-  test("fit button calls fit once", async ({ page }) => {
-    await page.locator("#e2e-mount .zoom-btn").nth(3).click();
-    const calls = await page.evaluate(() => window.__E2E_ZC_CALLS);
-    expect(calls.fit).toBe(1);
-  });
-
-  test("returns the bar element with .zoom-controls class", async ({ page }) => {
-    const className = await page.evaluate(() => {
-      const bar = document.querySelector("#e2e-mount .zoom-controls");
-      return bar?.className ?? "";
-    });
+    const btns = page.locator("#e2e-mount .zoom-btn");
+    await expect(btns).toHaveCount(5);
+    const className = await page.$eval("#e2e-mount .zoom-controls", (el) => el.className);
     expect(className).toBe("zoom-controls");
+    await btns.nth(0).click();
+    await btns.nth(1).click();
+    await btns.nth(2).click();
+    await btns.nth(3).click();
+    const calls = await page.evaluate(() => window.__E2E_ZC_CALLS);
+    expect(calls).toEqual({ zoomIn: 1, zoomOut: 1, reset: 1, fit: 1 });
+  });
+
+  test("export button is a no-op when the viewport has no svg", async ({ page }) => {
+    // No viewport-wrapper svg exists — exportSvg should early-return without
+    // creating a download.
+    const tripped = await page.evaluate(() => {
+      let anchorClicked = false;
+      const orig = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () {
+        anchorClicked = true;
+      };
+      try {
+        const btn = document.querySelectorAll<HTMLButtonElement>("#e2e-mount .zoom-btn")[4];
+        btn?.click();
+      } finally {
+        HTMLAnchorElement.prototype.click = orig;
+      }
+      return anchorClicked;
+    });
+    expect(tripped).toBe(false);
+  });
+
+  test("export button triggers an anchor download when svg is present", async ({ page }) => {
+    const result = await page.evaluate(() => {
+      const mount = document.getElementById("e2e-mount") as HTMLElement;
+      const wrapper = document.createElement("div");
+      wrapper.className = "viewport-wrapper";
+      const ns = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(ns, "svg");
+      svg.setAttribute("width", "10");
+      svg.setAttribute("height", "10");
+      wrapper.appendChild(svg);
+      mount.appendChild(wrapper);
+      let href = "";
+      let download = "";
+      let anchorClicked = false;
+      const origClick = HTMLAnchorElement.prototype.click;
+      HTMLAnchorElement.prototype.click = function () {
+        href = this.href;
+        download = this.download;
+        anchorClicked = true;
+      };
+      try {
+        const btn = document.querySelectorAll<HTMLButtonElement>("#e2e-mount .zoom-btn")[4];
+        btn?.click();
+      } finally {
+        HTMLAnchorElement.prototype.click = origClick;
+      }
+      return { href, download, anchorClicked };
+    });
+    expect(result.anchorClicked).toBe(true);
+    expect(result.download).toBe("diagram.svg");
+    expect(result.href).toMatch(/^blob:/);
   });
 });

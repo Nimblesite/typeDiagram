@@ -3,15 +3,104 @@
 // the preview SVG instead of mock arguments.
 import { expect, test } from "./support/coverage-fixture.js";
 
-const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+type Page = import("@playwright/test").Page;
 
-const goto = async (page: import("@playwright/test").Page): Promise<void> => {
+// Poll localStorage until the value at `key` contains `marker`. Replaces
+// fixed waits after textarea input (debounce timing isn't under test).
+const waitForStorageContains = async (
+  page: Page,
+  key: string,
+  marker: string
+): Promise<void> => {
+  await page.waitForFunction(
+    (args: { k: string; m: string }) => {
+      const v = localStorage.getItem(args.k);
+      return v !== null && v.includes(args.m);
+    },
+    { k: key, m: marker }
+  );
+};
+
+// Poll #hooks-editor textarea value until it contains/excludes a marker.
+const waitForHooksValue = async (
+  page: Page,
+  marker: string,
+  mode: "contains" | "excludes"
+): Promise<void> => {
+  await page.waitForFunction(
+    (args: { m: string; mode: "contains" | "excludes" }) => {
+      const ta = document.querySelector<HTMLTextAreaElement>("#hooks-editor");
+      if (ta === null) {
+        return false;
+      }
+      const has = ta.value.includes(args.m);
+      return args.mode === "contains" ? has : !has;
+    },
+    { m: marker, mode }
+  );
+};
+
+// Poll #preview innerHTML until it contains <svg (i.e. a render completed).
+const waitForPreviewSvg = async (page: Page): Promise<void> => {
+  await page.waitForFunction(() => {
+    const p = document.querySelector("#preview");
+    return p !== null && p.innerHTML.includes("<svg");
+  });
+};
+
+// Poll #hooks-diag until it's visible (not-hidden) with non-empty text.
+const waitForHooksDiag = async (page: Page): Promise<void> => {
+  await page.waitForFunction(() => {
+    const d = document.querySelector<HTMLElement>("#hooks-diag");
+    return d !== null && !d.hidden && (d.textContent ?? "").length > 0;
+  });
+};
+
+// Poll #hooks-backdrop until a specific highlighted span class appears.
+const waitForBackdropToken = async (page: Page, token: string): Promise<void> => {
+  await page.waitForFunction(
+    (t: string) => {
+      const b = document.querySelector("#hooks-backdrop");
+      return b !== null && b.innerHTML.toLowerCase().includes(t.toLowerCase());
+    },
+    token
+  );
+};
+
+// Poll an aria-pressed state on a chip matching preset id.
+const waitForChipPressed = async (
+  page: Page,
+  presetId: string,
+  pressed: boolean
+): Promise<void> => {
+  await page.waitForFunction(
+    (args: { id: string; want: boolean }) => {
+      const btn = document.querySelector<HTMLButtonElement>(
+        `.hook-chip[data-preset-id="${args.id}"]`
+      );
+      return btn !== null && btn.getAttribute("aria-pressed") === String(args.want);
+    },
+    { id: presetId, want: pressed }
+  );
+};
+
+const goto = async (page: Page): Promise<void> => {
+  // Fresh session for every test — previous specs may have seeded
+  // localStorage (mount-restores test) which would otherwise bleed across.
   await page.goto("/");
+  await page.evaluate(() => {
+    localStorage.clear();
+  });
+  await page.reload();
   await page.waitForSelector("#editor");
   await page.waitForFunction(() => {
     const preview = document.querySelector("#preview");
     return preview !== null && preview.innerHTML.length > 0;
   });
+};
+
+const openHooksTab = async (page: import("@playwright/test").Page): Promise<void> => {
+  await page.locator('.pane-tab[data-tab="hooks"]').click();
 };
 
 test.describe("[WEB-PLAYGROUND]", () => {
@@ -65,11 +154,13 @@ test.describe("[WEB-PLAYGROUND]", () => {
 
   test("typing valid JS in hooks editor re-renders (preview stays an SVG)", async ({ page }) => {
     await goto(page);
-    const editor = page.locator("#hooks-editor");
-    await editor.fill("hooks.node = (_ctx, def) => def;");
-    await wait(300);
-    const html = await page.$eval("#preview", (el) => el.innerHTML);
-    expect(html).toContain("<svg");
+    await openHooksTab(page);
+    await page.locator("#hooks-editor").fill("hooks.node = (_ctx, def) => def;");
+    // Wait for the debounced re-render to land a new svg in #preview.
+    await waitForPreviewSvg(page);
+    // Also wait for the new source to persist, which only happens AFTER the
+    // render pipeline finishes — proves the hook wired through end-to-end.
+    await waitForStorageContains(page, "td-playground-hooks", "hooks.node = (_ctx, def)");
   });
 
   test("hooks textarea pre-populates with header + example block", async ({ page }) => {
@@ -92,14 +183,8 @@ test.describe("[WEB-PLAYGROUND]", () => {
 
   test("editor input writes source to localStorage", async ({ page }) => {
     await goto(page);
-    const editor = page.locator("#editor");
-    await editor.fill("typeDiagram\n  type Persisted { x: Int }");
-    await wait(200);
-    const stored = await page.evaluate(() =>
-      localStorage.getItem("td-playground-source")
-    );
-    expect(stored).not.toBeNull();
-    expect(stored).toContain("Persisted");
+    await page.locator("#editor").fill("typeDiagram\n  type Persisted { x: Int }");
+    await waitForStorageContains(page, "td-playground-source", "Persisted");
   });
 
   test("mount restores previously-saved source and hooks from localStorage", async ({ page }) => {
@@ -119,21 +204,18 @@ test.describe("[WEB-PLAYGROUND]", () => {
 
   test("hooks editor has syntax-highlight backdrop with JS tokens", async ({ page }) => {
     await goto(page);
+    await openHooksTab(page);
     await page.locator("#hooks-editor").fill("const x = 1; // comment");
-    await wait(150);
+    await waitForBackdropToken(page, "comment");
     const html = await page.$eval("#hooks-backdrop", (el) => el.innerHTML);
     expect(html).toMatch(/<span[^>]*class=/);
-    expect(html.toLowerCase()).toContain("comment");
   });
 
   test("invalid hook code surfaces a diagnostic; preview still renders", async ({ page }) => {
     await goto(page);
+    await openHooksTab(page);
     await page.locator("#hooks-editor").fill("hooks.node = ###;");
-    await wait(300);
-    const diag = page.locator("#hooks-diag");
-    expect(await diag.evaluate((el) => (el as HTMLElement).hidden)).toBe(false);
-    const diagText = await diag.textContent();
-    expect((diagText ?? "").length).toBeGreaterThan(0);
+    await waitForHooksDiag(page);
     const previewHtml = await page.$eval("#preview", (el) => el.innerHTML);
     expect(previewHtml).toContain("<svg");
   });
@@ -166,55 +248,47 @@ test.describe("[WEB-PLAYGROUND-PRESETS]", () => {
 
   test("clicking a preset appends its source block and marks aria-pressed", async ({ page }) => {
     await goto(page);
+    await openHooksTab(page);
     const before = await page.$eval("#hooks-editor", (el) => (el as HTMLTextAreaElement).value);
     const btn = page.locator('.hook-chip[data-preset-id="drop-shadow"]');
     await btn.click();
-    await wait(200);
+    await waitForHooksValue(page, "// --- preset:drop-shadow ---", "contains");
+    await waitForChipPressed(page, "drop-shadow", true);
     const after = await page.$eval("#hooks-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(after.length).toBeGreaterThan(before.length);
-    expect(after).toContain("// --- preset:drop-shadow ---");
     expect(after).toContain("hooks.node");
-    expect(await btn.getAttribute("aria-pressed")).toBe("true");
   });
 
   test("clicking the same preset again removes the block", async ({ page }) => {
     await goto(page);
+    await openHooksTab(page);
     const btn = page.locator('.hook-chip[data-preset-id="grid-bg"]');
     await btn.click();
-    await wait(150);
-    let value = await page.$eval("#hooks-editor", (el) => (el as HTMLTextAreaElement).value);
-    expect(value).toContain("preset:grid-bg");
+    await waitForHooksValue(page, "preset:grid-bg", "contains");
     await btn.click();
-    await wait(150);
-    value = await page.$eval("#hooks-editor", (el) => (el as HTMLTextAreaElement).value);
-    expect(value).not.toContain("preset:grid-bg");
-    expect(await btn.getAttribute("aria-pressed")).toBe("false");
+    await waitForHooksValue(page, "preset:grid-bg", "excludes");
+    await waitForChipPressed(page, "grid-bg", false);
   });
 
   test("preset click keeps the preview SVG rendered", async ({ page }) => {
     await goto(page);
-    const btn = page.locator('.hook-chip[data-preset-id="drop-shadow"]');
-    await btn.click();
-    await wait(300);
-    const html = await page.$eval("#preview", (el) => el.innerHTML);
-    expect(html).toContain("<svg");
+    await openHooksTab(page);
+    await page.locator('.hook-chip[data-preset-id="drop-shadow"]').click();
+    await waitForHooksValue(page, "preset:drop-shadow", "contains");
+    await waitForPreviewSvg(page);
   });
 
   test("hand-typing a preset block lights up the matching chip", async ({ page }) => {
     await goto(page);
-    // Prime it with a known preset source: read chip label to pick an existing one,
-    // then click it to grab its source, clear + re-type by hand.
+    await openHooksTab(page);
     const btn = page.locator('.hook-chip[data-preset-id="classes"]');
     await btn.click();
-    await wait(150);
+    await waitForChipPressed(page, "classes", true);
     const presetSource = await page.$eval("#hooks-editor", (el) => (el as HTMLTextAreaElement).value);
-    // Click again to clear, then hand-type.
     await btn.click();
-    await wait(150);
+    await waitForChipPressed(page, "classes", false);
     await page.locator("#hooks-editor").fill(presetSource);
-    await wait(200);
-    expect(await btn.getAttribute("aria-pressed")).toBe("true");
-    const classes = await btn.evaluate((el) => el.className);
-    expect(classes).toContain("hook-chip--on");
+    await waitForChipPressed(page, "classes", true);
+    expect(await btn.evaluate((el) => el.className)).toContain("hook-chip--on");
   });
 });

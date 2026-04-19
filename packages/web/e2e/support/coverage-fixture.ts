@@ -3,17 +3,18 @@
 // of the run (see globalTeardown in playwright.config.ts).
 import { test as base } from "@playwright/test";
 import MCR from "monocart-coverage-reports";
+import type { CoverageReportOptions } from "monocart-coverage-reports";
 
-export const coverageOptions = {
+export const coverageOptions: CoverageReportOptions = {
   outputDir: "coverage/playwright",
-  reports: [["v8"], ["console-summary"], ["json-summary"]],
+  reports: [["v8"], ["console-summary"], ["json-summary"], ["lcov"], ["json"]],
   cleanCache: false,
   sourceMap: true,
   entryFilter: (entry: { url: string }): boolean => entry.url.includes("/assets/"),
   sourceFilter: (sourcePath: string): boolean =>
     sourcePath.startsWith("src/") && !sourcePath.endsWith(".d.ts"),
   // Disable per-add report emission; only globalTeardown writes the report.
-  logging: "error" as const,
+  logging: "error",
 };
 
 export const test = base.extend({

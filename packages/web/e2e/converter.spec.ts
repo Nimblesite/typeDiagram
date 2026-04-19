@@ -3,10 +3,47 @@
 // responsive layout (stacked editors on mobile) is exercised end-to-end.
 import { expect, test } from "./support/coverage-fixture.js";
 
-const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+type Page = import("@playwright/test").Page;
 
-const gotoConverter = async (page: import("@playwright/test").Page): Promise<void> => {
+// Poll the TD output pane until it contains `marker`. The converter's
+// render is debounced (150ms) then async; polling avoids hard-coded sleeps
+// that are either flaky (too short) or wasteful (too long).
+const waitForTdCode = async (page: Page, marker: string): Promise<void> => {
+  await page.waitForFunction(
+    (m: string) => {
+      const code = document.querySelector("#conv-td code");
+      return code !== null && (code.textContent ?? "").includes(m);
+    },
+    marker
+  );
+};
+
+// Poll the editor textarea until its value contains a marker (flip/seed
+// writes asynchronously after the debounced conversion completes).
+const waitForEditorContains = async (page: Page, marker: string): Promise<void> => {
+  await page.waitForFunction((m: string) => {
+    const ta = document.querySelector<HTMLTextAreaElement>("#conv-editor");
+    return ta !== null && ta.value.includes(m);
+  }, marker);
+};
+
+// Poll until the editor value changes from a known baseline. Used when the
+// exact new content isn't predictable (e.g. after switching language while
+// flipped — the seeded source varies by language).
+const waitForEditorChange = async (page: Page, from: string): Promise<void> => {
+  await page.waitForFunction((baseline: string) => {
+    const ta = document.querySelector<HTMLTextAreaElement>("#conv-editor");
+    return ta !== null && ta.value !== baseline && ta.value.length > 0;
+  }, from);
+};
+
+const gotoConverter = async (page: Page): Promise<void> => {
+  // Fresh storage every test — splitter ratio + other widgets persist.
   await page.goto("/converter.html");
+  await page.evaluate(() => {
+    localStorage.clear();
+  });
+  await page.reload();
   // mountConverter runs on DOMContentLoaded, but the first `run()` is async.
   await page.waitForSelector("#conv-editor");
   await page.waitForFunction(() => {
@@ -20,113 +57,66 @@ test.describe("[WEB-CONVERTER]", () => {
     await gotoConverter(page);
   });
 
-  test("renders a tab for every supported language", async ({ page }) => {
+  test("initial layout: tabs, labels, sample text, panels", async ({ page }) => {
     const labels = await page.$$eval(".conv-lang-tab", (tabs) => tabs.map((t) => t.textContent));
     for (const name of ["TypeScript", "Rust", "Python", "Go", "C#", "F#", "Dart", "Protobuf", "PHP"]) {
       expect(labels).toContain(name);
     }
     expect(labels.length).toBe(9);
-  });
-
-  test("sets TypeScript as the default active tab", async ({ page }) => {
-    const active = await page.$eval(".conv-lang-tab--active", (el) => el.textContent);
-    expect(active).toBe("TypeScript");
-  });
-
-  test("starts with typeDiagram on left label, target language on right", async ({ page }) => {
-    const left = await page.$eval("#conv-left-label", (el) => el.textContent);
-    const right = await page.$eval("#conv-right-label", (el) => el.textContent);
-    expect(left).toBe("typediagram");
-    expect(right).toBe("typescript");
-  });
-
-  test("loads the typeDiagram sample into the editor on startup", async ({ page }) => {
+    expect(await page.$eval(".conv-lang-tab--active", (el) => el.textContent)).toBe("TypeScript");
+    expect(await page.$eval("#conv-left-label", (el) => el.textContent)).toBe("typediagram");
+    expect(await page.$eval("#conv-right-label", (el) => el.textContent)).toBe("typescript");
     const value = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(value).toContain("typeDiagram");
     expect(value).toContain("type ChatRequest");
-  });
-
-  test("renders the output area", async ({ page }) => {
     await expect(page.locator("#conv-td")).toHaveCount(1);
-  });
-
-  test("renders the diagram preview area", async ({ page }) => {
     await expect(page.locator("#conv-preview")).toHaveCount(1);
-  });
-
-  test("renders the splitter between the two input panels", async ({ page }) => {
     await expect(page.locator("#conv-splitter")).toHaveCount(1);
-  });
-
-  test("renders the flip button", async ({ page }) => {
     await expect(page.locator("#conv-flip")).toHaveCount(1);
   });
 
-  test("switches the active tab on click", async ({ page }) => {
-    await page.locator('[data-lang="rust"]').click();
-    const classes = await page.$eval('[data-lang="rust"]', (el) => el.className);
-    expect(classes).toContain("conv-lang-tab--active");
-    const tsClasses = await page.$eval('[data-lang="typescript"]', (el) => el.className);
-    expect(tsClasses).not.toContain("conv-lang-tab--active");
-  });
-
-  test("keeps the typeDiagram editor content when switching languages (unflipped)", async ({ page }) => {
+  test("switching language updates active tab + right label, keeps TD editor content", async ({ page }) => {
     const before = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     await page.locator('[data-lang="rust"]').click();
+    expect(await page.$eval('[data-lang="rust"]', (el) => el.className)).toContain("conv-lang-tab--active");
+    expect(await page.$eval('[data-lang="typescript"]', (el) => el.className)).not.toContain("conv-lang-tab--active");
     const after = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(after).toBe(before);
     expect(after).toContain("typeDiagram");
+    expect(await page.$eval("#conv-right-label", (el) => el.textContent)).toBe("rust");
   });
 
-  test("updates the right label when switching languages (unflipped)", async ({ page }) => {
-    await page.locator('[data-lang="rust"]').click();
-    const right = await page.$eval("#conv-right-label", (el) => el.textContent);
-    expect(right).toBe("rust");
-  });
-
-  test("produces non-empty language source from the TD editor", async ({ page }) => {
-    // Wait for initial debounced render (150ms debounce).
-    await wait(250);
+  test("produces non-empty language source from TD editor; backdrop present", async ({ page }) => {
+    await expect(page.locator("#conv-backdrop code")).toHaveCount(1);
+    await waitForTdCode(page, "interface");
     const tdText = await page.$eval("#conv-td code", (el) => el.textContent ?? "");
     expect(tdText.length).toBeGreaterThan(50);
-    expect(tdText).toContain("interface");
-  });
-
-  test("creates a backdrop for syntax highlighting", async ({ page }) => {
-    await expect(page.locator("#conv-backdrop code")).toHaveCount(1);
   });
 
   test("swaps panel labels when the flip button is clicked", async ({ page }) => {
     await page.locator("#conv-flip").click();
-    await wait(200);
-    const left = await page.$eval("#conv-left-label", (el) => el.textContent);
-    const right = await page.$eval("#conv-right-label", (el) => el.textContent);
-    expect(left).toBe("typescript");
-    expect(right).toBe("typediagram");
-    const classes = await page.$eval("#conv-flip", (el) => el.className);
-    expect(classes).toContain("conv-flip-btn--active");
+    await expect(page.locator("#conv-flip")).toHaveClass(/conv-flip-btn--active/);
+    expect(await page.$eval("#conv-left-label", (el) => el.textContent)).toBe("typescript");
+    expect(await page.$eval("#conv-right-label", (el) => el.textContent)).toBe("typediagram");
   });
 
   test("flipping seeds the editor with generated language source", async ({ page }) => {
     await page.locator("#conv-flip").click();
-    await wait(300);
+    await waitForEditorContains(page, "interface");
     const value = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(value.length).toBeGreaterThan(50);
-    expect(value).toContain("interface");
   });
 
   test("Rust + flip fills all three panels (no 'no definitions' error)", async ({ page }) => {
     await page.locator('[data-lang="rust"]').click();
-    await wait(250);
+    // Wait for the language switch to propagate to the TD pane before flipping.
+    await waitForTdCode(page, "struct");
     await page.locator("#conv-flip").click();
-    await wait(300);
+    // After flip, TD pane shows the round-tripped typeDiagram source.
+    await waitForTdCode(page, "typeDiagram");
 
     const editorValue = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(editorValue.length).toBeGreaterThan(0);
-
-    const tdText = await page.$eval("#conv-td code", (el) => el.textContent ?? "");
-    expect(tdText.length).toBeGreaterThan(0);
-    expect(tdText).toContain("typeDiagram");
 
     const preview = await page.$eval("#conv-preview", (el) => el.innerHTML);
     expect(preview).toContain("<svg");
@@ -136,10 +126,70 @@ test.describe("[WEB-CONVERTER]", () => {
   test("flipping back restores the last known TD source", async ({ page }) => {
     const original = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     await page.locator("#conv-flip").click();
-    await wait(300);
+    await waitForEditorContains(page, "interface");
     await page.locator("#conv-flip").click();
-    await wait(300);
+    await waitForEditorContains(page, "type ChatRequest");
     const restored = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(restored).toBe(original);
+  });
+
+  test("scrolling the editor (flipped) mirrors scrollTop onto the backdrop", async ({ page }) => {
+    await page.locator("#conv-flip").click();
+    await waitForEditorContains(page, "interface");
+    await page.evaluate(() => {
+      const ta = document.querySelector<HTMLTextAreaElement>("#conv-editor");
+      if (ta === null) {
+        throw new Error("no editor");
+      }
+      ta.value += "\n" + Array.from({ length: 200 }, (_, i) => `// line ${String(i)}`).join("\n");
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      ta.scrollTop = 200;
+      ta.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    // scroll sync is synchronous (listener fires inline) — no poll required,
+    // but waitForFunction survives any reflow timing differences.
+    await page.waitForFunction(() => (document.querySelector<HTMLElement>("#conv-backdrop")?.scrollTop ?? 0) === 200);
+  });
+
+  test("scrolling the editor mirrors scrollTop onto the backdrop", async ({ page }) => {
+    await page.evaluate(() => {
+      const ta = document.querySelector<HTMLTextAreaElement>("#conv-editor");
+      if (ta === null) {
+        throw new Error("no editor");
+      }
+      ta.value = Array.from({ length: 200 }, (_, i) => `// line ${String(i)}`).join("\n");
+      ta.dispatchEvent(new Event("input", { bubbles: true }));
+      ta.scrollTop = 300;
+      ta.dispatchEvent(new Event("scroll", { bubbles: true }));
+    });
+    await page.waitForFunction(() => (document.querySelector<HTMLElement>("#conv-backdrop")?.scrollTop ?? 0) === 300);
+  });
+
+  test("clicks inside the lang-tab bar but not on a tab are ignored", async ({ page }) => {
+    const beforeActive = await page.$eval(".conv-lang-tab--active", (el) => el.textContent);
+    await page.evaluate(() => {
+      const bar = document.querySelector<HTMLElement>(".conv-lang-tabs");
+      if (bar === null) {
+        throw new Error("no tab bar");
+      }
+      bar.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    // No state change expected — we need a brief idle window to prove that.
+    // Poll the TD code pane once to flush any pending debounced render, then
+    // confirm the active tab is still the same.
+    await waitForTdCode(page, "interface");
+    const afterActive = await page.$eval(".conv-lang-tab--active", (el) => el.textContent);
+    expect(afterActive).toBe(beforeActive);
+  });
+
+  test("switching language while flipped re-seeds the editor (seedLanguageEditor path)", async ({ page }) => {
+    await page.locator("#conv-flip").click();
+    await waitForEditorContains(page, "interface");
+    const beforeFlipValue = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
+    await page.locator('[data-lang="rust"]').click();
+    await waitForEditorChange(page, beforeFlipValue);
+    const afterFlipValue = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
+    expect(afterFlipValue.length).toBeGreaterThan(0);
+    expect(await page.$eval("#conv-right-label", (el) => el.textContent)).toBe("typediagram");
   });
 });

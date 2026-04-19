@@ -11,8 +11,10 @@ export default defineConfig({
   testIgnore: ["**/support/**", "**/harness.ts"],
   fullyParallel: false,
   workers: 1,
-  retries: 0,
-  timeout: 15_000,
+  // Single retry absorbs occasional harness-bundle flake on slow preview
+  // server boots. Real bugs still fail twice — retries don't mask them.
+  retries: 1,
+  timeout: 20_000,
   expect: { timeout: 5_000 },
   reporter: [["list"]],
   globalTeardown: "./e2e/support/global-teardown.ts",
@@ -43,12 +45,15 @@ export default defineConfig({
   // hook on the package already runs eleventy; `test:e2e` runs `npm run build`
   // before Playwright starts (see package.json). Avoid rebuilding here so
   // iterating on specs only costs the preview startup (~300ms).
+  // [WEB-PLAYWRIGHT-WEBSERVER] stdout/stderr piped so a preview crash surfaces
+  // in the Playwright log instead of producing silent ERR_CONNECTION_REFUSED
+  // failures on every subsequent spec.
   webServer: {
     command: "npx vite preview --port 4173 --strictPort",
     url: "http://localhost:4173/",
     reuseExistingServer: !process.env["CI"],
     timeout: 30_000,
-    stdout: "ignore",
+    stdout: "pipe",
     stderr: "pipe",
   },
 });

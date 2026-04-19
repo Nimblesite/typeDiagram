@@ -119,7 +119,7 @@ test.describe("[WEB-SPLITTER]", () => {
           new PointerEvent("pointermove", { clientX: cx, clientY: cy, bubbles: true })
         );
       },
-      [end.x, end.y]
+      [end.x, end.y] as const
     );
     await page.evaluate(() => {
       window.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
