@@ -322,7 +322,9 @@ describe("[CONV-PHP-EDGE] PHP converter edge cases", () => {
     expect(code).toContain("@param array<string, int>|null $dict");
     const wrap = unwrap(php.fromSource(code)).decls.find((d) => d.name === "Wrap");
     expect(wrap?.kind).toBe("record");
-    if (wrap?.kind !== "record") return;
+    if (wrap?.kind !== "record") {
+      return;
+    }
     expect(wrap.fields[0]?.type.name).toBe("Option");
     expect(wrap.fields[0]?.type.args[0]?.name).toBe("List");
     expect(wrap.fields[1]?.type.args[0]?.name).toBe("Map");

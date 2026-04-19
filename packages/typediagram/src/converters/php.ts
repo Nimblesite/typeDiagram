@@ -226,9 +226,7 @@ const renderConstructor = (params: readonly RenderedParam[], bodyLines: readonly
     .filter((param): param is RenderedParam & { docType: string } => param.docType !== null)
     .map((param) => `@param ${param.docType} $${param.name}`);
   const renderedDoc = renderDocblock(docLines, "    ");
-  const renderedParams = params.map(
-    (param) => `        public ${param.nativeType} $${param.name},`
-  );
+  const renderedParams = params.map((param) => `        public ${param.nativeType} $${param.name},`);
 
   if (bodyLines.length === 0) {
     return [
