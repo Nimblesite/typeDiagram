@@ -1,9 +1,8 @@
 // [WEB-CONVERTER-E2E] Converter page UI — tabs, flip, labels, round-tripping
 // through the real typediagram-core parser. Runs on both viewports so the
 // responsive layout (stacked editors on mobile) is exercised end-to-end.
+import type { Page } from "@playwright/test";
 import { expect, test } from "./support/coverage-fixture.js";
-
-type Page = import("@playwright/test").Page;
 
 // Poll the TD output pane until it contains `marker`. The converter's
 // render is debounced (150ms) then async; polling avoids hard-coded sleeps
@@ -11,7 +10,7 @@ type Page = import("@playwright/test").Page;
 const waitForTdCode = async (page: Page, marker: string): Promise<void> => {
   await page.waitForFunction((m: string) => {
     const code = document.querySelector("#conv-td code");
-    return code !== null && (code.textContent ?? "").includes(m);
+    return code?.textContent.includes(m) === true;
   }, marker);
 };
 
@@ -20,7 +19,7 @@ const waitForTdCode = async (page: Page, marker: string): Promise<void> => {
 const waitForEditorContains = async (page: Page, marker: string): Promise<void> => {
   await page.waitForFunction((m: string) => {
     const ta = document.querySelector<HTMLTextAreaElement>("#conv-editor");
-    return ta !== null && ta.value.includes(m);
+    return ta?.value.includes(m) === true;
   }, marker);
 };
 
@@ -45,7 +44,7 @@ const gotoConverter = async (page: Page): Promise<void> => {
   await page.waitForSelector("#conv-editor");
   await page.waitForFunction(() => {
     const ta = document.querySelector<HTMLTextAreaElement>("#conv-editor");
-    return ta !== null && ta.value.includes("typeDiagram");
+    return ta?.value.includes("typeDiagram") === true;
   });
 };
 
@@ -75,8 +74,10 @@ test.describe("[WEB-CONVERTER]", () => {
   test("switching language updates active tab + right label, keeps TD editor content", async ({ page }) => {
     const before = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     await page.locator('[data-lang="rust"]').click();
-    expect(await page.$eval('[data-lang="rust"]', (el) => el.className)).toContain("conv-lang-tab--active");
-    expect(await page.$eval('[data-lang="typescript"]', (el) => el.className)).not.toContain("conv-lang-tab--active");
+    expect(await page.$eval('[data-lang="rust"]', (el) => el.classList.contains("conv-lang-tab--active"))).toBe(true);
+    expect(await page.$eval('[data-lang="typescript"]', (el) => el.classList.contains("conv-lang-tab--active"))).toBe(
+      false
+    );
     const after = await page.$eval("#conv-editor", (el) => (el as HTMLTextAreaElement).value);
     expect(after).toBe(before);
     expect(after).toContain("typeDiagram");
@@ -86,7 +87,7 @@ test.describe("[WEB-CONVERTER]", () => {
   test("produces non-empty language source from TD editor; backdrop present", async ({ page }) => {
     await expect(page.locator("#conv-backdrop code")).toHaveCount(1);
     await waitForTdCode(page, "interface");
-    const tdText = await page.$eval("#conv-td code", (el) => el.textContent ?? "");
+    const tdText = await page.$eval("#conv-td code", (el) => el.textContent);
     expect(tdText.length).toBeGreaterThan(50);
   });
 

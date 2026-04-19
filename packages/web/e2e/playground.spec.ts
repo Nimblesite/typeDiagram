@@ -1,9 +1,8 @@
 // [WEB-PLAYGROUND-E2E] Playground page — source/hooks tabs, preset chips,
 // persistence. Formerly mocked renderToString; in a real browser we observe
 // the preview SVG instead of mock arguments.
+import type { Page } from "@playwright/test";
 import { expect, test } from "./support/coverage-fixture.js";
-
-type Page = import("@playwright/test").Page;
 
 // Poll localStorage until the value at `key` contains `marker`. Replaces
 // fixed waits after textarea input (debounce timing isn't under test).
@@ -11,7 +10,7 @@ const waitForStorageContains = async (page: Page, key: string, marker: string): 
   await page.waitForFunction(
     (args: { k: string; m: string }) => {
       const v = localStorage.getItem(args.k);
-      return v !== null && v.includes(args.m);
+      return v?.includes(args.m) === true;
     },
     { k: key, m: marker }
   );
@@ -36,7 +35,7 @@ const waitForHooksValue = async (page: Page, marker: string, mode: "contains" | 
 const waitForPreviewSvg = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => {
     const p = document.querySelector("#preview");
-    return p !== null && p.innerHTML.includes("<svg");
+    return p?.innerHTML.includes("<svg") === true;
   });
 };
 
@@ -44,7 +43,7 @@ const waitForPreviewSvg = async (page: Page): Promise<void> => {
 const waitForHooksDiag = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => {
     const d = document.querySelector<HTMLElement>("#hooks-diag");
-    return d !== null && !d.hidden && (d.textContent ?? "").length > 0;
+    return d !== null && !d.hidden && d.textContent.length > 0;
   });
 };
 
@@ -52,7 +51,7 @@ const waitForHooksDiag = async (page: Page): Promise<void> => {
 const waitForBackdropToken = async (page: Page, token: string): Promise<void> => {
   await page.waitForFunction((t: string) => {
     const b = document.querySelector("#hooks-backdrop");
-    return b !== null && b.innerHTML.toLowerCase().includes(t.toLowerCase());
+    return b?.innerHTML.toLowerCase().includes(t.toLowerCase()) === true;
   }, token);
 };
 
@@ -82,7 +81,7 @@ const goto = async (page: Page): Promise<void> => {
   });
 };
 
-const openHooksTab = async (page: import("@playwright/test").Page): Promise<void> => {
+const openHooksTab = async (page: Page): Promise<void> => {
   await page.locator('.pane-tab[data-tab="hooks"]').click();
 };
 
@@ -255,6 +254,6 @@ test.describe("[WEB-PLAYGROUND-PRESETS]", () => {
     await waitForChipPressed(page, "classes", false);
     await page.locator("#hooks-editor").fill(presetSource);
     await waitForChipPressed(page, "classes", true);
-    expect(await btn.evaluate((el) => el.className)).toContain("hook-chip--on");
+    expect(await btn.evaluate((el) => el.classList.contains("hook-chip--on"))).toBe(true);
   });
 });

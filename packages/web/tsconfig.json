@@ -8,6 +8,7 @@
     "test/**/*",
     "e2e/**/*",
     "eleventy/**/*",
+    "scripts/**/*",
     "vite.config.ts",
     "vitest.config.ts",
     "playwright.config.ts",

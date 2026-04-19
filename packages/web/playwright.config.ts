@@ -51,7 +51,7 @@ export default defineConfig({
   webServer: {
     command: "npx vite preview --port 4173 --strictPort",
     url: "http://localhost:4173/",
-    reuseExistingServer: !process.env["CI"],
+    reuseExistingServer: process.env["CI"] === undefined || process.env["CI"] === "",
     timeout: 30_000,
     stdout: "pipe",
     stderr: "pipe",

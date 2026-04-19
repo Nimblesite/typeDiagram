@@ -1,10 +1,11 @@
 // [WEB-EDITOR-ZOOM-E2E] Ctrl/Cmd+wheel font-size zoom on editor panes. Uses
 // real WheelEvent dispatch so modifier-key handling is exercised the way the
 // browser actually fires it.
+import type { Page } from "@playwright/test";
 import { expect, test } from "./support/coverage-fixture.js";
 import { openHarness } from "./support/harness-page.js";
 
-const mount = async (page: import("@playwright/test").Page): Promise<void> => {
+const mount = async (page: Page): Promise<void> => {
   await page.evaluate(() => {
     const root = document.getElementById("e2e-mount") as HTMLElement;
     root.innerHTML = `
@@ -20,20 +21,20 @@ const mount = async (page: import("@playwright/test").Page): Promise<void> => {
   });
 };
 
-const fontSizeOf = (page: import("@playwright/test").Page, sel: string): Promise<string> =>
+const fontSizeOf = (page: Page, sel: string): Promise<string> =>
   page.$eval(sel, (el) => (el as HTMLElement).style.fontSize);
 
 const dispatchWheel = async (
-  page: import("@playwright/test").Page,
+  page: Page,
   deltaY: number,
   opts: { ctrlKey?: boolean; metaKey?: boolean } = {}
 ): Promise<void> => {
   await page.evaluate(
     ([d, ctrl, meta]) => {
       const wrap = document.getElementById("ez-wrap") as HTMLElement;
-      const e = new WheelEvent("wheel", { deltaY: d as number, bubbles: true, cancelable: true });
-      Object.defineProperty(e, "ctrlKey", { value: ctrl as boolean });
-      Object.defineProperty(e, "metaKey", { value: meta as boolean });
+      const e = new WheelEvent("wheel", { deltaY: d, bubbles: true, cancelable: true });
+      Object.defineProperty(e, "ctrlKey", { value: ctrl });
+      Object.defineProperty(e, "metaKey", { value: meta });
       wrap.dispatchEvent(e);
     },
     [deltaY, opts.ctrlKey ?? true, opts.metaKey ?? false] as const

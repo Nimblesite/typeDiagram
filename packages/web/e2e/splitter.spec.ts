@@ -2,6 +2,7 @@
 // (landscape) and mobile (portrait) auto-swap between col-resize and
 // row-resize based on the (orientation: portrait), (max-width: 767px) media
 // query. Mirrors former test/splitter.test.ts.
+import type { Page } from "@playwright/test";
 import { expect, test } from "./support/coverage-fixture.js";
 import { openHarness } from "./support/harness-page.js";
 
@@ -24,10 +25,10 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-const gridColsOf = async (page: import("@playwright/test").Page): Promise<string> =>
+const gridColsOf = async (page: Page): Promise<string> =>
   page.$eval("#sp-app", (el) => (el as HTMLElement).style.gridTemplateColumns);
 
-const gridRowsOf = async (page: import("@playwright/test").Page): Promise<string> =>
+const gridRowsOf = async (page: Page): Promise<string> =>
   page.$eval("#sp-app", (el) => (el as HTMLElement).style.gridTemplateRows);
 
 test.describe("[WEB-SPLITTER]", () => {

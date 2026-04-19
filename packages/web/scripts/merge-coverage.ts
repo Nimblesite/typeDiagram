@@ -278,18 +278,11 @@ const main = (): void => {
       functions: pctOf(pf.functions),
       lines: pctOf(pf.lines),
     };
-    totalAgg.statements = unionMaps(
-      totalAgg.statements,
-      pf.statements.size > 0 ? new Map([...pf.statements].map(([k, v]) => [`${rel}|${k}`, v])) : new Map()
-    );
-    totalAgg.branches = unionMaps(
-      totalAgg.branches,
-      pf.branches.size > 0 ? new Map([...pf.branches].map(([k, v]) => [`${rel}|${k}`, v])) : new Map()
-    );
-    totalAgg.functions = unionMaps(
-      totalAgg.functions,
-      pf.functions.size > 0 ? new Map([...pf.functions].map(([k, v]) => [`${rel}|${k}`, v])) : new Map()
-    );
+    const prefix = <T>(m: Map<string, T>): Map<string, T> =>
+      new Map<string, T>([...m].map(([k, v]): [string, T] => [`${rel}|${k}`, v]));
+    totalAgg.statements = unionMaps(totalAgg.statements, prefix(pf.statements));
+    totalAgg.branches = unionMaps(totalAgg.branches, prefix(pf.branches));
+    totalAgg.functions = unionMaps(totalAgg.functions, prefix(pf.functions));
     totalAgg.lines = unionMaps(
       totalAgg.lines,
       new Map([...pf.lines].map(([k, v]): [number, boolean] => [rel.length * 100000 + k, v]))
@@ -324,9 +317,6 @@ const main = (): void => {
 
   const t = loadThresholds();
   const totalEntry = summary["total"];
-  if (totalEntry === undefined) {
-    throw new Error("[MERGE-COV] merged summary missing total");
-  }
   const checks: Array<[keyof Thresholds, number, number]> = [
     ["statements", totalEntry.statements.pct, t.statements],
     ["branches", totalEntry.branches.pct, t.branches],

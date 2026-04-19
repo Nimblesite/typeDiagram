@@ -32,8 +32,8 @@ test.describe("[WEB-ZOOM-CONTROLS]", () => {
     await expect(page.locator("#e2e-mount .zoom-controls")).toHaveCount(1);
     const btns = page.locator("#e2e-mount .zoom-btn");
     await expect(btns).toHaveCount(5);
-    const className = await page.$eval("#e2e-mount .zoom-controls", (el) => el.className);
-    expect(className).toBe("zoom-controls");
+    const classList = await page.$eval("#e2e-mount .zoom-controls", (el) => Array.from(el.classList));
+    expect(classList).toEqual(["zoom-controls"]);
     await btns.nth(0).click();
     await btns.nth(1).click();
     await btns.nth(2).click();
@@ -47,15 +47,16 @@ test.describe("[WEB-ZOOM-CONTROLS]", () => {
     // creating a download.
     const tripped = await page.evaluate(() => {
       let anchorClicked = false;
-      const orig = HTMLAnchorElement.prototype.click;
-      HTMLAnchorElement.prototype.click = function () {
+      const proto = HTMLAnchorElement.prototype as { click: () => void };
+      const orig = proto.click;
+      proto.click = function (): void {
         anchorClicked = true;
       };
       try {
         const btn = document.querySelectorAll<HTMLButtonElement>("#e2e-mount .zoom-btn")[4];
         btn?.click();
       } finally {
-        HTMLAnchorElement.prototype.click = orig;
+        proto.click = orig;
       }
       return anchorClicked;
     });
@@ -76,8 +77,9 @@ test.describe("[WEB-ZOOM-CONTROLS]", () => {
       let href = "";
       let download = "";
       let anchorClicked = false;
-      const origClick = HTMLAnchorElement.prototype.click;
-      HTMLAnchorElement.prototype.click = function () {
+      const proto = HTMLAnchorElement.prototype as { click: () => void };
+      const origClick = proto.click;
+      proto.click = function (this: HTMLAnchorElement): void {
         href = this.href;
         download = this.download;
         anchorClicked = true;
@@ -86,7 +88,7 @@ test.describe("[WEB-ZOOM-CONTROLS]", () => {
         const btn = document.querySelectorAll<HTMLButtonElement>("#e2e-mount .zoom-btn")[4];
         btn?.click();
       } finally {
-        HTMLAnchorElement.prototype.click = origClick;
+        proto.click = origClick;
       }
       return { href, download, anchorClicked };
     });

@@ -39,7 +39,7 @@ export const initSplitter = (
 
   handle.addEventListener("pointerdown", (e) => {
     dragging = true;
-    handle.setPointerCapture?.(e.pointerId);
+    handle.setPointerCapture(e.pointerId);
     document.body.style.cursor = isRow() ? "row-resize" : "col-resize";
     document.body.style.userSelect = "none";
   });
