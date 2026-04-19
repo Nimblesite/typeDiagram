@@ -215,7 +215,7 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
     expect(html).not.toContain("```typediagram");
   });
 
-  it("wraps each typediagram fence in <div class=\"typediagram\">, one wrapper per diagram", () => {
+  it('wraps each typediagram fence in <div class="typediagram">, one wrapper per diagram', () => {
     const src = [
       "prose",
       "",

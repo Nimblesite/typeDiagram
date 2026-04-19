@@ -9,13 +9,10 @@ type Page = import("@playwright/test").Page;
 // render is debounced (150ms) then async; polling avoids hard-coded sleeps
 // that are either flaky (too short) or wasteful (too long).
 const waitForTdCode = async (page: Page, marker: string): Promise<void> => {
-  await page.waitForFunction(
-    (m: string) => {
-      const code = document.querySelector("#conv-td code");
-      return code !== null && (code.textContent ?? "").includes(m);
-    },
-    marker
-  );
+  await page.waitForFunction((m: string) => {
+    const code = document.querySelector("#conv-td code");
+    return code !== null && (code.textContent ?? "").includes(m);
+  }, marker);
 };
 
 // Poll the editor textarea until its value contains a marker (flip/seed

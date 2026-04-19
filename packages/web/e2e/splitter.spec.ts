@@ -103,9 +103,7 @@ test.describe("[WEB-SPLITTER]", () => {
     const start = isMobile
       ? { x: box.x + box.width / 2, y: box.y + box.height / 2 }
       : { x: box.x + box.width / 2, y: box.y + box.height / 2 };
-    const end = isMobile
-      ? { x: start.x, y: box.y + box.height * 0.7 }
-      : { x: box.x + box.width * 0.7, y: start.y };
+    const end = isMobile ? { x: start.x, y: box.y + box.height * 0.7 } : { x: box.x + box.width * 0.7, y: start.y };
     await page.mouse.move(start.x, start.y);
     await page.locator("#sp-handle").dispatchEvent("pointerdown", {
       pointerId: 1,
@@ -115,9 +113,7 @@ test.describe("[WEB-SPLITTER]", () => {
     });
     await page.evaluate(
       ([cx, cy]) => {
-        window.dispatchEvent(
-          new PointerEvent("pointermove", { clientX: cx, clientY: cy, bubbles: true })
-        );
+        window.dispatchEvent(new PointerEvent("pointermove", { clientX: cx, clientY: cy, bubbles: true }));
       },
       [end.x, end.y] as const
     );
@@ -133,9 +129,7 @@ test.describe("[WEB-SPLITTER]", () => {
   test("pointermove without prior pointerdown is a no-op", async ({ page, isMobile }) => {
     const before = isMobile ? await gridRowsOf(page) : await gridColsOf(page);
     await page.evaluate(() => {
-      window.dispatchEvent(
-        new PointerEvent("pointermove", { clientX: 800, clientY: 700, bubbles: true })
-      );
+      window.dispatchEvent(new PointerEvent("pointermove", { clientX: 800, clientY: 700, bubbles: true }));
     });
     const after = isMobile ? await gridRowsOf(page) : await gridColsOf(page);
     expect(after).toBe(before);
@@ -149,9 +143,7 @@ test.describe("[WEB-SPLITTER]", () => {
       bubbles: true,
     });
     await page.evaluate(() => {
-      window.dispatchEvent(
-        new PointerEvent("pointermove", { clientX: 600, clientY: 500, bubbles: true })
-      );
+      window.dispatchEvent(new PointerEvent("pointermove", { clientX: 600, clientY: 500, bubbles: true }));
       window.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true }));
     });
     const stored = await page.evaluate(() => localStorage.getItem("typediagram-split"));

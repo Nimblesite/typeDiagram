@@ -1871,9 +1871,13 @@ body {
   border: none;
   border-radius: var(--td-radius-sm);
   cursor: pointer;
-  transition: background var(--td-ease), color var(--td-ease);
+  transition:
+    background var(--td-ease),
+    color var(--td-ease);
 }
-.conv-lang-tab:hover { color: var(--td-on-surface); }
+.conv-lang-tab:hover {
+  color: var(--td-on-surface);
+}
 .conv-lang-tab--active {
   background: var(--td-primary);
   color: var(--td-on-primary);
@@ -1889,7 +1893,9 @@ body {
   background: var(--td-surface-high);
   color: var(--td-outline);
   cursor: pointer;
-  transition: color var(--td-ease), border-color var(--td-ease);
+  transition:
+    color var(--td-ease),
+    border-color var(--td-ease);
 }
 .conv-flip-btn:hover,
 .conv-flip-btn--active {
@@ -1902,7 +1908,9 @@ body {
   flex: 1 1 auto;
   min-height: 0;
 }
-.splitter--h { cursor: row-resize; }
+.splitter--h {
+  cursor: row-resize;
+}
 .conv-input-panel,
 .conv-preview-panel {
   overflow: hidden;
@@ -1914,7 +1922,10 @@ body {
   display: grid;
   grid-template-columns: 1fr 4px 1fr;
 }
-.conv-preview-panel { display: flex; flex-direction: column; }
+.conv-preview-panel {
+  display: flex;
+  flex-direction: column;
+}
 .conv-col {
   display: flex;
   flex-direction: column;
@@ -1922,8 +1933,13 @@ body {
   min-height: 0;
   overflow: hidden;
 }
-.conv-col .editor-wrap { flex: 1; }
-.conv-td-wrap { flex: 1; overflow: auto; }
+.conv-col .editor-wrap {
+  flex: 1;
+}
+.conv-td-wrap {
+  flex: 1;
+  overflow: auto;
+}
 .conv-td-output {
   margin: 0;
   padding: var(--td-space-lg);
@@ -1934,18 +1950,31 @@ body {
   word-wrap: break-word;
   color: var(--td-on-surface);
 }
-.conv-td-output code { display: block; font: inherit; color: inherit; }
+.conv-td-output code {
+  display: block;
+  font: inherit;
+  color: inherit;
+}
 .conv-preview {
   flex: 1;
   overflow: hidden;
   position: relative;
   background: var(--td-surface);
 }
-.conv-preview svg { max-width: none; height: auto; }
-.nav-link--active { color: var(--td-primary) !important; }
+.conv-preview svg {
+  max-width: none;
+  height: auto;
+}
+.nav-link--active {
+  color: var(--td-primary) !important;
+}
 
 @media (max-width: 767px) {
-  .converter-body { overflow: auto; height: auto; display: block; }
+  .converter-body {
+    overflow: auto;
+    height: auto;
+    display: block;
+  }
   .conv-panels {
     display: flex;
     flex-direction: column;
@@ -1955,8 +1984,14 @@ body {
     display: flex;
     flex-direction: column;
   }
-  .conv-col { height: 400px; }
-  .conv-preview-panel { height: 400px; }
+  .conv-col {
+    height: 400px;
+  }
+  .conv-preview-panel {
+    height: 400px;
+  }
   #conv-splitter,
-  #conv-splitter-h { display: none; }
+  #conv-splitter-h {
+    display: none;
+  }
 }

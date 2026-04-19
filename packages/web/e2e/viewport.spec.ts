@@ -28,28 +28,18 @@ const fireWheel = async (page: Page, deltaY: number, cx: number, cy: number): Pr
   await page.evaluate(
     ([d, x, y]) => {
       const el = document.getElementById("vp") as HTMLElement;
-      el.dispatchEvent(
-        new WheelEvent("wheel", { deltaY: d, clientX: x, clientY: y, bubbles: true, cancelable: true })
-      );
+      el.dispatchEvent(new WheelEvent("wheel", { deltaY: d, clientX: x, clientY: y, bubbles: true, cancelable: true }));
     },
     [deltaY, cx, cy] as const
   );
 };
 
-const fireDrag = async (
-  page: Page,
-  start: [number, number],
-  end: [number, number]
-): Promise<void> => {
+const fireDrag = async (page: Page, start: [number, number], end: [number, number]): Promise<void> => {
   await page.evaluate(
     ([sx, sy, ex, ey]) => {
       const el = document.getElementById("vp") as HTMLElement;
-      el.dispatchEvent(
-        new PointerEvent("pointerdown", { pointerId: 1, clientX: sx, clientY: sy, bubbles: true })
-      );
-      el.dispatchEvent(
-        new PointerEvent("pointermove", { clientX: ex, clientY: ey, bubbles: true })
-      );
+      el.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: sx, clientY: sy, bubbles: true }));
+      el.dispatchEvent(new PointerEvent("pointermove", { clientX: ex, clientY: ey, bubbles: true }));
       el.dispatchEvent(new PointerEvent("pointerup", { bubbles: true }));
     },
     [start[0], start[1], end[0], end[1]] as const
@@ -99,9 +89,7 @@ test.describe("[WEB-VIEWPORT]", () => {
       const el = document.getElementById("vp") as HTMLElement;
       const link = document.createElement("a");
       el.appendChild(link);
-      link.dispatchEvent(
-        new PointerEvent("pointerdown", { pointerId: 1, clientX: 100, clientY: 100, bubbles: true })
-      );
+      link.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 100, clientY: 100, bubbles: true }));
       link.dispatchEvent(new PointerEvent("pointermove", { clientX: 200, clientY: 200, bubbles: true }));
     });
     expect(await transform(page)).toBe("");
@@ -112,9 +100,7 @@ test.describe("[WEB-VIEWPORT]", () => {
       const el = document.getElementById("vp") as HTMLElement;
       const btn = document.createElement("button");
       el.appendChild(btn);
-      btn.dispatchEvent(
-        new PointerEvent("pointerdown", { pointerId: 1, clientX: 100, clientY: 100, bubbles: true })
-      );
+      btn.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 100, clientY: 100, bubbles: true }));
       btn.dispatchEvent(new PointerEvent("pointermove", { clientX: 200, clientY: 200, bubbles: true }));
     });
     expect(await transform(page)).toBe("");
@@ -132,9 +118,7 @@ test.describe("[WEB-VIEWPORT]", () => {
   test("pointercancel stops the drag without leaving grab-active", async ({ page }) => {
     await page.evaluate(() => {
       const el = document.getElementById("vp") as HTMLElement;
-      el.dispatchEvent(
-        new PointerEvent("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, bubbles: true })
-      );
+      el.dispatchEvent(new PointerEvent("pointerdown", { pointerId: 1, clientX: 0, clientY: 0, bubbles: true }));
       el.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true }));
     });
     const cursor = await page.$eval("#vp", (el) => (el as HTMLElement).style.cursor);
@@ -222,10 +206,7 @@ test.describe("[WEB-VIEWPORT]", () => {
       window.__E2E_VP2.zoomIn();
       window.__E2E_VP2.fit();
     });
-    const cleanFit = await page.$eval(
-      "#vp2 .viewport-wrapper",
-      (el) => (el as HTMLElement).style.transform
-    );
+    const cleanFit = await page.$eval("#vp2 .viewport-wrapper", (el) => (el as HTMLElement).style.transform);
     expect(cleanFit).toBe("translate(0px, 0px) scale(1)");
   });
 

@@ -11,8 +11,7 @@ export const coverageOptions: CoverageReportOptions = {
   cleanCache: false,
   sourceMap: true,
   entryFilter: (entry: { url: string }): boolean => entry.url.includes("/assets/"),
-  sourceFilter: (sourcePath: string): boolean =>
-    sourcePath.startsWith("src/") && !sourcePath.endsWith(".d.ts"),
+  sourceFilter: (sourcePath: string): boolean => sourcePath.startsWith("src/") && !sourcePath.endsWith(".d.ts"),
   // Disable per-add report emission; only globalTeardown writes the report.
   logging: "error",
 };

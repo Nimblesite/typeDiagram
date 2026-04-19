@@ -16,5 +16,4 @@ export const resetHarness = async (page: Page): Promise<void> => {
   await page.evaluate(() => window.__E2E.reset());
 };
 
-export const wait = (ms: number): Promise<void> =>
-  new Promise((r) => setTimeout(r, ms));
+export const wait = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));

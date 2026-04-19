@@ -7,11 +7,7 @@ type Page = import("@playwright/test").Page;
 
 // Poll localStorage until the value at `key` contains `marker`. Replaces
 // fixed waits after textarea input (debounce timing isn't under test).
-const waitForStorageContains = async (
-  page: Page,
-  key: string,
-  marker: string
-): Promise<void> => {
+const waitForStorageContains = async (page: Page, key: string, marker: string): Promise<void> => {
   await page.waitForFunction(
     (args: { k: string; m: string }) => {
       const v = localStorage.getItem(args.k);
@@ -22,11 +18,7 @@ const waitForStorageContains = async (
 };
 
 // Poll #hooks-editor textarea value until it contains/excludes a marker.
-const waitForHooksValue = async (
-  page: Page,
-  marker: string,
-  mode: "contains" | "excludes"
-): Promise<void> => {
+const waitForHooksValue = async (page: Page, marker: string, mode: "contains" | "excludes"): Promise<void> => {
   await page.waitForFunction(
     (args: { m: string; mode: "contains" | "excludes" }) => {
       const ta = document.querySelector<HTMLTextAreaElement>("#hooks-editor");
@@ -58,26 +50,17 @@ const waitForHooksDiag = async (page: Page): Promise<void> => {
 
 // Poll #hooks-backdrop until a specific highlighted span class appears.
 const waitForBackdropToken = async (page: Page, token: string): Promise<void> => {
-  await page.waitForFunction(
-    (t: string) => {
-      const b = document.querySelector("#hooks-backdrop");
-      return b !== null && b.innerHTML.toLowerCase().includes(t.toLowerCase());
-    },
-    token
-  );
+  await page.waitForFunction((t: string) => {
+    const b = document.querySelector("#hooks-backdrop");
+    return b !== null && b.innerHTML.toLowerCase().includes(t.toLowerCase());
+  }, token);
 };
 
 // Poll an aria-pressed state on a chip matching preset id.
-const waitForChipPressed = async (
-  page: Page,
-  presetId: string,
-  pressed: boolean
-): Promise<void> => {
+const waitForChipPressed = async (page: Page, presetId: string, pressed: boolean): Promise<void> => {
   await page.waitForFunction(
     (args: { id: string; want: boolean }) => {
-      const btn = document.querySelector<HTMLButtonElement>(
-        `.hook-chip[data-preset-id="${args.id}"]`
-      );
+      const btn = document.querySelector<HTMLButtonElement>(`.hook-chip[data-preset-id="${args.id}"]`);
       return btn !== null && btn.getAttribute("aria-pressed") === String(args.want);
     },
     { id: presetId, want: pressed }
@@ -114,14 +97,10 @@ test.describe("[WEB-PLAYGROUND]", () => {
 
   test("source tab active by default; hooks editor hidden", async ({ page }) => {
     await goto(page);
-    const sourceHidden = await page.$eval(
-      '[data-editor="source"]',
-      (el) => el.classList.contains("editor-wrap--hidden")
+    const sourceHidden = await page.$eval('[data-editor="source"]', (el) =>
+      el.classList.contains("editor-wrap--hidden")
     );
-    const hooksHidden = await page.$eval(
-      '[data-editor="hooks"]',
-      (el) => el.classList.contains("editor-wrap--hidden")
-    );
+    const hooksHidden = await page.$eval('[data-editor="hooks"]', (el) => el.classList.contains("editor-wrap--hidden"));
     expect(sourceHidden).toBe(false);
     expect(hooksHidden).toBe(true);
   });
@@ -129,20 +108,13 @@ test.describe("[WEB-PLAYGROUND]", () => {
   test("clicking the hooks tab reveals the hooks editor", async ({ page }) => {
     await goto(page);
     await page.locator('.pane-tab[data-tab="hooks"]').click();
-    const sourceHidden = await page.$eval(
-      '[data-editor="source"]',
-      (el) => el.classList.contains("editor-wrap--hidden")
+    const sourceHidden = await page.$eval('[data-editor="source"]', (el) =>
+      el.classList.contains("editor-wrap--hidden")
     );
-    const hooksHidden = await page.$eval(
-      '[data-editor="hooks"]',
-      (el) => el.classList.contains("editor-wrap--hidden")
-    );
+    const hooksHidden = await page.$eval('[data-editor="hooks"]', (el) => el.classList.contains("editor-wrap--hidden"));
     expect(sourceHidden).toBe(true);
     expect(hooksHidden).toBe(false);
-    const tabOn = await page.$eval(
-      '.pane-tab[data-tab="hooks"]',
-      (el) => el.classList.contains("pane-tab--on")
-    );
+    const tabOn = await page.$eval('.pane-tab[data-tab="hooks"]', (el) => el.classList.contains("pane-tab--on"));
     expect(tabOn).toBe(true);
   });
 
@@ -233,14 +205,8 @@ test.describe("[WEB-PLAYGROUND-PRESETS]", () => {
     const zs = await page.evaluate(() => {
       const toolbar = document.querySelector(".hooks-toolbar");
       const textarea = document.querySelector("#hooks-editor");
-      const toolbarZ = parseInt(
-        toolbar === null ? "0" : getComputedStyle(toolbar).zIndex || "0",
-        10
-      );
-      const textareaZ = parseInt(
-        textarea === null ? "0" : getComputedStyle(textarea).zIndex || "0",
-        10
-      );
+      const toolbarZ = parseInt(toolbar === null ? "0" : getComputedStyle(toolbar).zIndex || "0", 10);
+      const textareaZ = parseInt(textarea === null ? "0" : getComputedStyle(textarea).zIndex || "0", 10);
       return { toolbarZ: isNaN(toolbarZ) ? 0 : toolbarZ, textareaZ: isNaN(textareaZ) ? 0 : textareaZ };
     });
     expect(zs.toolbarZ).toBeGreaterThan(zs.textareaZ);

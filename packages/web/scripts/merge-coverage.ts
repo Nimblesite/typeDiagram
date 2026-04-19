@@ -14,10 +14,23 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 
-interface Loc { line: number; column: number }
-interface Range { start: Loc; end: Loc }
-interface FnEntry { name?: string; loc: Range; decl?: Range }
-interface BranchEntry { loc: Range; locations?: Range[] }
+interface Loc {
+  line: number;
+  column: number;
+}
+interface Range {
+  start: Loc;
+  end: Loc;
+}
+interface FnEntry {
+  name?: string;
+  loc: Range;
+  decl?: Range;
+}
+interface BranchEntry {
+  loc: Range;
+  locations?: Range[];
+}
 interface IstanbulFile {
   path?: string;
   statementMap: Record<string, Range>;
@@ -29,7 +42,11 @@ interface IstanbulFile {
 }
 type IstanbulFinal = Record<string, IstanbulFile>;
 
-interface Pct { total: number; covered: number; pct: number }
+interface Pct {
+  total: number;
+  covered: number;
+  pct: number;
+}
 interface FileSummary {
   statements: Pct;
   branches: Pct;
@@ -211,7 +228,9 @@ const main = (): void => {
     console.error("[MERGE-COV] No coverage-final.json found in vitest/ or playwright/. Did the tests run?");
     process.exit(2);
   }
-  console.log(`[MERGE-COV] vitest files=${String(Object.keys(vitest).length)} playwright files=${String(Object.keys(pw).length)}`);
+  console.log(
+    `[MERGE-COV] vitest files=${String(Object.keys(vitest).length)} playwright files=${String(Object.keys(pw).length)}`
+  );
 
   // Build per-source maps, then pick the winning backend per file. Merging
   // two instrumentation backends' line maps for the SAME file inflates the
@@ -259,10 +278,22 @@ const main = (): void => {
       functions: pctOf(pf.functions),
       lines: pctOf(pf.lines),
     };
-    totalAgg.statements = unionMaps(totalAgg.statements, pf.statements.size > 0 ? new Map([...pf.statements].map(([k, v]) => [`${rel}|${k}`, v])) : new Map());
-    totalAgg.branches = unionMaps(totalAgg.branches, pf.branches.size > 0 ? new Map([...pf.branches].map(([k, v]) => [`${rel}|${k}`, v])) : new Map());
-    totalAgg.functions = unionMaps(totalAgg.functions, pf.functions.size > 0 ? new Map([...pf.functions].map(([k, v]) => [`${rel}|${k}`, v])) : new Map());
-    totalAgg.lines = unionMaps(totalAgg.lines, new Map([...pf.lines].map(([k, v]): [number, boolean] => [(rel.length * 100000) + k, v])));
+    totalAgg.statements = unionMaps(
+      totalAgg.statements,
+      pf.statements.size > 0 ? new Map([...pf.statements].map(([k, v]) => [`${rel}|${k}`, v])) : new Map()
+    );
+    totalAgg.branches = unionMaps(
+      totalAgg.branches,
+      pf.branches.size > 0 ? new Map([...pf.branches].map(([k, v]) => [`${rel}|${k}`, v])) : new Map()
+    );
+    totalAgg.functions = unionMaps(
+      totalAgg.functions,
+      pf.functions.size > 0 ? new Map([...pf.functions].map(([k, v]) => [`${rel}|${k}`, v])) : new Map()
+    );
+    totalAgg.lines = unionMaps(
+      totalAgg.lines,
+      new Map([...pf.lines].map(([k, v]): [number, boolean] => [rel.length * 100000 + k, v]))
+    );
 
     // Uncovered lines report.
     const uncov: number[] = [];
