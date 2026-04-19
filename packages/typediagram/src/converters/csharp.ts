@@ -121,8 +121,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
   // Record which offsets we've already consumed as abstract-record bodies so
   // the primary-record scan doesn't re-pick-up nested `sealed record` lines.
   const consumedRanges: Array<[number, number]> = [];
-  const isInsideConsumed = (idx: number): boolean =>
-    consumedRanges.some(([start, end]) => idx >= start && idx < end);
+  const isInsideConsumed = (idx: number): boolean => consumedRanges.some(([start, end]) => idx >= start && idx < end);
 
   // First pass: locate abstract-record DU bodies and mark them consumed. We
   // defer adding the unions until we interleave them with records by source
@@ -261,7 +260,11 @@ const mapTdToCs = (t: ResolvedTypeRef): string => {
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToCs).join(", ")}>`;
 };
 
-const emitRecord = (name: string, fields: readonly { name: string; type: ResolvedTypeRef }[], generics: string[]): string[] => {
+const emitRecord = (
+  name: string,
+  fields: readonly { name: string; type: ResolvedTypeRef }[],
+  generics: string[]
+): string[] => {
   const genericsStr = generics.length > 0 ? `<${generics.join(", ")}>` : "";
   if (fields.length === 0) {
     return [`public sealed record ${name}${genericsStr}();`];

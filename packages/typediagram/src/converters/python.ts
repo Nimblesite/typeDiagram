@@ -123,7 +123,10 @@ const extractGenericsFromBases = (bases: string | undefined): string[] => {
   if (gm === null || gm[1] === undefined) {
     return [];
   }
-  return gm[1].split(",").map((g) => g.trim()).filter((g) => g.length > 0);
+  return gm[1]
+    .split(",")
+    .map((g) => g.trim())
+    .filter((g) => g.length > 0);
 };
 
 // One pending parsed class or alias. We collect all decls with their source
@@ -224,7 +227,10 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
     if (p.kind !== "union-alias") {
       continue;
     }
-    const parts = p.rhs.split("|").map((s) => s.trim()).filter((s) => s.length > 0);
+    const parts = p.rhs
+      .split("|")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
     const variants: VariantDef[] = [];
     for (const part of parts) {
       const literalMatch = /^["'](.+)["']$/.exec(part);
@@ -287,9 +293,10 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
       const firstCls = variants
         .map((v) => (v.className === null ? null : pending.find((x) => x.kind === "class" && x.name === v.className)))
         .find((x) => x !== null && x !== undefined);
-      const generics = firstCls !== null && firstCls !== undefined && firstCls.kind === "class"
-        ? extractGenericsFromBases(firstCls.bases)
-        : [];
+      const generics =
+        firstCls !== null && firstCls !== undefined && firstCls.kind === "class"
+          ? extractGenericsFromBases(firstCls.bases)
+          : [];
       builder.add(union(p.name, builtVariants, generics));
       continue;
     }
@@ -309,8 +316,7 @@ const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
 const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
 const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";
 
-const usesAny = (t: ResolvedTypeRef): boolean =>
-  t.name === "Any" || t.args.some(usesAny);
+const usesAny = (t: ResolvedTypeRef): boolean => t.name === "Any" || t.args.some(usesAny);
 
 const declUsesAny = (d: ResolvedDecl): boolean =>
   d.kind === "record"
@@ -338,10 +344,22 @@ const mapTdToPyPydantic = (t: ResolvedTypeRef): string => {
 };
 
 const dataclassFieldSuffix = (t: ResolvedTypeRef): string =>
-  isOption(t) ? " = None" : isList(t) ? " = field(default_factory=list)" : isMap(t) ? " = field(default_factory=dict)" : "";
+  isOption(t)
+    ? " = None"
+    : isList(t)
+      ? " = field(default_factory=list)"
+      : isMap(t)
+        ? " = field(default_factory=dict)"
+        : "";
 
 const pydanticFieldSuffix = (t: ResolvedTypeRef): string =>
-  isOption(t) ? " = None" : isList(t) ? " = Field(default_factory=list)" : isMap(t) ? " = Field(default_factory=dict)" : "";
+  isOption(t)
+    ? " = None"
+    : isList(t)
+      ? " = Field(default_factory=list)"
+      : isMap(t)
+        ? " = Field(default_factory=dict)"
+        : "";
 
 const needsDataclassField = (model: Model): boolean =>
   model.decls.some(
@@ -422,8 +440,7 @@ const buildPydanticImports = (model: Model): string[] => {
   return lines;
 };
 
-const genericBase = (generics: string[]): string =>
-  generics.length === 0 ? "" : `(Generic[${generics.join(", ")}])`;
+const genericBase = (generics: string[]): string => (generics.length === 0 ? "" : `(Generic[${generics.join(", ")}])`);
 
 const emitDataclassRecord = (
   name: string,

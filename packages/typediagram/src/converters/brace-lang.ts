@@ -7,12 +7,7 @@
  * up to (but not including) the matching closing delimiter, respecting
  * nested pairs. Returns null if the input position isn't `open` or no match.
  */
-export const extractBalancedBlock = (
-  source: string,
-  openIdx: number,
-  open: string,
-  close: string
-): string | null => {
+export const extractBalancedBlock = (source: string, openIdx: number, open: string, close: string): string | null => {
   if (source.charAt(openIdx) !== open) {
     return null;
   }
@@ -77,11 +72,13 @@ export const parseGenericParamList = (s: string | undefined): string[] => {
   if (s === undefined || s.length === 0) {
     return [];
   }
-  return s
-    .split(",")
-    .map((g) => g.trim())
-    .map((g) => g.split(/\s+(?:extends|implements|:)\s+/)[0]?.trim() ?? g)
-    // `T any`, `T comparable` (Go-style trailing constraint)
-    .map((g) => g.split(/\s+/)[0] ?? g)
-    .filter((g) => g.length > 0);
+  return (
+    s
+      .split(",")
+      .map((g) => g.trim())
+      .map((g) => g.split(/\s+(?:extends|implements|:)\s+/)[0]?.trim() ?? g)
+      // `T any`, `T comparable` (Go-style trailing constraint)
+      .map((g) => g.split(/\s+/)[0] ?? g)
+      .filter((g) => g.length > 0)
+  );
 };

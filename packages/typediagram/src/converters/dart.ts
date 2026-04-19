@@ -121,8 +121,7 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
     | { kind: "alias"; name: string; generics: string[]; target: string; offset: number };
   const pending: PendingDecl[] = [];
   const consumedRanges: Array<[number, number]> = [];
-  const isInsideConsumed = (idx: number): boolean =>
-    consumedRanges.some(([start, end]) => idx >= start && idx < end);
+  const isInsideConsumed = (idx: number): boolean => consumedRanges.some(([start, end]) => idx >= start && idx < end);
 
   // 1. Sealed parents (union headers).
   SEALED_CLASS_HEAD_RE.lastIndex = 0;

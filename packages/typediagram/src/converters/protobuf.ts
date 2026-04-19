@@ -157,8 +157,7 @@ const parseMessageFields = (body: string): Field[] => {
       continue;
     }
     const mapped = mapProtoType(rawType);
-    const wrapped =
-      label === "repeated" ? `List<${mapped}>` : label === "optional" ? `Option<${mapped}>` : mapped;
+    const wrapped = label === "repeated" ? `List<${mapped}>` : label === "optional" ? `Option<${mapped}>` : mapped;
     fields.push({ name, type: wrapped });
   }
   return fields;
@@ -183,8 +182,7 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
     | { kind: "alias"; name: string; target: string; offset: number };
   const pending: PendingDecl[] = [];
   const consumedRanges: Array<[number, number]> = [];
-  const isInsideConsumed = (idx: number): boolean =>
-    consumedRanges.some(([start, end]) => idx >= start && idx < end);
+  const isInsideConsumed = (idx: number): boolean => consumedRanges.some(([start, end]) => idx >= start && idx < end);
 
   // Look back up to ~128 chars for a generics directive that applies to the
   // decl starting at `offset`.
@@ -412,11 +410,7 @@ const protoExpressionOf = (t: ResolvedTypeRef): { label: string; type: string } 
   return null;
 };
 
-const emitField = (
-  field: { name: string; type: ResolvedTypeRef },
-  fieldNumber: number,
-  indent: string
-): string[] => {
+const emitField = (field: { name: string; type: ResolvedTypeRef }, fieldNumber: number, indent: string): string[] => {
   const expr = protoExpressionOf(field.type);
   if (expr === null) {
     // Fall back to a `@td-type` directive with a placeholder repeated/bytes
@@ -429,10 +423,7 @@ const emitField = (
   return [`${indent}${labelPart}${expr.type} ${field.name} = ${fieldNumber};`];
 };
 
-const emitMessageBody = (
-  fields: readonly { name: string; type: ResolvedTypeRef }[],
-  indent: string
-): string[] => {
+const emitMessageBody = (fields: readonly { name: string; type: ResolvedTypeRef }[], indent: string): string[] => {
   const lines: string[] = [];
   fields.forEach((f, i) => {
     lines.push(...emitField(f, i + 1, indent));

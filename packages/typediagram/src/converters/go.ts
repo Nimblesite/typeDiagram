@@ -351,8 +351,7 @@ const mapTdToGo = (t: ResolvedTypeRef): string => {
 const goGenericsDecl = (generics: string[]): string =>
   generics.length === 0 ? "" : `[${generics.map((g) => `${g} any`).join(", ")}]`;
 
-const goGenericsInstance = (generics: string[]): string =>
-  generics.length === 0 ? "" : `[${generics.join(", ")}]`;
+const goGenericsInstance = (generics: string[]): string => (generics.length === 0 ? "" : `[${generics.join(", ")}]`);
 
 const variantStructName = (unionName: string, variantName: string): string => `${unionName}${variantName}`;
 
