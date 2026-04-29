@@ -456,6 +456,22 @@ describe("exportPdf composer", () => {
     expect(lines.some((l) => l.includes("export-pdf failed"))).toBe(true);
   });
 
+  it("preflights unsupported runtimes before reading or composing the markdown", async () => {
+    const { deps, spies } = makeDeps({ noPrintToPdf: true });
+    const unsupportedDeps: ExportPdfDeps = {
+      ...deps,
+      isPrintToPdfRuntimeSupported: () => false,
+    };
+
+    await exportPdf(SAMPLE_URI, { theme: "light" }, unsupportedDeps);
+
+    expect(spies.readFile).not.toHaveBeenCalled();
+    expect(spies.createWebviewPanel).not.toHaveBeenCalled();
+    expect(spies.writeFile).not.toHaveBeenCalled();
+    expect(spies.showErrorMessage).toHaveBeenCalledTimes(1);
+    expect((spies.showErrorMessage.mock.calls[0]?.[0] as string).toLowerCase()).toContain("desktop vs code");
+  });
+
   it("serialises concurrent invocations on the same URI (per-uri lock)", async () => {
     const { deps, spies } = makeDeps();
     const a = exportPdf(SAMPLE_URI, { theme: "light" }, deps);
