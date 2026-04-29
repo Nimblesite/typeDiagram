@@ -48,7 +48,7 @@ interface ExtensionPackageJson {
   version: string;
 }
 
-export const activate = (context: vscode.ExtensionContext) => {
+export const activate = async (context: vscode.ExtensionContext) => {
   const log = initLogger(context).child({ scope: "activate" });
   const pkg = context.extension.packageJSON as ExtensionPackageJson;
   log.info("extension activating", {
@@ -172,6 +172,18 @@ export const activate = (context: vscode.ExtensionContext) => {
   });
 
   context.subscriptions.push(cmd, openAsDiagram, exportPdfCmd, onOpen, onActive, onVisible, onChange, onClose);
+
+  if (!isSyncRenderReady()) {
+    const startedAt = Date.now();
+    try {
+      await warmupSyncRender();
+      log.info("warmup complete during activate", {
+        elapsedMs: Date.now() - startedAt,
+      });
+    } catch (err: unknown) {
+      log.error("warmup failed during activate", { err: String(err) });
+    }
+  }
 
   // [VSCODE-MD-EXTEND-RETURN] VS Code reads extendMarkdownIt off THIS return value —
   // NOT off the top-level module exports. This is the critical wiring per the official
