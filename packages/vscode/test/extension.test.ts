@@ -376,6 +376,32 @@ describe("[VSCODE-EXT] activate", () => {
     expect(mock.commands.executeCommand).toHaveBeenCalledWith("markdown.preview.refresh");
   });
 
+  it("[VSCODE-MD-COLD-FIRST-RENDER] waits for warmup before exposing markdown preview so the first render is SVG", async () => {
+    vi.resetModules();
+    let ready = false;
+    vi.doMock("typediagram-core", () => ({
+      warmupSyncRender: async () => {
+        await Promise.resolve();
+        ready = true;
+      },
+      isSyncRenderReady: () => ready,
+      renderToStringSync: () => ({ ok: true, value: '<svg class="typediagram-test"></svg>' }),
+    }));
+
+    const MarkdownIt = (await import("markdown-it")).default;
+    const { activate } = await import("../src/extension.js");
+    const ctx = makeContext();
+    const api = await activate(ctx as never);
+    const md = new MarkdownIt();
+    api.extendMarkdownIt(md as never);
+
+    const html = md.render("```typeDiagram\ntype X { a: Int }\n```");
+    expect(html).toContain('<svg class="typediagram-test"></svg>');
+    expect(html).not.toContain("typediagram-pending");
+
+    vi.doUnmock("typediagram-core");
+  });
+
   it("[VSCODE-MD-EXTEND-LOG] extendMarkdownIt writes lifecycle logs to the Output Channel", async () => {
     mock.mockOutputChannel.appendLine.mockClear();
     const { extendMarkdownIt } = await import("../src/extension.js");
@@ -439,7 +465,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-MD-EXTEND-RETURN] activate returns an object containing extendMarkdownIt (the canonical Mermaid pattern)", async () => {
     const { activate, extendMarkdownIt } = await import("../src/extension.js");
     const ctx = makeContext();
-    const api = activate(ctx as never);
+    const api = await activate(ctx as never);
     expect(api).toBeDefined();
     expect(api).toHaveProperty("extendMarkdownIt");
     // Must be the SAME function reference as the named export (double-wired intentionally)
