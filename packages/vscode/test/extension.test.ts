@@ -46,7 +46,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("registers typediagram.preview command on activate", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.preview", expect.any(Function));
     expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.openAsDiagram", expect.any(Function));
     // 7 original disposables + 1 Output Channel added by initLogger.
@@ -59,7 +59,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("preview command does nothing without active typediagram editor", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window.activeTextEditor = undefined;
     mock.commands._handler?.();
     expect(mock.window.createWebviewPanel).not.toHaveBeenCalled();
@@ -68,7 +68,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("preview command ignores non-typediagram files", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window.activeTextEditor = { document: makeDoc("x", "plaintext") };
     mock.commands._handler?.();
     expect(mock.window.createWebviewPanel).not.toHaveBeenCalled();
@@ -77,7 +77,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("preview command opens webview panel for .td file", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window.activeTextEditor = { document: makeDoc("type Foo { x: Int }") };
     mock.commands._handler?.();
     expect(mock.window.createWebviewPanel).toHaveBeenCalled();
@@ -88,7 +88,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("reveals existing panel instead of creating duplicate", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window.activeTextEditor = { document: makeDoc("type A { x: Int }") };
     mock.commands._handler?.();
     mock.commands._handler?.();
@@ -99,7 +99,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("forwards document changes to webview via postMessage", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type X { a: Int }");
     mock.window.activeTextEditor = { document: doc };
     mock.commands._handler?.();
@@ -113,7 +113,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("ignores changes to non-typediagram documents", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.workspace._changeCb?.({ document: makeDoc("x", "json") });
     expect(mock.mockPanel.webview.postMessage).not.toHaveBeenCalled();
   });
@@ -121,7 +121,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("cleans up panel reference on document close", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type Y { b: String }");
     mock.window.activeTextEditor = { document: doc };
     mock.commands._handler?.();
@@ -142,14 +142,14 @@ describe("[VSCODE-EXT] activate", () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
     mock.workspace.textDocuments = [makeDoc("type A { x: Int }")];
-    activate(ctx as never);
+    await activate(ctx as never);
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
   });
 
   it("auto-opens preview when a .td document is opened later", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.workspace._openCb?.(makeDoc("type B { y: Int }"));
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
   });
@@ -157,7 +157,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("auto-opens preview when active editor switches to a .td document", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window._activeEditorCb?.({ document: makeDoc("type C { z: Int }") });
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
   });
@@ -166,14 +166,14 @@ describe("[VSCODE-EXT] activate", () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
     mock.window.visibleTextEditors = [{ document: makeDoc("type V { v: Int }") }];
-    activate(ctx as never);
+    await activate(ctx as never);
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
   });
 
   it("auto-opens preview for .td doc that becomes visible later", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window._visibleEditorsCb?.([{ document: makeDoc("type W { w: Int }") }]);
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
   });
@@ -182,14 +182,14 @@ describe("[VSCODE-EXT] activate", () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
     mock.window.activeTextEditor = { document: makeDoc("type Act { a: Int }") };
-    activate(ctx as never);
+    await activate(ctx as never);
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
   });
 
   it("auto-open handles undefined editor and non-file schemes and non-td langs", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     mock.window._activeEditorCb?.(undefined);
     mock.workspace._openCb?.(makeDoc("x", "plaintext"));
     mock.workspace._openCb?.(makeDoc("x", "typediagram", "untitled"));
@@ -203,14 +203,14 @@ describe("[VSCODE-EXT] activate", () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
     mock.workspace.textDocuments = [makeDoc("type D { a: Int }")];
-    activate(ctx as never);
+    await activate(ctx as never);
     expect(mock.window.createWebviewPanel).not.toHaveBeenCalled();
   });
 
   it("auto-open fires only once per document", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type E { b: Int }");
     mock.workspace._openCb?.(doc);
     mock.workspace._openCb?.(doc);
@@ -221,7 +221,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-OPEN-AS-DIAGRAM] openAsDiagram opens preview for explorer URI", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type Diag { d: Int }");
     mock.workspace._openTextDocResult = doc;
     const handler = mock.commands._handlers.get("typediagram.openAsDiagram");
@@ -234,7 +234,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-OPEN-AS-DIAGRAM] openAsDiagram falls back to active editor URI", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type Fall { f: Int }");
     mock.window.activeTextEditor = { document: doc };
     mock.workspace._openTextDocResult = doc;
@@ -246,7 +246,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-OPEN-AS-DIAGRAM] openAsDiagram closes existing source tabs for the same file", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type Close { c: Int }");
     mock.workspace._openTextDocResult = doc;
     const sourceTab = { input: new mock.TabInputText(doc.uri) };
@@ -261,7 +261,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-OPEN-AS-DIAGRAM] openAsDiagram suppresses auto-open for marked diagram-only URIs", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type DO { d: Int }");
     mock.workspace._openTextDocResult = doc;
     const handler = mock.commands._handlers.get("typediagram.openAsDiagram");
@@ -275,7 +275,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-OPEN-AS-DIAGRAM] closing the doc clears diagram-only marking", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type Cl { c: Int }");
     mock.workspace._openTextDocResult = doc;
     const handler = mock.commands._handlers.get("typediagram.openAsDiagram");
@@ -290,7 +290,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-OPEN-AS-DIAGRAM] openAsDiagram does nothing without URI or active editor", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const handler = mock.commands._handlers.get("typediagram.openAsDiagram");
     await handler?.(undefined);
     expect(mock.workspace.openTextDocument).not.toHaveBeenCalled();
@@ -305,7 +305,7 @@ describe("[VSCODE-EXT] activate", () => {
   const runTapScenario = async (taps: number) => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
 
     const doc = makeDoc("type Sample { s: Int }");
     const editor = { document: doc };
@@ -367,6 +367,16 @@ describe("[VSCODE-EXT] activate", () => {
   });
 
   it("[VSCODE-MD-EXTEND] extendMarkdownIt schedules a preview refresh after warmup", async () => {
+    vi.resetModules();
+    let ready = false;
+    vi.doMock("typediagram-core", () => ({
+      warmupSyncRender: async () => {
+        await Promise.resolve();
+        ready = true;
+      },
+      isSyncRenderReady: () => ready,
+      renderToStringSync: () => ({ ok: true, value: "<svg></svg>" }),
+    }));
     const { extendMarkdownIt } = await import("../src/extension.js");
     const md = { renderer: { rules: {} as Record<string, unknown> } };
     extendMarkdownIt(md as never);
@@ -374,6 +384,33 @@ describe("[VSCODE-EXT] activate", () => {
     // We give it a reasonable window.
     await new Promise((r) => setTimeout(r, 400));
     expect(mock.commands.executeCommand).toHaveBeenCalledWith("markdown.preview.refresh");
+    vi.doUnmock("typediagram-core");
+  });
+
+  it("[VSCODE-MD-COLD-FIRST-RENDER] waits for warmup before exposing markdown preview so the first render is SVG", async () => {
+    vi.resetModules();
+    let ready = false;
+    vi.doMock("typediagram-core", () => ({
+      warmupSyncRender: async () => {
+        await Promise.resolve();
+        ready = true;
+      },
+      isSyncRenderReady: () => ready,
+      renderToStringSync: () => ({ ok: true, value: '<svg class="typediagram-test"></svg>' }),
+    }));
+
+    const MarkdownIt = (await import("markdown-it")).default;
+    const { activate } = await import("../src/extension.js");
+    const ctx = makeContext();
+    const api = await activate(ctx as never);
+    const md = new MarkdownIt();
+    api.extendMarkdownIt(md as never);
+
+    const html = md.render("```typeDiagram\ntype X { a: Int }\n```");
+    expect(html).toContain('<svg class="typediagram-test"></svg>');
+    expect(html).not.toContain("typediagram-pending");
+
+    vi.doUnmock("typediagram-core");
   });
 
   it("[VSCODE-MD-EXTEND-LOG] extendMarkdownIt writes lifecycle logs to the Output Channel", async () => {
@@ -439,7 +476,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[VSCODE-MD-EXTEND-RETURN] activate returns an object containing extendMarkdownIt (the canonical Mermaid pattern)", async () => {
     const { activate, extendMarkdownIt } = await import("../src/extension.js");
     const ctx = makeContext();
-    const api = activate(ctx as never);
+    const api = await activate(ctx as never);
     expect(api).toBeDefined();
     expect(api).toHaveProperty("extendMarkdownIt");
     // Must be the SAME function reference as the named export (double-wired intentionally)
@@ -454,7 +491,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] exportMarkdownPdf command handler reads, exports, writes next to source", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     expect(exportHandler).toBeDefined();
 
@@ -485,7 +522,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] exportMarkdownPdf falls back to active editor URI when none passed", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     const activeUri = {
       path: "/tmp/active.md",
@@ -507,7 +544,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] Open PDF action wires openExternal on the saved URI", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
     mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
@@ -531,7 +568,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] Reveal action wires revealFileInOS via executeCommand", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
     mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
@@ -556,7 +593,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] exportMarkdownPdf surfaces showErrorMessage on readFile failure", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     mock.workspace.fs.readFile = vi.fn(() => Promise.reject(new Error("ENOENT fake")));
     mock.workspace.fs.writeFile = vi.fn();
@@ -580,7 +617,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] exportMarkdownPdf no-ops without URI or active editor", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     mock.window.activeTextEditor = undefined;
     mock.workspace.fs.readFile = vi.fn();
@@ -594,7 +631,7 @@ describe("[VSCODE-EXT] activate", () => {
     mock.mockOutputChannel.appendLine.mockClear();
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("extension activating"))).toBe(true);
     expect(lines.some((l) => l.includes('"version":"0.3.0-test"'))).toBe(true);
@@ -604,7 +641,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("cleans up panel reference when webview is disposed", async () => {
     const { activate } = await import("../src/extension.js");
     const ctx = makeContext();
-    activate(ctx as never);
+    await activate(ctx as never);
     const doc = makeDoc("type Z { c: Bool }");
     mock.window.activeTextEditor = { document: doc };
     mock.commands._handler?.();
