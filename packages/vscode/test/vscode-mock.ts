@@ -2,6 +2,7 @@
 import { vi } from "vitest";
 
 export const ViewColumn = { Beside: 2, Active: -1 } as const;
+export const UIKind = { Desktop: 1, Web: 2 } as const;
 
 const FAKE_PDF = new TextEncoder().encode("%PDF-1.7\n" + "x".repeat(2048) + "\n%%EOF\n");
 
@@ -124,5 +125,6 @@ export const Uri = {
 };
 
 export const env = {
+  uiKind: UIKind.Desktop,
   openExternal: vi.fn((_u: unknown) => Promise.resolve(true)),
 };

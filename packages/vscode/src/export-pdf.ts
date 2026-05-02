@@ -21,6 +21,7 @@ export interface ExportPdfDeps {
   readonly readFile: (uri: vscode.Uri) => Promise<Uint8Array>;
   readonly writeFile: (uri: vscode.Uri, data: Uint8Array) => Promise<void>;
   readonly uriWithPath: (base: vscode.Uri, newPath: string) => vscode.Uri;
+  readonly isPrintToPdfRuntimeSupported?: () => boolean;
   readonly createWebviewPanel: (
     viewType: string,
     title: string,
@@ -182,6 +183,8 @@ export function composeHtml(mdSource: string, opts: { theme: Theme; title: strin
 // ---------------------------------------------------------------------------
 
 const PRINT_LOAD_TIMEOUT_MS = 15_000;
+const UNSUPPORTED_RUNTIME_MESSAGE =
+  "[PDF-PRINT] webview.printToPDF is not available in this VS Code runtime. Requires the Electron-based desktop VS Code.";
 
 export async function renderHtmlToPdf(
   html: string,
@@ -210,9 +213,7 @@ export async function renderHtmlToPdf(
     await loaded;
     const print = panel.webview.printToPDF;
     if (typeof print !== "function") {
-      throw new Error(
-        "[PDF-PRINT] webview.printToPDF is not available in this VS Code runtime. Requires the Electron-based desktop VS Code."
-      );
+      throw new Error(UNSUPPORTED_RUNTIME_MESSAGE);
     }
     return await print({
       marginsType: 0,
@@ -281,6 +282,9 @@ async function runExport(
 ): Promise<void> {
   log.info("export-pdf invoked", { uri: sourceUri.toString() });
   try {
+    if (deps.isPrintToPdfRuntimeSupported?.() === false) {
+      throw new Error(UNSUPPORTED_RUNTIME_MESSAGE);
+    }
     const t0 = Date.now();
     const src = await readMarkdown(sourceUri, deps);
     const title = titleFromPath(sourceUri.path);
