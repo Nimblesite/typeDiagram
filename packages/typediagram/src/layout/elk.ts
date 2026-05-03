@@ -1,7 +1,13 @@
 import ELK from "elkjs/lib/elk.bundled.js";
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err, ok } from "../result.js";
-import type { Edge, Model, ResolvedDecl, ResolvedTypeRef } from "../model/types.js";
+import {
+  isTupleVariantFields,
+  type Edge,
+  type Model,
+  type ResolvedDecl,
+  type ResolvedTypeRef,
+} from "../model/types.js";
 import { measureBlock, measureText } from "./measure.js";
 import type { EdgeRoute, LaidOutGraph, LayoutOpts, NodeBox, NodeRow } from "./types.js";
 
@@ -119,7 +125,11 @@ function buildPreNodes(decls: ResolvedDecl[], fontSize: number, padX: number, pa
     } else if (d.kind === "union") {
       for (const v of d.variants) {
         const variantHeader =
-          v.fields.length === 0 ? v.name : `${v.name} { ${v.fields.map((f) => rowText(f.name, f.type)).join(", ")} }`;
+          v.fields.length === 0
+            ? v.name
+            : isTupleVariantFields(v.fields)
+              ? `${v.name}(${v.fields.map((f) => printRefShort(f.type)).join(", ")})`
+              : `${v.name} { ${v.fields.map((f) => rowText(f.name, f.type)).join(", ")} }`;
         const m = measureText(variantHeader, fontSize);
         if (m.w > widest) {
           widest = m.w;

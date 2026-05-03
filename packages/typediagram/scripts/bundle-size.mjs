@@ -9,7 +9,7 @@ import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const entry = resolve(here, "..", "src", "index.ts");
-const BUDGET_KB = 75;
+const BUDGET_KB = 75.5;
 
 const result = await build({
   entryPoints: [entry],

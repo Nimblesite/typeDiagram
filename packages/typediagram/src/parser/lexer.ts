@@ -8,6 +8,8 @@ export type TokenKind =
   | "Ident"
   | "LBrace"
   | "RBrace"
+  | "LParen"
+  | "RParen"
   | "LAngle"
   | "RAngle"
   | "Comma"
@@ -35,6 +37,8 @@ const KEYWORDS: Record<string, TokenKind> = {
 const SINGLE_CHAR: Record<string, TokenKind> = {
   "{": "LBrace",
   "}": "RBrace",
+  "(": "LParen",
+  ")": "RParen",
   "<": "LAngle",
   ">": "RAngle",
   ",": "Comma",

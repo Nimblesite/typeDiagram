@@ -1,4 +1,4 @@
-import type { Model, ResolvedDecl, ResolvedTypeRef } from "./types.js";
+import { isTupleVariantFields, type Model, type ResolvedDecl, type ResolvedTypeRef } from "./types.js";
 
 export function printSource(model: Model): string {
   const out: string[] = ["typeDiagram", ""];
@@ -20,6 +20,9 @@ function printDecl(d: ResolvedDecl): string {
       .map((v) => {
         if (v.fields.length === 0) {
           return `  ${v.name}`;
+        }
+        if (isTupleVariantFields(v.fields)) {
+          return `  ${v.name}(${v.fields.map((f) => printRef(f.type)).join(", ")})`;
         }
         const inner = v.fields.map((f) => `${f.name}: ${printRef(f.type)}`).join(", ");
         return `  ${v.name} { ${inner} }`;

@@ -223,6 +223,21 @@ alias Lookup<K, V> = Map<K, V>
     expect(output).toContain("pub type Email = String");
     expect(output).toContain("pub type Lookup<K, V> = HashMap<K, V>");
   });
+
+  it("emits tuple enum variants from tuple-form union syntax", () => {
+    const td = `
+union RequestId {
+  Number(Int)
+  String(String)
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const output = rust.toSource(model);
+
+    expect(output).toContain("pub enum RequestId");
+    expect(output).toContain("Number(i64)");
+    expect(output).toContain("String(String)");
+  });
 });
 
 describe("[CONV-RUST-RT] Rust round-trip TD -> Rust -> TD", () => {

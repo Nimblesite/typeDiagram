@@ -2,6 +2,17 @@
 
 A minimal single-user TODO list application. Users create lists, add tasks, mark them complete, set due dates, attach tags, and filter/search across their workspace. Data persists locally; sync is out of scope for v1.
 
+Tuple-form union variants are also supported:
+
+```typediagram
+typeDiagram
+
+union RequestId {
+  Number(Int)
+  String(String)
+}
+```
+
 ## Overview
 
 The app is organized around a **Workspace** that owns many **TodoLists**. Each list owns many **Tasks**. Tasks carry status, priority, optional due dates, optional descriptions, and tags. The UI is a three-pane layout (sidebar of lists, task table, detail pane) backed by a command/event architecture.

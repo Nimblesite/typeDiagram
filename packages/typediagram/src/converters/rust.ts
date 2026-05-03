@@ -1,7 +1,7 @@
 // [CONV-RUST] Rust <-> typeDiagram bidirectional converter.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import type { Model, ResolvedTypeRef } from "../model/types.js";
+import { isTupleVariantFields, type Model, type ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { parseTypeRef } from "./parse-typeref.js";
@@ -268,6 +268,8 @@ const toRust = (model: Model): string => {
       for (const v of d.variants) {
         if (v.fields.length === 0) {
           lines.push(`    ${v.name},`);
+        } else if (isTupleVariantFields(v.fields)) {
+          lines.push(`    ${v.name}(${v.fields.map((f) => mapTdToRs(f.type)).join(", ")}),`);
         } else {
           lines.push(`    ${v.name} { ${v.fields.map((f) => `${f.name}: ${mapTdToRs(f.type)}`).join(", ")} },`);
         }

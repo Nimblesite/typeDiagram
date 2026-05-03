@@ -60,6 +60,20 @@ union Result<T, E> {
 }
 ```
 
+### Tuple-form variants
+
+Variants can also carry positional payloads with tuple syntax:
+
+```
+union RequestId {
+  Number(Int)
+  String(String)
+}
+```
+
+This is useful when the target language distinguishes tuple variants from
+named-field variants, such as Rust `Number(i64)` vs `Number { value: i64 }`.
+
 ## Aliases (`alias`)
 
 An alias creates a named synonym for another type.
