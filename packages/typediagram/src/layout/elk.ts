@@ -123,7 +123,8 @@ function buildPreNodes(decls: ResolvedDecl[], fontSize: number, padX: number, pa
     } else if (d.kind === "union") {
       for (const v of d.variants) {
         const head = variantText(v.name, v.discriminant);
-        const variantHeader = v.fields.length === 0 ? head : `${head} { ${v.fields.map((f) => rowText(f.name, f.type)).join(", ")} }`;
+        const variantHeader =
+          v.fields.length === 0 ? head : `${head} { ${v.fields.map((f) => rowText(f.name, f.type)).join(", ")} }`;
         const m = measureText(variantHeader, fontSize);
         if (m.w > widest) {
           widest = m.w;
