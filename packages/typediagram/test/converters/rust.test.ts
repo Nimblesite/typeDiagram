@@ -259,6 +259,22 @@ union RequestId {
     expect(output).toContain("Number(i64)");
     expect(output).toContain("String(String)");
   });
+
+  it("emits serde untagged enums from untagged union syntax", () => {
+    const td = `
+untagged union RequestId {
+  Number(Int)
+  String(String)
+}
+`;
+    const model = unwrap(buildModel(unwrap(parse(td))));
+    const output = rust.toSource(model);
+
+    expect(output).toContain("#[serde(untagged)]");
+    expect(output).toContain("pub enum RequestId");
+    expect(output).toContain("Number(i64)");
+    expect(output).toContain("String(String)");
+  });
 });
 
 describe("[CONV-RUST-RT] Rust round-trip TD -> Rust -> TD", () => {

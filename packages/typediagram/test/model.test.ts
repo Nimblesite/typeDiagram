@@ -214,6 +214,31 @@ describe("model — JSON round-trip", () => {
     expect(toJSON(back)).toEqual(json);
   });
 
+  it("preserves untagged unions through printSource and JSON", () => {
+    const model = unwrap(
+      buildModel(
+        unwrap(
+          parse(`
+untagged union RequestId {
+  Number(Int)
+  String(String)
+}
+`)
+        )
+      )
+    );
+
+    const requestId = model.decls.find((decl) => decl.name === "RequestId");
+    expect(requestId?.kind).toBe("union");
+    expect(requestId?.kind === "union" ? requestId.untagged : undefined).toBe(true);
+    expect(printSource(model)).toContain("untagged union RequestId");
+
+    const roundTrip = unwrap(fromJSON(toJSON(model)));
+    const requestIdRoundTrip = roundTrip.decls.find((decl) => decl.name === "RequestId");
+    expect(requestIdRoundTrip?.kind).toBe("union");
+    expect(requestIdRoundTrip?.kind === "union" ? requestIdRoundTrip.untagged : undefined).toBe(true);
+  });
+
   it("rejects wrong schema version", () => {
     const r = fromJSON({ version: 99, decls: [] });
     expect(r.ok).toBe(false);

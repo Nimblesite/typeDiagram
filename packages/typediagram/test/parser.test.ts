@@ -60,6 +60,20 @@ describe("parser — small example", () => {
     const tri = shape.variants.find((v) => v.name === "Triangle");
     expect(tri?.fields.map((f) => f.name)).toEqual(["a", "b", "c"]);
   });
+
+  it("parses untagged unions", () => {
+    const untagged = unwrap(
+      parse(`
+untagged union RequestId {
+  Number(Int)
+  String(String)
+}
+`)
+    ).decls[0] as UnionDecl;
+    expect(untagged.kind).toBe("union");
+    expect(untagged.untagged).toBe(true);
+    expect(untagged.variants.map((variant) => variant.name)).toEqual(["Number", "String"]);
+  });
 });
 
 describe("parser — chat example", () => {
