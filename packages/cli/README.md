@@ -1,6 +1,6 @@
 # typediagram
 
-**CLI for [typeDiagram](https://typediagram.dev).** Render the typeDiagram DSL to SVG, or convert between the DSL and TypeScript, Python, Rust, Go, and C#.
+**CLI for [typeDiagram](https://typediagram.dev).** Render the typeDiagram DSL to SVG, or convert between the DSL and TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, and Protobuf.
 
 **Live demo:** [typediagram.dev](https://typediagram.dev)
 
@@ -28,14 +28,14 @@ cat schema.td | typediagram > diagram.svg
 
 ## Options
 
-| Flag            | Values                                         | Default |
-| --------------- | ---------------------------------------------- | ------- |
-| `--from <lang>` | `typescript`, `python`, `rust`, `go`, `csharp` | —       |
-| `--to <lang>`   | `typescript`, `python`, `rust`, `go`, `csharp` | —       |
-| `--emit <fmt>`  | `svg`, `td`, `td+svg` (for `--from`)           | `svg`   |
-| `--theme`       | `light`, `dark`                                | `light` |
-| `--font-size N` | font size in px                                | —       |
-| `-h`, `--help`  | show help                                      |         |
+| Flag            | Values                                                                              | Default |
+| --------------- | ----------------------------------------------------------------------------------- | ------- |
+| `--from <lang>` | `typescript`, `python`, `rust`, `go`, `csharp`, `fsharp`, `dart`, `protobuf`, `php` | —       |
+| `--to <lang>`   | `typescript`, `python`, `rust`, `go`, `csharp`, `fsharp`, `dart`, `protobuf`, `php` | —       |
+| `--emit <fmt>`  | `svg`, `td`, `td+svg` (for `--from`)                                                | `svg`   |
+| `--theme`       | `light`, `dark`                                                                     | `light` |
+| `--font-size N` | font size in px                                                                     | —       |
+| `-h`, `--help`  | show help                                                                           |         |
 
 If no file is given, stdin is read. Output goes to stdout; errors go to stderr.
 

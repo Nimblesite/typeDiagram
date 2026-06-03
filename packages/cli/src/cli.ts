@@ -8,16 +8,8 @@ import {
   type AllOpts,
   type Diagnostic,
 } from "typediagram-core";
-import { HELP_TEXT, parseArgs, type CliArgs, type Lang } from "./args.js";
+import { HELP_TEXT, parseArgs, type CliArgs } from "./args.js";
 import { readSource } from "./io.js";
-
-const CONVERTER_MAP: Record<Lang, typeof converters.typescript> = {
-  typescript: converters.typescript,
-  python: converters.python,
-  rust: converters.rust,
-  go: converters.go,
-  csharp: converters.csharp,
-};
 
 export const main = async (
   argv: readonly string[],
@@ -50,7 +42,7 @@ const fromLangFlow = async (
   if (args.from === null) {
     return (stderr.write("missing --from\n"), 1);
   }
-  const conv = CONVERTER_MAP[args.from];
+  const conv = converters.byLanguage[args.from];
   const modelResult = conv.fromSource(srcRes.value);
   if (!modelResult.ok) {
     return (writeDiagnostics(modelResult.error, stderr), 1);
@@ -101,7 +93,7 @@ const toLangFlow = async (
   if (args.to === null) {
     return (stderr.write("missing --to\n"), 1);
   }
-  const conv = CONVERTER_MAP[args.to];
+  const conv = converters.byLanguage[args.to];
   stdout.write(conv.toSource(model.value));
   return 0;
 };

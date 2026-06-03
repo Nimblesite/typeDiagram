@@ -20,13 +20,13 @@ If `file` is omitted, reads from stdin. Output goes to stdout. Errors go to stde
 
 ## Options
 
-| Flag           | Value                                  | Description                                 |
-| -------------- | -------------------------------------- | ------------------------------------------- |
-| `--from`       | `typescript\|python\|rust\|go\|csharp` | Convert from language source to SVG         |
-| `--to`         | `typescript\|python\|rust\|go\|csharp` | Convert from typeDiagram to language source |
-| `--theme`      | `light\|dark`                          | Color theme (default: `light`)              |
-| `--font-size`  | number                                 | Font size in pixels                         |
-| `-h`, `--help` |                                        | Show help                                   |
+| Flag           | Value                                                               | Description                                 |
+| -------------- | ------------------------------------------------------------------- | ------------------------------------------- |
+| `--from`       | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from language source to SVG         |
+| `--to`         | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from typeDiagram to language source |
+| `--theme`      | `light\|dark`                                                       | Color theme (default: `light`)              |
+| `--font-size`  | number                                                              | Font size in pixels                         |
+| `-h`, `--help` |                                                                     | Show help                                   |
 
 `--from` and `--to` are mutually exclusive.
 

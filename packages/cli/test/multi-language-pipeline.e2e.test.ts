@@ -100,6 +100,10 @@ describe("[CLI-PIPELINE-DOCS] multi-language pipeline doc examples", () => {
     { lang: "python", expect: "class User" },
     { lang: "go", expect: "type User struct" },
     { lang: "csharp", expect: "record User" },
+    { lang: "fsharp", expect: "type User = {" },
+    { lang: "dart", expect: "class User" },
+    { lang: "protobuf", expect: "message User" },
+    { lang: "php", expect: "final readonly class User" },
   ])("--to $lang emits $lang source for a simple record", async ({ lang, expect: needle }) => {
     const root = await mkdtemp(join(tmpdir(), "td-pipeline-"));
     const schemaPath = join(root, "s.td");
