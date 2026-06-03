@@ -1,12 +1,33 @@
 // [CONV] Barrel export for all language converters.
-export { typescript } from "./typescript.js";
-export { python } from "./python.js";
-export { rust } from "./rust.js";
-export { go } from "./go.js";
-export { csharp } from "./csharp.js";
-export { fsharp } from "./fsharp.js";
-export { dart } from "./dart.js";
-export { protobuf } from "./protobuf.js";
-export { php } from "./php.js";
+import { typescript } from "./typescript.js";
+import { python } from "./python.js";
+import { rust } from "./rust.js";
+import { go } from "./go.js";
+import { csharp } from "./csharp.js";
+import { fsharp } from "./fsharp.js";
+import { dart } from "./dart.js";
+import { protobuf } from "./protobuf.js";
+import { php } from "./php.js";
+import type { Converter, Language } from "./types.js";
+
+export { typescript, python, rust, go, csharp, fsharp, dart, protobuf, php };
 export { parseTypeRef, printTypeRef } from "./parse-typeref.js";
 export type { Converter, Language } from "./types.js";
+
+// [CONV-REGISTRY] Canonical language→converter map. Typing it Record<Language, Converter>
+// makes a missing entry a COMPILE error, so the advertised language set can never drift
+// from what actually emits. Single source of truth for CLI/web/vscode language lists.
+export const byLanguage: Record<Language, Converter> = {
+  typescript,
+  python,
+  rust,
+  go,
+  csharp,
+  fsharp,
+  dart,
+  protobuf,
+  php,
+};
+
+// Keys of a Record<Language, …> are exactly the Language members, so this cast is sound.
+export const LANGUAGES = Object.keys(byLanguage) as readonly Language[];
