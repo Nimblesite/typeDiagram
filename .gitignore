@@ -81,3 +81,7 @@ packages/web/.typedoc-out/
 dist-test-pdfs/
 
 packages/web/test-results/
+
+.deslop-cache/
+
+.ghissues/
