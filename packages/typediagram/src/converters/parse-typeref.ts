@@ -11,7 +11,7 @@ export const parseTypeRef = (raw: string): ResolvedTypeRef => {
 };
 
 /** Split "A, B<C, D>, E" respecting nested angle brackets. */
-const splitGenericArgs = (s: string): string[] => {
+export const splitGenericArgs = (s: string): string[] => {
   const parts: string[] = [];
   let depth = 0;
   let start = 0;

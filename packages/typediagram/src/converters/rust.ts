@@ -5,7 +5,7 @@ import { formatVariantName, withDiscriminant } from "../variant.js";
 import { isTupleVariantFields, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
 
 // ── Type mapping ──
 
@@ -75,22 +75,6 @@ const extractBracedBody = (source: string, startIdx: number): string | null => {
     }
   }
   return null;
-};
-
-const splitGenericArgs = (s: string): string[] => {
-  const parts: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charAt(i);
-    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
-    if (c === "," && depth === 0) {
-      parts.push(s.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  const last = s.slice(start).trim();
-  return last.length > 0 ? [...parts, last] : parts;
 };
 
 // chrono's DateTime carries a zone parameter, so it must match as a whole

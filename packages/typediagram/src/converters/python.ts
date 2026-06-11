@@ -19,7 +19,7 @@ import {
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter, PythonOpts } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
 
 // ── Type mapping ──
 
@@ -102,24 +102,8 @@ const mapPyType = (t: string): string => {
     return mapped;
   }
   const inner = normalized.slice(angleBracket + 1, normalized.lastIndexOf(">"));
-  const args = splitPyArgs(inner).map(mapPyType);
+  const args = splitGenericArgs(inner).map(mapPyType);
   return `${mapped}<${args.join(", ")}>`;
-};
-
-const splitPyArgs = (s: string): string[] => {
-  const parts: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charAt(i);
-    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
-    if (c === "," && depth === 0) {
-      parts.push(s.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  const last = s.slice(start).trim();
-  return last.length > 0 ? [...parts, last] : parts;
 };
 
 const parsePyFields = (body: string) =>

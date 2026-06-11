@@ -5,14 +5,17 @@
 // ~8-10 KB each of parser/emitter logic, so the budget was raised to 75 KB.
 // Tuple variants, explicit discriminants, and untagged unions pushed the
 // minified core slightly higher, and declaration-level target gating added
-// parser + emitter filtering overhead, so the current budget is 80 KB.
+// parser + emitter filtering overhead, which took the budget to 80 KB.
+// Semantic scalars (DateTime/Uuid/Decimal) across all 9 converters plus
+// codegen unknown-type validation [MODEL-CODEGEN-UNKNOWN] measure ~81 KB,
+// so the current budget is 84 KB.
 import { build } from "esbuild";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const entry = resolve(here, "..", "src", "index.ts");
-const BUDGET_KB = 80;
+const BUDGET_KB = 84;
 
 const result = await build({
   entryPoints: [entry],
