@@ -78,13 +78,15 @@ jobs:
       # ───────────── Website/docs-only scope (lightweight) ─────────────
       # Validates that the site compiles and the web package is clean without
       # paying for the full cross-workspace test/build/gate pipeline.
+      # typediagram-core MUST build first: type-aware eslint and the web build
+      # both resolve typediagram-core's dist declarations; on a fresh runner an
+      # unbuilt core makes every import "a type that could not be resolved".
       - name: Website checks (format, lint, typecheck, web tests, site build)
         if: steps.scope.outputs.scope == 'web'
         run: |
-          npm run fmt:check
-          npm run lint
           npm run -w typediagram-core build
-          npm run -w @typediagram/web typecheck
+          make _fmt_check
+          make lint
           npm run -w @typediagram/web test:unit
           npm run -w @typediagram/web build
 
