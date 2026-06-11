@@ -76,12 +76,30 @@ Key facts from the runbooks:
 
 ### D. Ship v0.11.0
 
-- [ ] Commit all of the above on `fixes`; open PR → `main`; CI green; merge.
-- [ ] Tag `v0.11.0` from `main` → release workflow stamps 0.11.0, publishes npm + GitHub
-      Release, and now the OIDC `publish-marketplace` job pushes the VSIX.
-- [ ] Monitor both workflows; confirm Marketplace shows **0.11.0** (full release, not
-      pre-release).
-- [ ] Record typeDiagram in the NimblesiteDeployment onboarded-repos table (follow-up).
+- [x] Commit all of the above on `fixes`; PR #45 → `main`; CI green; squash-merged
+      (`d7f3f7e`).
+- [x] Tag `v0.11.0` from `main` → release run 27376654355: stamped 0.11.0, published
+      npm (`typediagram-core@0.11.0`, `typediagram@0.11.0`) + GitHub Release (6 assets),
+      and the OIDC `publish-marketplace` job pushed the VSIX
+      (`Published nimblesite.typediagram v0.11.0.`).
+- [x] Verified live: Marketplace shows **0.11.0** as a stable (non-prerelease) release.
+- [ ] Record typeDiagram in the NimblesiteDeployment onboarded-repos table (follow-up —
+      that repo is outside this working tree).
+
+### E. Website audit findings (fixed in follow-up PR #47)
+
+- [x] `dist/sitemap.xml` was never shipped: the Vite copy plugin only emitted `.html`
+      files while `robots.txt` advertised `/sitemap.xml` (crawl 404). Plugin now copies
+      Eleventy's `.xml` outputs.
+- [x] Sitemap listed 7 of 156 URLs: Eleventy pagination adds only the first page to
+      `collections.all` by default, so every docs page except `introduction` was
+      missing. Fixed with `addAllPagesToCollections: true`.
+- [x] Blog post title `&` double-escaped in `<title>` — reworded.
+- [x] Playwright smoke (desktop 1280×720 + mobile 375×667): pages load, zero console
+      errors, no horizontal overflow, viewport meta correct.
+- [x] `[CI-SCOPE-FILTER]` validated live: the website-only PR took the WEB path and
+      skipped the framework matrix/e2e/gates. (First run exposed an ordering bug —
+      type-aware lint before `typediagram-core` build — fixed by building core first.)
 
 ## Guard rails
 
