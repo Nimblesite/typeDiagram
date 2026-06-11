@@ -31,6 +31,12 @@ export const copyEleventyPlugin = (eleventyRoot: string): Plugin => ({
     const all = await walk(eleventyRoot);
     for (const abs of all) {
       const rel = toPosix(relative(eleventyRoot, abs));
+      // Non-HTML Eleventy outputs (sitemap.xml) must reach dist too —
+      // robots.txt advertises /sitemap.xml, so dropping it is a crawl 404.
+      if (rel.endsWith(".xml")) {
+        this.emitFile({ type: "asset", fileName: rel, source: await readFile(abs, "utf-8") });
+        continue;
+      }
       if (!rel.endsWith(".html")) {
         continue;
       }

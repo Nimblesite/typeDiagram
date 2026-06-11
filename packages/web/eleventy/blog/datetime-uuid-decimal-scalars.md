@@ -1,5 +1,5 @@
 ---
-title: "typeDiagram 0.11: Native DateTime, Uuid & Decimal — and Codegen That Refuses to Lie"
+title: "typeDiagram 0.11: Native DateTime, Uuid and Decimal Scalars — Codegen That Refuses to Lie"
 date: 2026-06-12
 author: "The typeDiagram team"
 description: "typeDiagram 0.11 adds native DateTime, Uuid, and Decimal scalars that generate real datetime / UUID / decimal types in TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, and Protobuf — plus strict code generation that fails on unknown type names instead of emitting code that won't compile. The fix for schema drift on timestamps and ids."

@@ -4,6 +4,9 @@ pagination:
   data: docs
   size: 1
   alias: doc
+  # Without this, only the FIRST paginated page joins collections.all, so the
+  # sitemap listed /docs/introduction.html and silently dropped every other doc.
+  addAllPagesToCollections: true
 permalink: "/docs/{{ doc.slug }}.html"
 eleventyComputed:
   title: "{{ doc.title }} — typeDiagram"
