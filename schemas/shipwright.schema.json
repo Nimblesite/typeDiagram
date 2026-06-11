@@ -114,7 +114,18 @@
         },
         "kind": {
           "type": "string",
-          "enum": ["cli", "lsp", "mcp", "sidecar", "dap", "tool", "extension-vscode", "extension-jetbrains", "extension-zed", "asset"]
+          "enum": [
+            "cli",
+            "lsp",
+            "mcp",
+            "sidecar",
+            "dap",
+            "tool",
+            "extension-vscode",
+            "extension-jetbrains",
+            "extension-zed",
+            "asset"
+          ]
         },
         "language": {
           "type": "string",
@@ -163,7 +174,18 @@
           "description": "Ordered discovery chain the host must follow. Earlier = higher priority.",
           "items": {
             "type": "string",
-            "enum": ["user-setting", "env", "path", "bundled", "pkgmgr", "dotnet-tool", "npm-global", "cargo-bin", "github-release", "lsp-initialize"]
+            "enum": [
+              "user-setting",
+              "env",
+              "path",
+              "bundled",
+              "pkgmgr",
+              "dotnet-tool",
+              "npm-global",
+              "cargo-bin",
+              "github-release",
+              "lsp-initialize"
+            ]
           },
           "uniqueItems": true
         },
@@ -213,12 +235,36 @@
           "properties": {
             "repo": { "type": "string", "pattern": "^[^/]+/[^/]+$" },
             "assetPattern": { "type": "string", "description": "e.g. `basilisk-${version}-${platform}.tar.gz`" },
-            "checksum": { "type": "boolean", "default": true, "description": "SWR-SEC-CHECKSUM: host recomputes SHA-256 and matches the published SHA256SUMS before exec." },
-            "signature": { "type": "string", "enum": ["cosign", "none"], "default": "cosign", "description": "SWR-SEC-CHECKSUM: signature scheme over SHA256SUMS. `cosign` = keyless Sigstore (Fulcio cert + Rekor log); host runs an identity-pinned `cosign verify-blob`, never --insecure-ignore-tlog." },
-            "signerWorkflow": { "type": "string", "description": "SWR-SEC-CHECKSUM/PROVENANCE: expected signing workflow ref, e.g. `Nimblesite/Deslop/.github/workflows/release.yml`. Host pins the certificate identity / `gh attestation verify --signer-workflow` to this, so a token stolen in another repo cannot forge a passing release." },
-            "provenance": { "type": "boolean", "default": true, "description": "SWR-SEC-PROVENANCE: a signed SLSA build provenance attestation accompanies the asset; host runs `gh attestation verify` and fails closed before exec." },
-            "sbom": { "type": "boolean", "default": true, "description": "SWR-SEC-SBOM: an attested CycloneDX SBOM accompanies the asset." },
-            "predicateType": { "type": "string", "default": "https://cyclonedx.org/bom", "description": "SWR-SEC-SBOM: predicate type the host asserts when verifying the SBOM attestation." }
+            "checksum": {
+              "type": "boolean",
+              "default": true,
+              "description": "SWR-SEC-CHECKSUM: host recomputes SHA-256 and matches the published SHA256SUMS before exec."
+            },
+            "signature": {
+              "type": "string",
+              "enum": ["cosign", "none"],
+              "default": "cosign",
+              "description": "SWR-SEC-CHECKSUM: signature scheme over SHA256SUMS. `cosign` = keyless Sigstore (Fulcio cert + Rekor log); host runs an identity-pinned `cosign verify-blob`, never --insecure-ignore-tlog."
+            },
+            "signerWorkflow": {
+              "type": "string",
+              "description": "SWR-SEC-CHECKSUM/PROVENANCE: expected signing workflow ref, e.g. `Nimblesite/Deslop/.github/workflows/release.yml`. Host pins the certificate identity / `gh attestation verify --signer-workflow` to this, so a token stolen in another repo cannot forge a passing release."
+            },
+            "provenance": {
+              "type": "boolean",
+              "default": true,
+              "description": "SWR-SEC-PROVENANCE: a signed SLSA build provenance attestation accompanies the asset; host runs `gh attestation verify` and fails closed before exec."
+            },
+            "sbom": {
+              "type": "boolean",
+              "default": true,
+              "description": "SWR-SEC-SBOM: an attested CycloneDX SBOM accompanies the asset."
+            },
+            "predicateType": {
+              "type": "string",
+              "default": "https://cyclonedx.org/bom",
+              "description": "SWR-SEC-SBOM: predicate type the host asserts when verifying the SBOM attestation."
+            }
           }
         },
         "verifyStartup": {
@@ -260,7 +306,10 @@
           "then": { "required": ["asset"] }
         },
         {
-          "if": { "properties": { "kind": { "enum": ["cli", "lsp", "mcp", "sidecar", "dap", "tool"] } }, "required": ["kind"] },
+          "if": {
+            "properties": { "kind": { "enum": ["cli", "lsp", "mcp", "sidecar", "dap", "tool"] } },
+            "required": ["kind"]
+          },
           "then": { "required": ["binaryName", "expectedVersion", "sources"] }
         }
       ]
@@ -271,7 +320,17 @@
       "properties": {
         "artifact": {
           "type": "string",
-          "enum": ["vsix-per-platform", "vsix-fat", "intellij-jar", "zed-wasm", "archive", "brew-formula", "scoop-manifest", "nuget", "pub"]
+          "enum": [
+            "vsix-per-platform",
+            "vsix-fat",
+            "intellij-jar",
+            "zed-wasm",
+            "archive",
+            "brew-formula",
+            "scoop-manifest",
+            "nuget",
+            "pub"
+          ]
         },
         "activationVerifies": {
           "type": "array",

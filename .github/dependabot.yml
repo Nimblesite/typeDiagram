@@ -1,0 +1,18 @@
+# [SWR-SEC-ACTION-PINNING] Keeps SHA-pinned actions and npm deps fresh.
+# Grouped so each ecosystem opens ONE combined PR per run.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      npm:
+        patterns: ["*"]
