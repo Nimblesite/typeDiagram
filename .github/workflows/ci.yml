@@ -28,6 +28,39 @@ jobs:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
+          # Full history so the change-scope step can diff against the PR base.
+          fetch-depth: 0
+
+      # [CI-SCOPE-FILTER] Website/docs-only PRs skip the full framework test
+      # matrix, bundle-size, Playwright e2e, and Shipwright gates — they run a
+      # lightweight build + lint + web-unit check instead. The single `CI` job
+      # always runs and reports, so it stays valid as a required status check
+      # (path filters that skip the job would leave it pending forever).
+      # "Web scope" = every changed path is under packages/web/, docs/, or is a
+      # *.md file; anything else (framework/cli/vscode src, Makefile, configs,
+      # workflows) forces the full pipeline.
+      - name: Detect change scope
+        id: scope
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          ALLOW='(^packages/web/)|(^docs/)|(\.md$)'
+          CHANGED="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+          echo "Changed files:"
+          echo "$CHANGED"
+          # Count paths OUTSIDE the website/docs allowlist. `grep -c` exits 1 on a
+          # zero count, so `|| true` keeps it from tripping `set -e`/pipefail.
+          # (Count is used rather than `grep -q`, whose -q/-v combo is unreliable
+          # on BSD grep.)
+          NON_WEB="$(printf '%s\n' "$CHANGED" | grep -cvE "$ALLOW" || true)"
+          if [ -z "$CHANGED" ] || [ "$NON_WEB" -gt 0 ]; then
+            echo "scope=full" >> "$GITHUB_OUTPUT"
+            echo "==> Scope: FULL ($NON_WEB non-website path(s) changed)"
+          else
+            echo "scope=web" >> "$GITHUB_OUTPUT"
+            echo "==> Scope: WEB (website/docs-only changes)"
+          fi
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
@@ -37,21 +70,39 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # [SWR-SEC-VULN-GATE] fail at high for production dependencies.
+      # [SWR-SEC-VULN-GATE] fail at high for production dependencies. Cheap;
+      # runs in both scopes.
       - name: Dependency vulnerability gate
         run: npm audit --omit=dev --audit-level=high
 
+      # ───────────── Website/docs-only scope (lightweight) ─────────────
+      # Validates that the site compiles and the web package is clean without
+      # paying for the full cross-workspace test/build/gate pipeline.
+      - name: Website checks (format, lint, typecheck, web tests, site build)
+        if: steps.scope.outputs.scope == 'web'
+        run: |
+          npm run fmt:check
+          npm run lint
+          npm run -w typediagram-core build
+          npm run -w @typediagram/web typecheck
+          npm run -w @typediagram/web test:unit
+          npm run -w @typediagram/web build
+
+      # ───────────────────────── Full scope ───────────────────────────
       # Playwright needs chromium for the packages/web E2E tests. --with-deps
       # ensures required OS libraries are present on ubuntu-latest.
       - name: Install Playwright browsers
+        if: steps.scope.outputs.scope == 'full'
         run: npx --workspace=@typediagram/web playwright install chromium --with-deps
 
       # Single `make ci` step runs the full pipeline (fmt-check -> lint -> test -> build -> bundle-size).
       - name: CI (make ci)
+        if: steps.scope.outputs.scope == 'full'
         run: make ci
 
       # [SWR-GATE-CI] [SWR-GATE-VERIFY-BINARIES] manifest + CLI version contract.
       - name: Shipwright acceptance gates
+        if: steps.scope.outputs.scope == 'full'
         run: |
           npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema schemas/shipwright.schema.json shipwright.json
           npm run -w typediagram build

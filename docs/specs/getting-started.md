@@ -41,7 +41,7 @@ Create a file called `schema.td`:
 typeDiagram
 
 type User {
-  id:    UUID
+  id:    Uuid
   name:  String
   email: Option<Email>
 }

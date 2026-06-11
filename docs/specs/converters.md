@@ -12,6 +12,20 @@ Python source      ←──  Model  ←──  typeDiagram source
 
 Converters target the **Model** layer (Layer 2 of the framework). They don't round-trip through DSL text — they work directly with the resolved type graph.
 
+## Semantic scalars
+
+Beyond `Bool`/`Int`/`Float`/`String`/`Bytes`/`Unit`, three semantic scalars — `DateTime`, `Uuid`, and `Decimal` — map to the **native** date / UUID / decimal type of each language in both directions. A timestamp stays a `datetime.datetime` / `DateTimeOffset` / `time.Time`, an id stays a `uuid.UUID` / `Guid` / `uuid::Uuid` — never a bare string. The emitters also pull in the required imports automatically (Python `import datetime`, Go `import "time"`, Protobuf `import "google/protobuf/timestamp.proto"`).
+
+| typeDiagram | Python              | C# / F#          | TypeScript     | Rust                            | Go          | Dart       | Protobuf                    | PHP                  |
+| ----------- | ------------------- | ---------------- | -------------- | ------------------------------- | ----------- | ---------- | --------------------------- | -------------------- |
+| `DateTime`  | `datetime.datetime` | `DateTimeOffset` | `string` (ISO) | `chrono::DateTime<chrono::Utc>` | `time.Time` | `DateTime` | `google.protobuf.Timestamp` | `\DateTimeImmutable` |
+| `Uuid`      | `uuid.UUID`         | `Guid`           | `string`       | `uuid::Uuid`                    | `string`    | `String`   | `string`                    | `string`             |
+| `Decimal`   | `decimal.Decimal`   | `decimal`        | `string`       | `rust_decimal::Decimal`         | `string`    | `String`   | `string`                    | `string`             |
+
+## Unknown types fail generation
+
+When you emit to a language (`--to`), every referenced type must resolve to a primitive, a generic built-in (`List`, `Map`, `Option`, `Any`), a declared type, or a generic parameter. A name that resolves to none of these — a typo or an unsupported type like `Timestamp` or `Instant` — is rejected with a non-zero exit code and a diagnostic, instead of being passed through verbatim into source that won't compile. (Rendering a diagram still treats unknown names as opaque external references — only code generation is strict.)
+
 ## TypeScript
 
 ### What maps

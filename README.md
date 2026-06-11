@@ -59,7 +59,7 @@ code --install-extension Nimblesite.typediagram
 typeDiagram
 
 type User {
-  id:    UUID
+  id:    Uuid
   name:  String
   email: Option<Email>
 }

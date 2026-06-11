@@ -88,10 +88,10 @@ typediagram --to csharp schema.td > Models.cs
 
 ## Exit codes
 
-| Code | Meaning                                         |
-| ---- | ----------------------------------------------- |
-| 0    | Success                                         |
-| 1    | Parse error, render error, or invalid arguments |
+| Code | Meaning                                                        |
+| ---- | -------------------------------------------------------------- |
+| 0    | Success                                                        |
+| 1    | Parse error, render error, unknown type in `--to`, or bad args |
 
 Parse errors include `line:col` diagnostics on stderr:
 
@@ -99,6 +99,19 @@ Parse errors include `line:col` diagnostics on stderr:
   3:12  error   expected '{', got Ident "User"
   7:1   error   unexpected token EOF
 ```
+
+### Unknown types fail `--to`
+
+Code generation is strict: every referenced type must be a primitive, a generic built-in (`List`, `Map`, `Option`, `Any`), a declared type, or a generic parameter. An unknown name (a typo, or an unsupported type) exits **1** with a diagnostic instead of emitting source that won't compile:
+
+```sh
+$ printf 'type Probe {\n  a: Timestamp\n}\n' | typediagram --to python
+  0:0  error   unknown type 'Timestamp': not a primitive, builtin, or declared type — declare it or use a builtin scalar
+$ echo $?
+1
+```
+
+Use the built-in semantic scalars `DateTime`, `Uuid`, and `Decimal` for timestamps, ids, and money — they map to each language's native type. Rendering a diagram (without `--to`) still treats unknown names as opaque external references.
 
 ## Makefile shortcuts
 

@@ -173,14 +173,70 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      # [SWR-VSIX-PUBLISH] Marketplace publish — skips cleanly until the VSCE_PAT
-      # secret is configured in the NPM Deployment environment.
-      - name: Publish VSIX to VS Code Marketplace
+      # Hand the packaged VSIX to publish-marketplace. That job runs in the
+      # `release` environment so its OIDC subject matches the Entra trust; it
+      # can't share this job's environment, so the VSIX crosses as an artifact.
+      - name: Upload VSIX artifact for Marketplace publish
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vsix
+          path: typediagram-*.vsix
+          if-no-files-found: error
+          retention-days: 1
+
+  # [SWR-VSIX-PUBLISH] Marketplace publish via Microsoft Entra OIDC — NO stored PAT.
+  # Runs in the `release` environment so the GitHub OIDC subject is
+  # `repo:Nimblesite/typeDiagram:environment:release`, which the shared Entra app's
+  # wildcard federated credential (`repo:Nimblesite/*:environment:release`) trusts.
+  # Runbook: Nimblesite/NimblesiteDeployment docs/vscode-marketplace-oidc.md (Part D).
+  # There is intentionally NO silent skip — a missing identity or a publish failure
+  # fails this job and turns the release red.
+  publish-marketplace:
+    name: Publish VSIX to VS Code Marketplace
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: release
+    permissions:
+      contents: read
+      id-token: write # request the GitHub OIDC token for azure/login
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: vsix
+          path: vsix
+
+      # Exchange the GitHub OIDC token for an Entra session — no client secret, no PAT.
+      # The publisher app holds no Azure subscription role (its only authorization is
+      # Marketplace publisher membership) → allow-no-subscriptions.
+      - uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5 # v2.3.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          allow-no-subscriptions: true
+
+      - name: Publish VSIX (Entra OIDC, no PAT)
         env:
-          VSCE_PAT: ${{ secrets.VSCE_PAT }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
         run: |
-          if [ -z "$VSCE_PAT" ]; then
-            echo "VSCE_PAT not configured — skipping Marketplace publish"
-            exit 0
+          set -euo pipefail
+          VSIX="$(ls vsix/typediagram-*.vsix 2>/dev/null | head -1)"
+          if [ -z "$VSIX" ] || [ ! -f "$VSIX" ]; then
+            echo "::error::No VSIX artifact found to publish" >&2
+            exit 1
           fi
-          npx --yes @vscode/vsce@3.9.2 publish --packagePath "$(ls typediagram-*.vsix | head -1)" --pat "$VSCE_PAT"
+          # Pre-release only for pre-release tags (v1.2.3-beta); a clean vX.Y.Z is stable.
+          flag=""
+          [[ "$GITHUB_REF_NAME" == *-* ]] && flag="--pre-release"
+          # Mint a Marketplace-scoped token from the OIDC session. 499b84ac-… is Azure
+          # DevOps' immutable first-party app id vsce authenticates against. We mint and
+          # pass it ourselves rather than `vsce publish --azure-credential` (buggy:
+          # microsoft/vscode-vsce#1023).
+          VSCE_PAT="$(az account get-access-token \
+            --resource 499b84ac-1321-427f-aa17-267ca6975798 \
+            --query accessToken -o tsv)"
+          echo "::add-mask::$VSCE_PAT"
+          export VSCE_PAT
+          # Pinned vsce (a floating npx would run latest inside a token-holding job).
+          # --skip-duplicate keeps re-runs idempotent; any real failure fails loudly.
+          npx --yes @vscode/vsce@3.9.2 publish ${flag} --skip-duplicate --packagePath "$VSIX"
