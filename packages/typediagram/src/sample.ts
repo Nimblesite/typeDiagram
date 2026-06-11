@@ -16,6 +16,12 @@ type ChatTurnInput {
   session_id: String
 }
 
+type AgentConfig {
+  model: String
+  max_tokens: Int
+  stream: Bool
+}
+
 type ToolResult {
   tool_call_id: String
   name: String
