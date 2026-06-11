@@ -9,10 +9,10 @@
 // Option<T> <-> *T.  Generics use Go 1.18+ type parameters (`[T any]`).
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
+import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 
 // ── Type mapping ──
 
@@ -23,6 +23,9 @@ const TD_TO_GO: Record<string, string> = {
   String: "string",
   Bytes: "[]byte",
   Unit: "struct{}",
+  DateTime: "time.Time",
+  Uuid: "string",
+  Decimal: "string",
 };
 
 const GO_TO_TD: Record<string, string> = {
@@ -42,6 +45,7 @@ const GO_TO_TD: Record<string, string> = {
   string: "String",
   byte: "Int",
   rune: "Int",
+  "time.Time": "DateTime",
 };
 
 // ── From Go ──
@@ -344,7 +348,7 @@ const mapTdToGo = (t: ResolvedTypeRef): string => {
   if (t.name === "Map" && t.args.length === 2 && a0 !== undefined && a1 !== undefined) {
     return `map[${mapTdToGo(a0)}]${mapTdToGo(a1)}`;
   }
-  const name = TD_TO_GO[t.name] ?? t.name;
+  const name = mapBuiltinName(t, TD_TO_GO);
   return t.args.length === 0 ? name : `${name}[${t.args.map(mapTdToGo).join(", ")}]`;
 };
 
@@ -356,9 +360,13 @@ const goGenericsInstance = (generics: string[]): string => (generics.length === 
 const variantStructName = (unionName: string, variantName: string): string => `${unionName}${variantName}`;
 
 const toGo = (model: Model): string => {
+  const visible = visibleDeclsForTarget(model.decls, "go");
   const lines: string[] = ["package types", ""];
+  if (modelReferencesType(visible, "DateTime")) {
+    lines.push('import "time"', "");
+  }
 
-  for (const d of visibleDeclsForTarget(model.decls, "go")) {
+  for (const d of visible) {
     if (d.kind === "record") {
       const gens = goGenericsDecl(d.generics);
       lines.push(`type ${d.name}${gens} struct {`);

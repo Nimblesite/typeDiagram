@@ -21,7 +21,7 @@ import {
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 
 // ── Type mapping tables ──
 
@@ -36,6 +36,9 @@ const TD_TO_TS: Record<string, string> = {
   Unit: "void",
   List: "Array",
   Map: "Map",
+  DateTime: "string",
+  Uuid: "string",
+  Decimal: "string",
 };
 
 const TS_TO_TD: Record<string, string> = {
@@ -48,6 +51,7 @@ const TS_TO_TD: Record<string, string> = {
   Map: "Map",
   Record: "Map",
   Set: "List",
+  Date: "DateTime",
 };
 
 // ── From TypeScript ──
@@ -271,7 +275,7 @@ const mapTdToTs = (t: ResolvedTypeRef): string => {
   if (t.name === "Option" && t.args.length === 1 && t.args[0] !== undefined) {
     return `${mapTdToTs(t.args[0])} | undefined`;
   }
-  const name = TD_TO_TS[t.name] ?? t.name;
+  const name = mapBuiltinName(t, TD_TO_TS);
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToTs).join(", ")}>`;
 };
 

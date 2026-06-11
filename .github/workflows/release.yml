@@ -1,9 +1,19 @@
+# agent-pmo:b636503
 name: Release
 
+# [SWR-REL-WORKFLOW] Tag-triggered only. Builds the EXACT tagged SHA; the version is
+# stamped in the runner working tree by scripts/stamp-version.mjs and never committed
+# or pushed back ([SWR-VERSION-BUILD-STAMPING]). The website deploys automatically via
+# deploy-pages.yml's workflow_run trigger when this workflow completes.
 on:
   push:
     tags:
-      - "v*"
+      - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-*"
+
+# [SWR-SEC-TOKEN-PRIVILEGE] default-deny; write scopes are granted per job below.
+permissions:
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -13,19 +23,20 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
+    # TIMEOUT EXCEPTION: lint gate + dual npm publish + VSIX packaging exceeds 10 min on cold npm cache.
     timeout-minutes: 20
     environment: NPM Deployment
     permissions:
-      contents: write
-      id-token: write
+      contents: write # create the GitHub Release and upload assets
+      id-token: write # npm --provenance and cosign keyless signing
+      attestations: write # build-provenance attestations
     steps:
-      - uses: actions/checkout@v5
+      # [SWR-VERSION-BUILD-STAMPING] No ref override — checkout resolves to the pushed tag's SHA.
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
-          ref: main
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 24
           cache: npm
@@ -36,53 +47,110 @@ jobs:
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
           VERSION="${TAG#v}"
-          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
-            echo "Tag $TAG is not semver (expected vMAJOR.MINOR.PATCH[-PRERELEASE])" >&2
-            exit 1
-          fi
           NPM_TAG=latest
           if [[ "$VERSION" == *-* ]]; then NPM_TAG=beta; fi
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "npm_tag=$NPM_TAG" >> "$GITHUB_OUTPUT"
 
-      - name: Set versions in all packages
-        run: |
-          node -e "
-            const fs = require('fs');
-            const version = process.env.VERSION;
-            const pkgs = ['packages/typediagram/package.json', 'packages/cli/package.json', 'packages/vscode/package.json', 'packages/web/package.json'];
-            for (const p of pkgs) {
-              if (!fs.existsSync(p)) continue;
-              const j = JSON.parse(fs.readFileSync(p, 'utf8'));
-              j.version = version;
-              if (j.dependencies && j.dependencies['typediagram-core']) j.dependencies['typediagram-core'] = version;
-              fs.writeFileSync(p, JSON.stringify(j, null, 2) + '\n');
-            }
-          "
-        env:
-          VERSION: ${{ steps.derive.outputs.version }}
+      # [SWR-VERSION-BUILD-STAMPING] First-class stamper — covered by
+      # packages/cli/test/stamp-version.e2e.test.ts. Runner working tree only.
+      - name: Stamp version in all carriers
+        run: node scripts/stamp-version.mjs --version "${{ steps.derive.outputs.version }}"
 
       - run: npm install --package-lock-only
+
+      # [SWR-SEC-FROZEN-INSTALL]
       - run: npm ci
+
+      # CI gate before any publish ([SWR-REL-WORKFLOW]). The full test suite already
+      # gated this exact tree at PR time (branch protection requires the CI check);
+      # lint + build keep the release deterministic without re-running browser E2E.
+      - name: Lint gate
+        run: make lint
 
       - name: Build
         run: make build
 
       - run: npm run -w typediagram build
 
+      # [SWR-GATE-CI] [SWR-GATE-VERIFY-BINARIES] manifest + version contract gates.
+      - name: Shipwright acceptance gates
+        run: |
+          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema schemas/shipwright.schema.json shipwright.json
+          V="${{ steps.derive.outputs.version }}"
+          OUT="$(node packages/cli/dist/bin.js --version)"
+          test "$OUT" = "typediagram $V"
+          node packages/cli/dist/bin.js --version --json
+
+      # Idempotent publishes: a re-run of a partially-failed release is safe ([SWR-REL-WORKFLOW]).
       - name: Publish typediagram-core
-        run: npm publish --workspace=packages/typediagram --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
+        run: |
+          V="${{ steps.derive.outputs.version }}"
+          if [ -n "$(npm view "typediagram-core@$V" version 2>/dev/null || true)" ]; then
+            echo "typediagram-core@$V already published — skipping"
+          else
+            npm publish --workspace=packages/typediagram --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
+          fi
 
       - name: Publish typediagram CLI
-        run: npm publish --workspace=packages/cli --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
+        run: |
+          V="${{ steps.derive.outputs.version }}"
+          if [ -n "$(npm view "typediagram@$V" version 2>/dev/null || true)" ]; then
+            echo "typediagram@$V already published — skipping"
+          else
+            npm publish --workspace=packages/cli --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
+          fi
 
       - name: Package VSIX
         run: npm run -w typediagram-vscode package
+
+      # [SWR-VSIX-VERIFY] Pure-JS extension (no native binaries — fat VSIX per
+      # [SWR-VSIX-FAT]): the bundle must contain the esbuild output and no sources,
+      # tests, or unbundled node_modules.
+      - name: Verify VSIX contents
+        run: |
+          VSIX="$(ls typediagram-*.vsix | head -1)"
+          unzip -l "$VSIX" | grep -q "extension/dist/"
+          if unzip -l "$VSIX" | grep -E "extension/(src|test|node_modules)/"; then
+            echo "VSIX contains forbidden paths" >&2
+            exit 1
+          fi
 
       - name: Pack npm tarballs for release assets
         run: |
           npm pack --workspace=packages/typediagram --pack-destination=.
           npm pack --workspace=packages/cli --pack-destination=.
+
+      # [SWR-SEC-CHECKSUM] One SHA256SUMS over all release assets.
+      - name: Generate SHA256SUMS
+        run: |
+          ASSETS=$(ls typediagram-*.vsix typediagram-core-*.tgz typediagram-*.tgz 2>/dev/null | sort -u)
+          # shellcheck disable=SC2086  # word-splitting is intentional here
+          sha256sum $ASSETS > SHA256SUMS
+          cat SHA256SUMS
+
+      # Hardening steps below are continue-on-error for the first release so a new
+      # attestation/signing failure can never block publishing. Flip them to blocking
+      # once one release has proven the infra ([SWR-SEC-CHECKSUM] [SWR-SEC-PROVENANCE] [SWR-SEC-SBOM]).
+      - name: Install cosign
+        continue-on-error: true
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+
+      - name: Sign SHA256SUMS (cosign keyless)
+        continue-on-error: true
+        run: cosign sign-blob --yes --bundle SHA256SUMS.sigstore.json SHA256SUMS
+
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            typediagram-*.vsix
+            typediagram-*.tgz
+
+      - name: Generate SBOM (CycloneDX)
+        continue-on-error: true
+        run: npx --yes @cyclonedx/cyclonedx-npm@4.2.1 --omit dev --output-file sbom.cdx.json
 
       - name: Create GitHub Release and attach assets
         run: |
@@ -93,7 +161,7 @@ jobs:
           # Collect unique assets — `typediagram-*.tgz` overlaps `typediagram-core-*.tgz`,
           # so globbing both would make `gh release upload` race against itself with
           # --clobber and return HTTP 404. Dedupe by path via `sort -u`.
-          ASSETS=$(ls typediagram-*.vsix typediagram-core-*.tgz typediagram-*.tgz 2>/dev/null | sort -u)
+          ASSETS=$(ls typediagram-*.vsix typediagram-core-*.tgz typediagram-*.tgz SHA256SUMS SHA256SUMS.sigstore.json sbom.cdx.json 2>/dev/null | sort -u)
           if [ -z "$ASSETS" ]; then
             echo "No release assets found to upload" >&2
             exit 1
@@ -105,15 +173,14 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
 
-      - name: Commit version bump to main
+      # [SWR-VSIX-PUBLISH] Marketplace publish — skips cleanly until the VSCE_PAT
+      # secret is configured in the NPM Deployment environment.
+      - name: Publish VSIX to VS Code Marketplace
+        env:
+          VSCE_PAT: ${{ secrets.VSCE_PAT }}
         run: |
-          VERSION="${{ steps.derive.outputs.version }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add package-lock.json packages/*/package.json
-          if git diff --cached --quiet; then
-            echo "No version changes to commit"
-          else
-            git commit -m "chore: release v$VERSION"
-            git push origin main
+          if [ -z "$VSCE_PAT" ]; then
+            echo "VSCE_PAT not configured — skipping Marketplace publish"
+            exit 0
           fi
+          npx --yes @vscode/vsce@3.9.2 publish --packagePath "$(ls typediagram-*.vsix | head -1)" --pat "$VSCE_PAT"

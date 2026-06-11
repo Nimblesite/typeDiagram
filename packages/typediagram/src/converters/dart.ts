@@ -11,7 +11,7 @@ import { type Result, err } from "../result.js";
 import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 import {
   extractBalancedBlock,
   extractTrailingNullable,
@@ -32,6 +32,9 @@ const TD_TO_DART: Record<string, string> = {
   List: "List",
   Map: "Map",
   Any: "Object",
+  DateTime: "DateTime",
+  Uuid: "String",
+  Decimal: "String",
 };
 
 const DART_TO_TD: Record<string, string> = {
@@ -46,6 +49,7 @@ const DART_TO_TD: Record<string, string> = {
   Set: "List",
   Object: "Any",
   dynamic: "Any",
+  DateTime: "DateTime",
 };
 
 // ── From Dart ──
@@ -289,7 +293,7 @@ const mapTdToDart = (t: ResolvedTypeRef): string => {
       return `${mapTdToDart(inner)}?`;
     }
   }
-  const name = TD_TO_DART[t.name] ?? t.name;
+  const name = mapBuiltinName(t, TD_TO_DART);
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToDart).join(", ")}>`;
 };
 

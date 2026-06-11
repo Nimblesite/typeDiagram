@@ -1,7 +1,7 @@
 typeDiagram
 
   type User {
-    id: UUID
+    id: Uuid
     name: String
     email: Option<Email>
     roles: List<Role>
@@ -20,9 +20,15 @@ typeDiagram
     Triangle { a: Float, b: Float, c: Float }
   }
 
+  union Role {
+    Admin
+    Member
+  }
+
   union Option<T> {
     Some { value: T }
     None
   }
 
   alias Email = String
+  alias CountryCode = String

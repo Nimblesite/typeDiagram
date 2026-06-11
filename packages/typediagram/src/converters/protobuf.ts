@@ -17,10 +17,10 @@
 //     parser prefers over the proto field type, guaranteeing round-trip.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
+import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef, printTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef, printTypeRef } from "./parse-typeref.js";
 import { extractBalancedBlock } from "./brace-lang.js";
 
 // ── Type mapping ──
@@ -33,6 +33,9 @@ const TD_TO_PROTO: Record<string, string> = {
   Bytes: "bytes",
   Unit: "google.protobuf.Empty",
   Any: "google.protobuf.Any",
+  DateTime: "google.protobuf.Timestamp",
+  Uuid: "string",
+  Decimal: "string",
 };
 
 const PROTO_TO_TD: Record<string, string> = {
@@ -53,6 +56,7 @@ const PROTO_TO_TD: Record<string, string> = {
   bytes: "Bytes",
   "google.protobuf.Empty": "Unit",
   "google.protobuf.Any": "Any",
+  "google.protobuf.Timestamp": "DateTime",
 };
 
 // ── From proto ──
@@ -347,18 +351,18 @@ const isContainer = (t: ResolvedTypeRef): boolean => isList(t) || isMap(t) || is
 const protoExpressionOf = (t: ResolvedTypeRef): { label: string; type: string } | null => {
   const [a0, a1] = t.args;
   if (isOption(t) && a0 !== undefined && !isContainer(a0)) {
-    return { label: "optional", type: TD_TO_PROTO[a0.name] ?? a0.name };
+    return { label: "optional", type: mapBuiltinName(a0, TD_TO_PROTO) };
   }
   if (isList(t) && a0 !== undefined && !isContainer(a0)) {
-    return { label: "repeated", type: TD_TO_PROTO[a0.name] ?? a0.name };
+    return { label: "repeated", type: mapBuiltinName(a0, TD_TO_PROTO) };
   }
   if (isMap(t) && a0 !== undefined && a1 !== undefined && a0.args.length === 0 && a1.args.length === 0) {
-    const keyName = TD_TO_PROTO[a0.name] ?? a0.name;
-    const valName = TD_TO_PROTO[a1.name] ?? a1.name;
+    const keyName = mapBuiltinName(a0, TD_TO_PROTO);
+    const valName = mapBuiltinName(a1, TD_TO_PROTO);
     return { label: "", type: `map<${keyName}, ${valName}>` };
   }
   if (t.args.length === 0) {
-    return { label: "", type: TD_TO_PROTO[t.name] ?? t.name };
+    return { label: "", type: mapBuiltinName(t, TD_TO_PROTO) };
   }
   return null;
 };
@@ -433,8 +437,12 @@ const emitUnion = (
 };
 
 const toProto = (model: Model): string => {
+  const visible = visibleDeclsForTarget(model.decls, "protobuf");
   const lines: string[] = ['syntax = "proto3";', ""];
-  for (const d of visibleDeclsForTarget(model.decls, "protobuf")) {
+  if (modelReferencesType(visible, "DateTime")) {
+    lines.push('import "google/protobuf/timestamp.proto";', "");
+  }
+  for (const d of visible) {
     if (d.kind === "record") {
       lines.push(...emitGenericsDirective(d.generics, ""));
       lines.push(`message ${d.name} {`);

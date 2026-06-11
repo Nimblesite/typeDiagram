@@ -162,27 +162,27 @@ function resolveTypeRef(
   generics: Set<string>,
   bag: DiagnosticBag
 ): ResolvedTypeRef {
+  // Declared names win over PRIMITIVES so pre-scalar diagrams that declare
+  // e.g. `alias Uuid = String` keep their meaning. [MODEL-SCALARS]
   let resolution: ResolvedRefKind;
+  const entry = declMap.get(t.name);
   if (generics.has(t.name)) {
     resolution = { kind: "typeParam", owner: ownerName };
+  } else if (entry !== undefined) {
+    if (t.args.length !== entry.arity) {
+      bag.error(
+        `type '${t.name}' takes ${String(entry.arity)} type argument(s), got ${String(t.args.length)}`,
+        t.span.line,
+        t.span.col,
+        t.span.length
+      );
+    }
+    resolution = { kind: "declared", declName: t.name };
   } else if (PRIMITIVES.has(t.name)) {
     resolution = { kind: "primitive" };
   } else {
-    const entry = declMap.get(t.name);
-    if (entry === undefined) {
-      resolution = { kind: "external" };
-      externals.add(t.name);
-    } else {
-      if (t.args.length !== entry.arity) {
-        bag.error(
-          `type '${t.name}' takes ${String(entry.arity)} type argument(s), got ${String(t.args.length)}`,
-          t.span.line,
-          t.span.col,
-          t.span.length
-        );
-      }
-      resolution = { kind: "declared", declName: t.name };
-    }
+    resolution = { kind: "external" };
+    externals.add(t.name);
   }
   return {
     name: t.name,

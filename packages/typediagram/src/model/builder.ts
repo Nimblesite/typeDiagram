@@ -104,13 +104,14 @@ export function resolveResolutions(model: Model): Model {
   const externals = new Set<string>();
 
   const fixRef = (t: ResolvedTypeRef, generics: Set<string>, owner: string): ResolvedTypeRef => {
+    // Declared names win over PRIMITIVES — see resolveTypeRef in build.ts. [MODEL-SCALARS]
     let resolution: ResolvedRefKind;
     if (generics.has(t.name)) {
       resolution = { kind: "typeParam", owner };
-    } else if (PRIMITIVES.has(t.name)) {
-      resolution = { kind: "primitive" };
     } else if (declNames.has(t.name)) {
       resolution = { kind: "declared", declName: t.name };
+    } else if (PRIMITIVES.has(t.name)) {
+      resolution = { kind: "primitive" };
     } else {
       externals.add(t.name);
       resolution = { kind: "external" };

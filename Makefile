@@ -1,10 +1,10 @@
-# agent-pmo:02a321a
+# agent-pmo:b636503
 # =============================================================================
 # Standard Makefile — typeDiagram
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup install-vsix dev dev-web clean-start test-playwright
+.PHONY: build test lint fmt clean ci setup rebuild-install-vsix dev dev-web clean-start test-playwright
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -53,14 +53,6 @@ test:
 	$(MAKE) _coverage_check
 	@echo "==> Ratcheting coverage thresholds..."
 	node scripts/ratchet-coverage.mjs
-
-## test-playwright: Run Playwright end-to-end tests only (packages/web), both
-##                  desktop and mobile viewports. Does NOT run vitest or enforce
-##                  coverage threshold — for that, use `make test`. Useful for
-##                  iterating on UI tests.
-test-playwright:
-	@echo "==> Playwright E2E (desktop + mobile)..."
-	npm run -w packages/web test:e2e
 
 ## lint: Run all linters/analyzers (read-only). Does NOT format. Fails fast on first error.
 ##       Chains: typecheck -> eslint -> banned-deps.
@@ -135,12 +127,43 @@ _bundle_size:
 # Repo-Specific Targets (not part of the 7 standard targets)
 # =============================================================================
 
-## install-vsix: Package the VS Code extension to the repo root and install it into the local VS Code.
-install-vsix:
-	@echo "==> Packaging VSIX..."
-	npm run -w typediagram-core build
+## test-playwright: Run Playwright end-to-end tests only (packages/web), both
+##                  desktop and mobile viewports. Does NOT run vitest or enforce
+##                  coverage threshold — for that, use `make test`. Useful for
+##                  iterating on UI tests.
+test-playwright:
+	@echo "==> Playwright E2E (desktop + mobile)..."
+	npm run -w packages/web test:e2e
+
+## rebuild-install-vsix: Full clean rebuild-and-reinstall cycle for the VS Code
+##                       extension (see REPO-STANDARDS-SPEC [MAKE-IDE-EXT]):
+##                       uninstall -> clean -> rebuild -> package -> install.
+rebuild-install-vsix:
+	@$(MAKE) _vsix_uninstall
+	@$(MAKE) _vsix_clean
+	@$(MAKE) _vsix_rebuild
+	@$(MAKE) _vsix_package
+	@$(MAKE) _vsix_install
+
+_vsix_uninstall:
+	@echo "==> Uninstalling extension (if installed)..."
+	-code --uninstall-extension nimblesite.typediagram
+
+_vsix_clean:
+	@echo "==> Cleaning VSIX build output..."
 	$(RM) typediagram-*.vsix
+	$(RM) packages/vscode/dist
+
+_vsix_rebuild:
+	@echo "==> Rebuilding extension from source..."
+	npm run -w typediagram-core build
+	npm run -w typediagram-vscode build
+
+_vsix_package:
+	@echo "==> Packaging VSIX..."
 	npm run -w typediagram-vscode package
+
+_vsix_install:
 	@echo "==> Installing VSIX..."
 	code --install-extension $$(ls typediagram-*.vsix | head -1) --force
 

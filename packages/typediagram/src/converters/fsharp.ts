@@ -4,7 +4,7 @@ import { type Result, err } from "../result.js";
 import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 
 // ── Type mapping tables ──
 
@@ -18,6 +18,9 @@ const TD_TO_FS: Record<string, string> = {
   List: "list",
   Map: "Map",
   Option: "option",
+  DateTime: "DateTimeOffset",
+  Uuid: "Guid",
+  Decimal: "decimal",
 };
 
 const FS_TO_TD: Record<string, string> = {
@@ -26,13 +29,16 @@ const FS_TO_TD: Record<string, string> = {
   int64: "Int",
   float: "Float",
   double: "Float",
-  decimal: "Float",
+  decimal: "Decimal",
   string: "String",
   unit: "Unit",
   list: "List",
   Map: "Map",
   option: "Option",
   Option: "Option",
+  DateTimeOffset: "DateTime",
+  DateTime: "DateTime",
+  Guid: "Uuid",
 };
 
 // ── From F# ──
@@ -198,7 +204,7 @@ const mapTdToFs = (t: ResolvedTypeRef): string => {
   if (t.name === "Map" && t.args.length === 2 && a0 !== undefined && a1 !== undefined) {
     return `Map<${mapTdToFs(a0)}, ${mapTdToFs(a1)}>`;
   }
-  const name = TD_TO_FS[t.name] ?? t.name;
+  const name = mapBuiltinName(t, TD_TO_FS);
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToFs).join(", ")}>`;
 };
 

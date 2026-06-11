@@ -19,6 +19,8 @@ export interface CliArgs {
   readonly to: Lang | null;
   readonly emit: Emit;
   readonly help: boolean;
+  readonly version: boolean;
+  readonly json: boolean;
 }
 
 export interface ArgError {
@@ -47,6 +49,8 @@ export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> =>
     to: null as Lang | null,
     emit: "svg" as Emit,
     help: false,
+    version: false,
+    json: false,
   };
   const it = argv[Symbol.iterator]();
   let cur = it.next();
@@ -64,7 +68,9 @@ export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> =>
   }
   return state.from !== null && state.to !== null
     ? err({ message: "--from and --to are mutually exclusive" })
-    : ok(state);
+    : state.json && !state.version
+      ? err({ message: "--json requires --version" })
+      : ok(state);
 };
 
 const applyArg = (
@@ -78,25 +84,31 @@ const applyArg = (
     to: Lang | null;
     emit: Emit;
     help: boolean;
+    version: boolean;
+    json: boolean;
   }
 ): Result<true, ArgError> =>
   a === "-h" || a === "--help"
     ? ((s.help = true), ok(true as const))
-    : a === "--theme"
-      ? applyTheme(next(), s)
-      : a === "--font-size"
-        ? applyFontSize(next(), s)
-        : a === "--from"
-          ? applyLang(next(), s, "from")
-          : a === "--to"
-            ? applyLang(next(), s, "to")
-            : a === "--emit"
-              ? applyEmit(next(), s)
-              : a.startsWith("-")
-                ? err({ message: `unknown flag: ${a}` })
-                : s.file !== null
-                  ? err({ message: `unexpected positional arg: ${a}` })
-                  : ((s.file = a), ok(true as const));
+    : a === "--version"
+      ? ((s.version = true), ok(true as const))
+      : a === "--json"
+        ? ((s.json = true), ok(true as const))
+        : a === "--theme"
+          ? applyTheme(next(), s)
+          : a === "--font-size"
+            ? applyFontSize(next(), s)
+            : a === "--from"
+              ? applyLang(next(), s, "from")
+              : a === "--to"
+                ? applyLang(next(), s, "to")
+                : a === "--emit"
+                  ? applyEmit(next(), s)
+                  : a.startsWith("-")
+                    ? err({ message: `unknown flag: ${a}` })
+                    : s.file !== null
+                      ? err({ message: `unexpected positional arg: ${a}` })
+                      : ((s.file = a), ok(true as const));
 
 const applyTheme = (v: string | null, s: { theme: Theme }): Result<true, ArgError> =>
   v === null
@@ -144,6 +156,7 @@ Options:
   --emit svg|td|td+svg Output format for --from (default: svg)
   --theme light|dark   Color theme (default: light)
   --font-size N        Font size in px
+  --version            Print version; add --json for machine-readable output
   -h, --help           Show this help
 
 LANG is one of: ${LANG_LIST}

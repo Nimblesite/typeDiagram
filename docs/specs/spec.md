@@ -60,7 +60,15 @@ A small, fixed set of abstract primitives. These exist purely so diagrams can re
 
 `Bool` `Int` `Float` `String` `Bytes` `Unit`
 
-Anything else (`UUID`, `Email`, `DateTime`, `List<T>`, `Map<K,V>`, `Set<T>`, `Result<T,E>`, …) is just a type the diagram either declares, imports, or references as an external name. The renderer treats unknown names as opaque external types.
+[MODEL-SCALARS] Three semantic scalars are also built in so codegen can map them to native types per language (e.g. `uuid.UUID` / `datetime.datetime` / `decimal.Decimal` in Python, `Guid` / `DateTimeOffset` / `decimal` in C#):
+
+`DateTime` `Uuid` `Decimal`
+
+A user declaration with the same name as a builtin (e.g. `alias Uuid = String`) shadows the builtin — declared names always win.
+
+Anything else (`Email`, `Set<T>`, `Result<T,E>`, …) is just a type the diagram either declares, imports, or references as an external name. The renderer treats unknown names as opaque external types.
+
+[MODEL-CODEGEN-UNKNOWN] Code generation is stricter than rendering: emitting to a target language (`--to`) fails with an error for any external name that is not a builtin (`List`, `Map`, `Option`, `Any`). Unknown names would otherwise pass through verbatim into target source that cannot compile.
 
 ### Example — small
 

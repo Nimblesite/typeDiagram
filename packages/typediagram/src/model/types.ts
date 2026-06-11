@@ -1,4 +1,19 @@
-export const PRIMITIVES: ReadonlySet<string> = new Set(["Bool", "Int", "Float", "String", "Bytes", "Unit"]);
+// [MODEL-SCALARS] DateTime/Uuid/Decimal are semantic scalars so codegen can map
+// them to native date/uuid/decimal types per language (GH issue #38).
+export const PRIMITIVES: ReadonlySet<string> = new Set([
+  "Bool",
+  "Int",
+  "Float",
+  "String",
+  "Bytes",
+  "Unit",
+  "DateTime",
+  "Uuid",
+  "Decimal",
+]);
+
+/** [MODEL-CODEGEN-UNKNOWN] Builtin names converters understand beyond PRIMITIVES. */
+export const BUILTIN_GENERICS: ReadonlySet<string> = new Set(["List", "Map", "Option", "Any"]);
 
 export interface Model {
   decls: ResolvedDecl[];
@@ -96,4 +111,39 @@ export function visibleDeclsForTarget<T extends { targeting?: DeclTargeting }>(
   target: string
 ): T[] {
   return decls.filter((decl) => shouldEmitDeclToTarget(decl, target));
+}
+
+/** Visit every type ref in a decl, recursing into nested generic args. */
+export function walkDeclRefs(d: ResolvedDecl, visit: (t: ResolvedTypeRef) => void): void {
+  if (d.kind === "record") {
+    for (const f of d.fields) {
+      walkRef(f.type, visit);
+    }
+  } else if (d.kind === "union") {
+    for (const v of d.variants) {
+      for (const f of v.fields) {
+        walkRef(f.type, visit);
+      }
+    }
+  } else {
+    walkRef(d.target, visit);
+  }
+}
+
+function walkRef(t: ResolvedTypeRef, visit: (t: ResolvedTypeRef) => void): void {
+  visit(t);
+  for (const a of t.args) {
+    walkRef(a, visit);
+  }
+}
+
+/** True when any ref in any decl (incl. nested generic args) is named `name`. */
+export function modelReferencesType(decls: readonly ResolvedDecl[], name: string): boolean {
+  let found = false;
+  for (const d of decls) {
+    walkDeclRefs(d, (t) => {
+      found = found || t.name === name;
+    });
+  }
+  return found;
 }

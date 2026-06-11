@@ -1,9 +1,13 @@
-# agent-pmo:2efd847
+# agent-pmo:b636503
 name: Deploy to GitHub Pages
 
 on:
-  push:
-    branches: [main]
+  # Deploys automatically after a successful Release run, and can also be
+  # triggered manually. Never on push to main (website must not get ahead
+  # of the actual release). See REPO-STANDARDS-SPEC [CI-WORKFLOWS].
+  workflow_run:
+    workflows: ["Release"]
+    types: [completed]
   workflow_dispatch:
 
 permissions:
@@ -13,16 +17,20 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   build:
+    # Only run on successful Release, or when triggered manually.
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           cache: npm
@@ -35,7 +43,7 @@ jobs:
       - name: Build web playground
         run: npm run -w @typediagram/web build
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: packages/web/dist
 
@@ -48,4 +56,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

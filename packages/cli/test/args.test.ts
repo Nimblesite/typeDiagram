@@ -17,6 +17,8 @@ describe("[CLI-ARGS] parseArgs", () => {
       to: null,
       emit: "svg",
       help: false,
+      version: false,
+      json: false,
     });
   });
 

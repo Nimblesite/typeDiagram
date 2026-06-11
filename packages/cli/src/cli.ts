@@ -10,6 +10,7 @@ import {
 } from "typediagram-core";
 import { HELP_TEXT, parseArgs, type CliArgs } from "./args.js";
 import { readSource } from "./io.js";
+import { versionJson, versionText } from "./version.js";
 
 export const main = async (
   argv: readonly string[],
@@ -21,11 +22,19 @@ export const main = async (
     ? (stderr.write(`${argsResult.error.message}\n${HELP_TEXT}`), 1)
     : argsResult.value.help
       ? (stdout.write(HELP_TEXT), 0)
-      : argsResult.value.from !== null
-        ? fromLangFlow(argsResult.value, stdout, stderr)
-        : argsResult.value.to !== null
-          ? toLangFlow(argsResult.value, stdout, stderr)
-          : renderFlow(argsResult.value, stdout, stderr);
+      : argsResult.value.version
+        ? versionFlow(argsResult.value, stdout, stderr)
+        : argsResult.value.from !== null
+          ? fromLangFlow(argsResult.value, stdout, stderr)
+          : argsResult.value.to !== null
+            ? toLangFlow(argsResult.value, stdout, stderr)
+            : renderFlow(argsResult.value, stdout, stderr);
+};
+
+/** [SWR-VERSION-CLI-OUTPUT] --version: print from package metadata and exit. No runtime, no network. */
+const versionFlow = (args: CliArgs, stdout: NodeJS.WritableStream, stderr: NodeJS.WritableStream): number => {
+  const r = args.json ? versionJson() : versionText();
+  return r.ok ? (stdout.write(`${r.value}\n`), 0) : (stderr.write(`${r.error.message}\n`), 1);
 };
 
 /** --from: language source → typeDiagram model → td / SVG / both */
@@ -92,6 +101,12 @@ const toLangFlow = async (
 
   if (args.to === null) {
     return (stderr.write("missing --to\n"), 1);
+  }
+  // [MODEL-CODEGEN-UNKNOWN] unknown type names must fail generation, not the
+  // downstream build (GH issue #38).
+  const codegenDiags = modelLayer.validateForCodegen(model.value, args.to);
+  if (codegenDiags.length > 0) {
+    return (writeDiagnostics(codegenDiags, stderr), 1);
   }
   const conv = converters.byLanguage[args.to];
   stdout.write(conv.toSource(model.value));

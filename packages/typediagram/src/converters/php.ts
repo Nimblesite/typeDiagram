@@ -4,7 +4,7 @@ import { type Result, err } from "../result.js";
 import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, alias, record, union } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 
 const TD_TO_PHP_NATIVE: Record<string, string> = {
   Bool: "bool",
@@ -13,6 +13,9 @@ const TD_TO_PHP_NATIVE: Record<string, string> = {
   String: "string",
   Bytes: "string",
   Unit: "null",
+  DateTime: "\\DateTimeImmutable",
+  Uuid: "string",
+  Decimal: "string",
 };
 
 const TD_TO_PHP_DOC: Record<string, string> = {
@@ -22,6 +25,9 @@ const TD_TO_PHP_DOC: Record<string, string> = {
   String: "string",
   Bytes: "string",
   Unit: "null",
+  DateTime: "\\DateTimeImmutable",
+  Uuid: "string",
+  Decimal: "string",
 };
 
 const PHP_TO_TD: Record<string, string> = {
@@ -31,6 +37,8 @@ const PHP_TO_TD: Record<string, string> = {
   string: "String",
   null: "Unit",
   void: "Unit",
+  "\\DateTimeImmutable": "DateTime",
+  DateTimeImmutable: "DateTime",
 };
 
 const NO_SUPPORTED_DEFINITIONS: Diagnostic[] = [
@@ -178,7 +186,7 @@ const mapTdToPhpDocType = (type: ResolvedTypeRef): string => {
   if (type.name === "Option" && type.args[0] !== undefined) {
     return `${mapTdToPhpDocType(type.args[0])}|null`;
   }
-  return TD_TO_PHP_DOC[type.name] ?? type.name;
+  return mapBuiltinName(type, TD_TO_PHP_DOC);
 };
 
 const getBasePhpTypeSpec = (type: ResolvedTypeRef, generics: ReadonlySet<string>): PhpTypeSpec => {
@@ -191,7 +199,7 @@ const getBasePhpTypeSpec = (type: ResolvedTypeRef, generics: ReadonlySet<string>
   if (type.name === "Unit") {
     return { nativeType: "null", docType: null };
   }
-  return { nativeType: TD_TO_PHP_NATIVE[type.name] ?? type.name, docType: null };
+  return { nativeType: mapBuiltinName(type, TD_TO_PHP_NATIVE), docType: null };
 };
 
 const getPhpTypeSpec = (type: ResolvedTypeRef, generics: ReadonlySet<string>): PhpTypeSpec => {

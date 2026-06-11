@@ -1,4 +1,4 @@
-# agent-pmo:02a321a
+# agent-pmo:b636503
 # =============================================================================
 # UNIVERSAL
 # =============================================================================
@@ -14,7 +14,8 @@ ehthumbs.db
 Desktop.ini
 
 # IDE / Editor
-.idea/
+# DO NOT ignore .vscode/, .idea/, .claude/, .agents/, or other agent/IDE config
+# dirs — they are committed shared tooling (REPO-STANDARDS-SPEC [GITIGNORE-RULES]).
 *.swp
 *.swo
 *~
@@ -85,3 +86,5 @@ packages/web/test-results/
 .deslop-cache/
 
 .ghissues/
+
+.vscode/code-navigator/

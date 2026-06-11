@@ -28,7 +28,7 @@
       }
     },
     "builtin-type": {
-      "match": "\\b(Bool|Int|Float|String|Bytes|Unit|List|Map|Option)\\b",
+      "match": "\\b(Bool|Int|Float|String|Bytes|Unit|DateTime|Uuid|Decimal|List|Map|Option)\\b",
       "name": "support.type.typediagram"
     },
     "type-name": {

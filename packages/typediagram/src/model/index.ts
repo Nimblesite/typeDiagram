@@ -13,9 +13,12 @@ export type {
   VariantJson,
 } from "./json.js";
 export { printSource } from "./print.js";
-export { validate } from "./validate.js";
+export { validate, validateForCodegen } from "./validate.js";
 export {
   PRIMITIVES,
+  BUILTIN_GENERICS,
+  modelReferencesType,
+  walkDeclRefs,
   type DeclTargeting,
   type Edge,
   type EdgeKind,

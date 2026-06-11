@@ -4,6 +4,7 @@ import { Writable } from "node:stream";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { main } from "../src/cli.js";
+import { versionJson, versionText } from "../src/version.js";
 
 const fixtureUrl = (name: string) => new URL(`./fixtures/${name}`, import.meta.url);
 const fixturePath = (name: string) => fileURLToPath(fixtureUrl(name));
@@ -234,5 +235,109 @@ describe("[CLI-E2E-STDIN] stdin input", () => {
         configurable: true,
       });
     }
+  });
+});
+
+// [CLI-CODEGEN-UNKNOWN] GH issue #38: --to must hard-fail on unknown type
+// identifiers instead of silently emitting them into target source, and
+// [CONV-SCALARS] semantic scalars must reach codegen output end-to-end.
+describe("[CLI-CODEGEN-UNKNOWN] --to rejects unknown type identifiers", () => {
+  it("exits 1, emits nothing, and lists every unknown type on stderr", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main([fixturePath("unknown-types.td"), "--to", "python"], out.stream, err.stream);
+    expect(code).toBe(1);
+    expect(out.text()).toBe("");
+    expect(err.text()).toMatch(/unknown type/i);
+    expect(err.text()).toContain("Timestamp");
+    expect(err.text()).toContain("Instant");
+    expect(err.text()).not.toContain("DateTime");
+    expect(err.text()).not.toContain("Uuid");
+  });
+
+  it.each([
+    {
+      lang: "python",
+      snippets: [
+        "import datetime",
+        "import uuid",
+        "import decimal",
+        "id: uuid.UUID",
+        "createdAt: datetime.datetime",
+        "amount: decimal.Decimal",
+      ],
+    },
+    {
+      lang: "csharp",
+      snippets: ["Guid id", "DateTimeOffset createdAt", "decimal amount"],
+    },
+  ])("emits native scalar types for $lang with exit 0", async ({ lang, snippets }) => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main([fixturePath("scalars.td"), "--to", lang], out.stream, err.stream);
+    expect(err.text()).toBe("");
+    expect(code).toBe(0);
+    for (const snippet of snippets) {
+      expect(out.text()).toContain(snippet);
+    }
+  });
+
+  // [SWR-VERSION-CLI-OUTPUT] [SWR-VERSION-JSON-OUTPUT] [SWR-VERSION-TEST-REQ]
+  const cliPkgVersion = async (): Promise<string> => {
+    const raw = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8")) as {
+      version: string;
+    }; // safety: package.json shape is owned by this repo
+    return raw.version;
+  };
+
+  it("--version prints 'typediagram <version>' from package metadata, exits 0, no stderr", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["--version"], out.stream, err.stream);
+    expect(code).toBe(0);
+    expect(err.text()).toBe("");
+    expect(out.text()).toBe(`typediagram ${await cliPkgVersion()}\n`);
+  });
+
+  it("--version --json emits version-manifest JSON (manifestVersion/name/version/kind/language)", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["--version", "--json"], out.stream, err.stream);
+    expect(code).toBe(0);
+    expect(err.text()).toBe("");
+    expect(JSON.parse(out.text())).toEqual({
+      manifestVersion: 1,
+      name: "typediagram",
+      version: await cliPkgVersion(),
+      kind: "cli",
+      language: "typescript",
+    });
+  });
+
+  it("--json without --version is rejected with exit 1", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["--json"], out.stream, err.stream);
+    expect(code).toBe(1);
+    expect(err.text()).toContain("--json requires --version");
+  });
+
+  it("version helpers fail loudly when package metadata is broken or unreadable", () => {
+    const noField = versionText(() => ({}));
+    expect(noField.ok).toBe(false);
+    expect(!noField.ok && noField.error.message).toContain("no version field");
+    const thrown = versionJson(() => {
+      throw new Error("corrupted install");
+    });
+    expect(thrown.ok).toBe(false);
+    expect(!thrown.ok && thrown.error.message).toContain("cannot read package.json");
+    const jsonOk = versionJson(() => ({ version: "1.2.3" }));
+    expect(jsonOk.ok && JSON.parse(jsonOk.value)).toEqual({
+      manifestVersion: 1,
+      name: "typediagram",
+      version: "1.2.3",
+      kind: "cli",
+      language: "typescript",
+    });
   });
 });

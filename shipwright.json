@@ -1,0 +1,30 @@
+{
+  "manifestVersion": 1,
+  "product": {
+    "id": "typediagram",
+    "displayName": "typeDiagram",
+    "version": "0.9.0"
+  },
+  "supplyChain": {
+    "slsaBuildLevel": 2,
+    "provenance": true,
+    "sbom": "cyclonedx",
+    "signedChecksums": true,
+    "frozenInstall": true,
+    "pinnedActions": true,
+    "oidcPublish": true,
+    "vulnGate": "high"
+  },
+  "components": [
+    {
+      "id": "typediagram-cli",
+      "kind": "cli",
+      "language": "typescript",
+      "binaryName": "typediagram",
+      "expectedVersion": "0.9.0",
+      "platforms": ["all"],
+      "sources": ["bundled"],
+      "required": true
+    }
+  ]
+}

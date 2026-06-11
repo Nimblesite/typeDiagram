@@ -9,6 +9,7 @@ const mockRenderToString = vi.fn();
 const mockFormatDiagnostics = vi.fn();
 const mockParse = vi.fn();
 const mockBuildModel = vi.fn();
+const mockValidateForCodegen = vi.fn();
 
 vi.mock("typediagram-core", () => ({
   converters: {
@@ -19,7 +20,7 @@ vi.mock("typediagram-core", () => ({
     csharp: { fromSource: mockFromSource, toSource: mockToSource, language: "csharp" },
     fsharp: { fromSource: mockFromSource, toSource: mockToSource, language: "fsharp" },
   },
-  model: { printSource: mockPrintSource, buildModel: mockBuildModel },
+  model: { printSource: mockPrintSource, buildModel: mockBuildModel, validateForCodegen: mockValidateForCodegen },
   renderToString: mockRenderToString,
   parser: { formatDiagnostics: mockFormatDiagnostics, parse: mockParse },
 }));
@@ -113,10 +114,24 @@ describe("[WEB-CONV-RENDER] convertSource()", () => {
 describe("[WEB-CONV-RENDER] convertFromTd()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockValidateForCodegen.mockReturnValue([]);
     Object.defineProperty(window, "matchMedia", {
       value: vi.fn().mockReturnValue({ matches: true }),
       writable: true,
     });
+  });
+
+  it("returns diagnostics when codegen validation finds unknown types", async () => {
+    mockParse.mockReturnValue({ ok: true, value: { decls: [] } });
+    mockBuildModel.mockReturnValue({ ok: true, value: { decls: [], edges: [], externals: ["Timestamp"] } });
+    mockValidateForCodegen.mockReturnValue([{ message: "unknown type 'Timestamp'" }]);
+    mockFormatDiagnostics.mockReturnValue("Error: unknown type 'Timestamp'");
+
+    const result = await convertFromTd("typeDiagram\n", "python");
+
+    expect(result.tdSource).toBe("");
+    expect(result.svgHtml).toContain("unknown type 'Timestamp'");
+    expect(mockToSource).not.toHaveBeenCalled();
   });
 
   it("returns language source and SVG on success", async () => {

@@ -2,7 +2,7 @@
 
 Read this file in full. Rules below are NON-NEGOTIABLE — violations are rejected in review.
 
-<!-- agent-pmo:02a321a -->
+<!-- agent-pmo:b636503 -->
 
 ⚠️ **TOKEN ECONOMICS DISCIPLINE.** Check file size first. `Grep` over `Read`. Use `offset`/`limit`.
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
@@ -40,11 +40,13 @@ typeDiagram is a small DSL for diagramming algebraic data types (records + tagge
 
 - **Classes are illegal.** Convert classes to Haskell style type classes with typedef.
 - **NO git commands.** No `add`, `commit`, `push`, `checkout`, `merge`, `rebase`, etc. CI handles git.
+  If git work is ever explicitly delegated to you: NEVER push to `main` directly (always PR → CI green → merge), NEVER list yourself as a commit co-author, work on exactly ONE branch at a time (reuse the open feature branch; if several exist, merge them into one FIRST), and NEVER run `git worktree`.
+- **Auto-memory is OFF** (`"autoMemoryEnabled": false` in `.claude/settings.json`). Persistent rules go through a reviewed PR to this file — never auto-captured memory.
 - **ZERO DUPLICATION.** Search before writing. Move code, don't copy it. PRIORITIZE THIS OVER ALL ELSE!!
 - **No throwing** — return `Result<T,E>` (framework Result type). Wrap potential failures in try/catch; return `Result<T,E>`.
 - **NO PLACEHOLDERS.** If you HAVE TO leave a section blank, fail LOUDLY by throwing an exception.
 - **Functions < 20 lines. Files < 500 lines.** Refactor when over. Aggressively break up violations.
-- **`make test` is FAIL-FAST and enforces coverage** from `coverage-thresholds.json`. Never `--no-fail-fast`. See [TEST-FAIL-FAST]. Coverage only monotonically increases -1%.
+- **`make test` is FAIL-FAST and enforces coverage** from `coverage-thresholds.json`. Never `--no-fail-fast`. See REPO-STANDARDS-SPEC [TEST-RULES]. Coverage only monotonically increases -1%.
 - **Prefer E2E Whole-App Widget/Integration.** Unit tests only for isolating bugs. Tests must double as integration/widget tests.
 - **Heavy structured logging.** Use `pino` for TypeScript — never raw `console.log`.
 - **No linter suppressions.** Fix the code.
@@ -94,6 +96,8 @@ Monorepo under `packages/`:
 Framework logic lives only in `packages/typediagram/`. `cli`, `web`, and `vscode` are glue — no parsing, layout, or rendering logic duplicated.
 
 ## Website
+
+**Theme is MANDATORY for dev-tool / docs sites:** build with [`eleventy-plugin-techdoc`](https://github.com/Nimblesite/eleventy-plugin-techdoc) on Eleventy 3.x. Supply only your color CSS variables; the plugin owns layouts, SEO metadata, and structure. Any other theme/SSG is non-compliant. Keep the plugin upgraded.
 
 **Optimise for SEO + AI search.** When writing web content, apply:
 

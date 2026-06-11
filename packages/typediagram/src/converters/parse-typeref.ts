@@ -30,3 +30,11 @@ const splitGenericArgs = (s: string): string[] => {
 /** Emit a ResolvedTypeRef back to a type string like "Map<String, Int>". */
 export const printTypeRef = (t: ResolvedTypeRef): string =>
   t.args.length === 0 ? t.name : `${t.name}<${t.args.map(printTypeRef).join(", ")}>`;
+
+/**
+ * [MODEL-SCALARS] Map a ref's name through a TD→language table, but never
+ * remap a declared decl: a user-declared `alias Uuid = String` must keep its
+ * own name in emitted source rather than become the builtin scalar's target.
+ */
+export const mapBuiltinName = (t: ResolvedTypeRef, table: Record<string, string>): string =>
+  t.resolution.kind === "declared" ? t.name : (table[t.name] ?? t.name);

@@ -1,5 +1,5 @@
 import { DiagnosticBag, type Diagnostic } from "../parser/diagnostics.js";
-import type { Model, ResolvedDecl, ResolvedTypeRef } from "./types.js";
+import { BUILTIN_GENERICS, visibleDeclsForTarget, walkDeclRefs, type Model } from "./types.js";
 
 const NULL_SPAN = { line: 0, col: 0 } as const;
 
@@ -25,7 +25,7 @@ export function validate(model: Model): Diagnostic[] {
   }
 
   for (const d of model.decls) {
-    walkDecl(d, (t) => {
+    walkDeclRefs(d, (t) => {
       if (t.resolution.kind === "declared") {
         const expected = arity.get(t.resolution.declName);
         if (expected !== undefined && t.args.length !== expected) {
@@ -42,25 +42,27 @@ export function validate(model: Model): Diagnostic[] {
   return bag.items;
 }
 
-function walkDecl(d: ResolvedDecl, visit: (t: ResolvedTypeRef) => void): void {
-  if (d.kind === "record") {
-    for (const f of d.fields) {
-      walkRef(f.type, visit);
-    }
-  } else if (d.kind === "union") {
-    for (const v of d.variants) {
-      for (const f of v.fields) {
-        walkRef(f.type, visit);
+/**
+ * [MODEL-CODEGEN-UNKNOWN] Codegen-blocking validation (GH issue #38): every
+ * type name reachable from decls visible to `target` must be a primitive,
+ * builtin generic, declared decl, or type param. Unknown names would otherwise
+ * pass through verbatim into target-language source that cannot compile.
+ */
+export function validateForCodegen(model: Model, target: string): Diagnostic[] {
+  const bag = new DiagnosticBag();
+  const reported = new Set<string>();
+  for (const d of visibleDeclsForTarget(model.decls, target)) {
+    walkDeclRefs(d, (t) => {
+      const unknown = t.resolution.kind === "external" && !BUILTIN_GENERICS.has(t.name) && !reported.has(t.name);
+      if (unknown) {
+        reported.add(t.name);
+        bag.error(
+          `unknown type '${t.name}': not a primitive, builtin, or declared type — declare it or use a builtin scalar`,
+          NULL_SPAN.line,
+          NULL_SPAN.col
+        );
       }
-    }
-  } else {
-    walkRef(d.target, visit);
+    });
   }
-}
-
-function walkRef(t: ResolvedTypeRef, visit: (t: ResolvedTypeRef) => void): void {
-  visit(t);
-  for (const a of t.args) {
-    walkRef(a, visit);
-  }
+  return bag.items;
 }

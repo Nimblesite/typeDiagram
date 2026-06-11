@@ -76,6 +76,13 @@ export const convertFromTd = async (tdSource: string, lang: SupportedLang): Prom
     return { tdSource: "", svgHtml: `<pre class="diag">${escapeHtml(text)}</pre>` };
   }
 
+  // [MODEL-CODEGEN-UNKNOWN] unknown type names block codegen (GH issue #38).
+  const codegenDiags = modelLayer.validateForCodegen(modelResult.value, lang);
+  if (codegenDiags.length > 0) {
+    const text = parser.formatDiagnostics([...codegenDiags]);
+    return { tdSource: "", svgHtml: `<pre class="diag">${escapeHtml(text)}</pre>` };
+  }
+
   const langSource = converterMap[lang].toSource(modelResult.value);
   const svgResult = await renderToString(tdSource, { theme: getTheme() });
 

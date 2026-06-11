@@ -5,7 +5,7 @@ import { formatVariantName, withDiscriminant } from "../variant.js";
 import { isTupleVariantFields, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 
 // ── Type mapping ──
 
@@ -19,6 +19,9 @@ const TD_TO_RS: Record<string, string> = {
   List: "Vec",
   Map: "HashMap",
   Option: "Option",
+  DateTime: "chrono::DateTime<chrono::Utc>",
+  Uuid: "uuid::Uuid",
+  Decimal: "rust_decimal::Decimal",
 };
 
 const RS_TO_TD: Record<string, string> = {
@@ -39,6 +42,10 @@ const RS_TO_TD: Record<string, string> = {
   HashMap: "Map",
   BTreeMap: "Map",
   Option: "Option",
+  "uuid::Uuid": "Uuid",
+  Uuid: "Uuid",
+  "rust_decimal::Decimal": "Decimal",
+  Decimal: "Decimal",
   Box: "",
 };
 
@@ -86,11 +93,22 @@ const splitGenericArgs = (s: string): string[] => {
   return last.length > 0 ? [...parts, last] : parts;
 };
 
+// chrono's DateTime carries a zone parameter, so it must match as a whole
+// string before generic splitting would tear it apart. [MODEL-SCALARS]
+const RS_FULL_TO_TD: Record<string, string> = {
+  "chrono::DateTime<chrono::Utc>": "DateTime",
+  "DateTime<Utc>": "DateTime",
+};
+
 const mapRsType = (t: string): string => {
   const cleaned = t
     .trim()
     .replace(/&'?\w*\s*/g, "")
     .replace(/^&/, "");
+  const full = RS_FULL_TO_TD[cleaned];
+  if (full !== undefined) {
+    return full;
+  }
   const angleBracket = cleaned.indexOf("<");
   if (angleBracket !== -1) {
     const baseName = cleaned.slice(0, angleBracket);
@@ -264,7 +282,7 @@ const fromRust = (source: string): Result<Model, Diagnostic[]> => {
 // ── To Rust ──
 
 const mapTdToRs = (t: ResolvedTypeRef): string => {
-  const name = TD_TO_RS[t.name] ?? t.name;
+  const name = mapBuiltinName(t, TD_TO_RS);
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToRs).join(", ")}>`;
 };
 

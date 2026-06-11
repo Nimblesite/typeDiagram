@@ -11,7 +11,7 @@ import { type Result, err } from "../result.js";
 import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 import {
   extractBalancedBlock,
   extractTrailingNullable,
@@ -32,6 +32,9 @@ const TD_TO_CS: Record<string, string> = {
   List: "List",
   Map: "Dictionary",
   Any: "object",
+  DateTime: "DateTimeOffset",
+  Uuid: "Guid",
+  Decimal: "decimal",
 };
 
 const CS_TO_TD: Record<string, string> = {
@@ -41,13 +44,16 @@ const CS_TO_TD: Record<string, string> = {
   short: "Int",
   float: "Float",
   double: "Float",
-  decimal: "Float",
+  decimal: "Decimal",
   string: "String",
   byte: "Int",
   void: "Unit",
   List: "List",
   Dictionary: "Map",
   HashSet: "List",
+  DateTimeOffset: "DateTime",
+  DateTime: "DateTime",
+  Guid: "Uuid",
 };
 
 // Names that appear as aliases / global-usings (e.g. `System.String`, `String`
@@ -263,7 +269,7 @@ const mapTdToCs = (t: ResolvedTypeRef): string => {
       return `${mapTdToCs(inner)}?`;
     }
   }
-  const name = TD_TO_CS[t.name] ?? t.name;
+  const name = mapBuiltinName(t, TD_TO_CS);
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToCs).join(", ")}>`;
 };
 

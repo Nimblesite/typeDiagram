@@ -8,7 +8,7 @@ const escHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&
 const RULES: ReadonlyArray<{ re: RegExp; cls: string; group?: number }> = [
   { re: /#.*$/gm, cls: "hl-comment" },
   { re: /\b(type|union|alias|typeDiagram)\b/g, cls: "hl-keyword" },
-  { re: /\b(Bool|Int|Float|String|Bytes|Unit|List|Map|Option)\b/g, cls: "hl-builtin" },
+  { re: /\b(Bool|Int|Float|String|Bytes|Unit|DateTime|Uuid|Decimal|List|Map|Option)\b/g, cls: "hl-builtin" },
   { re: /\b([a-z_][A-Za-z0-9_]*)\s*(?=:)/g, cls: "hl-field", group: 1 },
   { re: /\b([A-Z][A-Za-z0-9_]*)\b/g, cls: "hl-type" },
   { re: /[<>{}:,=]/g, cls: "hl-punct" },
