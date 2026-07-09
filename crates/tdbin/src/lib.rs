@@ -17,8 +17,10 @@
 mod error;
 pub mod frame;
 mod layout;
+pub mod pack;
 mod pointer;
 mod reader;
+pub mod reflect;
 mod writer;
 
 pub mod scalar;
@@ -92,6 +94,15 @@ pub trait TdBin: Struct {
         frame::encode(&body, frame::Options::new(false, schema_hash))
     }
 
+    /// Encode to a fresh packed framed byte vector ([TDBIN-PACK]).
+    ///
+    /// # Errors
+    /// Returns [`EncodeError`] if the value, packing, or frame exceeds a limit.
+    fn to_packed_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError> {
+        let body = self.to_bytes()?;
+        frame::encode_packed(&body, schema_hash)
+    }
+
     /// Decode from framed bytes, safe on arbitrary untrusted input.
     ///
     /// # Errors
@@ -99,7 +110,8 @@ pub trait TdBin: Struct {
     fn from_framed_bytes(wire: &[u8]) -> Result<Self, DecodeError> {
         let message = frame::decode(wire)?;
         if message.is_packed() {
-            Err(DecodeError::PackedUnsupported)
+            let body = pack::decode(message.body())?;
+            Reader::message(&body)
         } else {
             Reader::message(message.body())
         }

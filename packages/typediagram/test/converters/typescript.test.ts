@@ -182,6 +182,37 @@ export default function main() {}
 `;
     expect(typescript.fromSource(src).ok).toBe(false);
   });
+
+  it("skips malformed fields and aliases while preserving unusual union variants", () => {
+    const src = `
+interface Weird {
+  good: string;
+  badline;
+  nested: Map<string, Array<number>>;
+}
+
+type Odd =
+  | { nope; kind: "Named"; payload: string }
+  | { value: number };
+
+type Missing = Foo
+`;
+    const model = unwrap(typescript.fromSource(src));
+    const weird = model.decls.find((d) => d.name === "Weird");
+    expect(weird?.kind).toBe("record");
+    const fields = weird?.kind === "record" ? weird.fields : [];
+    expect(fields.map((f) => f.name)).toEqual(["good", "nested"]);
+    expect(fields[1]?.type.name).toBe("Map");
+
+    const odd = model.decls.find((d) => d.name === "Odd");
+    expect(odd?.kind).toBe("union");
+    const variants = odd?.kind === "union" ? odd.variants : [];
+    expect(variants[0]?.name).toBe("Named");
+    expect(variants[0]?.fields[0]?.name).toBe("payload");
+    expect(variants[1]?.name).toContain("value");
+    expect(variants[1]?.fields[0]?.name).toBe("value");
+    expect(model.decls.some((d) => d.name === "Missing")).toBe(false);
+  });
 });
 
 describe("[CONV-TS-TO-COMPLEX] complex typeDiagram -> TypeScript", () => {

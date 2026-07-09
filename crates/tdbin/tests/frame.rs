@@ -105,20 +105,20 @@ fn tdbin_msg_frame_round_trips_generated_typed_value() -> TestResult {
     Ok(())
 }
 
-/// [TDBIN-MSG-FRAME] Typed framed decode rejects packed bodies until unpacking lands.
+/// [TDBIN-MSG-FRAME] Typed framed decode unpacks packed bodies.
 #[test]
-fn tdbin_msg_frame_typed_decode_rejects_packed_body() -> TestResult {
+fn tdbin_msg_frame_typed_decode_accepts_packed_body() -> TestResult {
     let person = person_for_frame(Contact::Phone(PhoneContact {
         number: 777,
         country: 1,
     }));
     let body = person.to_bytes()?;
-    let framed = frame::encode(&body, Options::new(true, None))?;
+    let framed = frame::encode_packed(&body, None)?;
 
     assert_eq!(
         Person::from_framed_bytes(&framed),
-        Err(DecodeError::PackedUnsupported),
-        "typed decode must not treat packed bodies as bare messages"
+        Ok(person),
+        "typed decode must unpack packed frame bodies"
     );
     Ok(())
 }

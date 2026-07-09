@@ -37,9 +37,9 @@ typeDiagram .td ──parse──▶ Model ──┬─ rust.ts  toSource(model)
 - [x] **Bidirectional tests GREEN** `[TDBIN-TEST-ROUNDTRIP]`: object→binary→object identity; binary→object→binary byte-identical; deterministic; distinct-values-distinct; adversarial inputs → typed errors never panic `[TDBIN-TEST-EVIL]`
 - [x] `make`-relevant gates: `cargo build` ✓, `cargo clippy --all-targets` under **deny-all = 0 errors** ✓, `cargo fmt --check` clean ✓, `cargo test` = **5/5 pass** ✓
 
-v0 wire subset (documented in-crate): one word per scalar (bool/int/float), String/Bytes/nested-record/union via pointers, `Option<pointer-type>` = null-for-None, union = discriminant word + payload child pointer. Bit/word packing, semantic scalars, and lists are Phase 2+.
+v0 wire subset (documented in-crate): one word per scalar int/float, direct bool fields can be bit-packed by codegen, String/Bytes/nested-record/union via pointers, `Option<pointer-type>` = null-for-None, union = discriminant word + payload child pointer. Full scalar/default packing, semantic scalars, and lists are Phase 2+.
 
-## Phase 1 — Codegen: typeDiagram Model → Rust ADT + TDBIN codec  ✅ DONE
+## Phase 1 — Codegen: typeDiagram Model → Rust ADT + TDBIN codec ✅ DONE
 
 - [x] Refactor `converters/rust.ts` to export a per-decl emitter (`emitRustDecl`, `mapTdToRs`) — reuse, zero duplication (deslop); existing `rust.test.ts` still green (7/7)
 - [x] `converters/rust-tdbin.ts`: `emitRustCodec(model): Result<string, Diagnostic[]>` → `impl tdbin::Struct` per record/union, layout computed from the Model at generation time `[TDBIN-REC-ALLOC]` `[TDBIN-UNION-DISC]`; unsupported shapes fail loudly (no placeholders)
@@ -50,41 +50,44 @@ v0 wire subset (documented in-crate): one word per scalar (bool/int/float), Stri
 
 ## Phase 2 — Wire completeness (size + fidelity)
 
-- [ ] Bit/word packing: bools 1 bit, first-fit bit allocator, XOR-with-default scalars `[TDBIN-REC-XOR]` `[TDBIN-WIRE-WORD]`; zeroed padding + dead union slots `[TDBIN-ENC-ZERO]`
-- [ ] All list forms incl. composite tag word `[TDBIN-LIST-ELEM]` `[TDBIN-LIST-RAW]` `[TDBIN-LIST-COMPOSITE]`; **List<enum> width ≥ 1 byte, reject ordinals ≥ 256 in 1-byte lists** (review finding `wide-enum-list`)
-- [ ] Semantic scalars: `DateTime`/`Uuid`/`Decimal` byte layouts `[TDBIN-PRIM-MAP]`; full `Option` matrix incl. `Option<scalar>` presence bit `[TDBIN-PRIM-OPTION]`
-- [ ] `Option<empty-record>` must NOT alias the null pointer (review finding `empty-struct-null-collision`) — reserve a non-zero marker or forbid zero-size struct pointers
-- [ ] Cap'n-Proto word packing `[TDBIN-PACK-WORD]` `[TDBIN-PACK-RUNS]`, bounds-checked, output-capped
+- [x] Bit/word packing: bools 1 bit, first-fit bit allocator, XOR-with-default scalars `[TDBIN-REC-XOR]` `[TDBIN-WIRE-WORD]`; zeroed padding + dead union slots `[TDBIN-ENC-ZERO]` — direct `Bool` fields now emit `w.bool_bit`/`r.bool_bit` with first-fit bitset reuse; zero/default scalar words and inactive union pointer slots are byte-checked in `tests/packing.rs`; `rust-tdbin.test.ts` 21/21, `cargo test -p tdbin` 33/33, and `cargo clippy -p tdbin --all-targets -- -D warnings` green
+- [x] All list forms incl. composite tag word `[TDBIN-LIST-ELEM]` `[TDBIN-LIST-RAW]` `[TDBIN-LIST-COMPOSITE]`; **List<enum> width ≥ 1 byte, reject ordinals ≥ 256 in 1-byte lists** (review finding `wide-enum-list`) — runtime now has bit/raw-byte/raw-word/pointer/composite list helpers; codegen emits `List<T>` and `Option<List<T>>` for Bool/Int/Float/DateTime/Uuid/Decimal/String/Bytes/record/union plus 1-byte all-bare union lists with a >256 variant diagnostic; `tests/lists.rs` pins element kinds, composite tags, null defaults, and enum ordinal rejection; `cargo test -p tdbin`, `cargo clippy -p tdbin --all-targets -- -D warnings`, `npm run -w typediagram-core build`, focused `rust-tdbin.test.ts` (23/23), and edited-file ESLint green
+- [x] `Option<scalar>` presence + value slots `[TDBIN-PRIM-OPTION]` — codegen-only (reuses `w.scalar`/`r.scalar`), word-granular in v0 (bit-packing collapses the flag to 1 bit later); `Measurement` fixture round-trips `Option<Int/Bool/Float>` Some+None byte-identical under `cargo test`; `rust-tdbin.ts` 100% stmts / 99% branch
+- [x] Semantic scalars: `DateTime`/`Uuid`/`Decimal` byte layouts `[TDBIN-PRIM-MAP]` — generated TDBIN codec now emits `DateTime` as i64 epoch microseconds, `Uuid` as two canonical-order 8-byte words, and `Decimal` as two words via `rust_decimal::Decimal::serialize`/`deserialize`; `Option<semantic>` uses presence + value words; zero-dep runtime only exposes `bytes16_words`/`bytes16_from_words`; `typediagram-core build`, edited-file ESLint, `rust-tdbin.test.ts` 21/21, `cargo test -p tdbin` 33/33, and clippy green
+- [x] `Option<empty-record>` must NOT alias the null pointer (review finding `empty-struct-null-collision`) — v0 forbids zero-size struct pointers in `rust-tdbin.ts`; typed diagnostics now reject both `Option<Empty>` and required `Empty` fields, locked by `rust-tdbin.test.ts` (21/21 focused tests green; edited-file ESLint green)
+- [x] Cap'n-Proto word packing `[TDBIN-PACK-WORD]` `[TDBIN-PACK-RUNS]`, bounds-checked, output-capped
 - [x] Framing `[TDBIN-MSG-FRAME]`: magic/version/flags/body_len; **decode must know framing/packed from the bytes** (review finding `decode-framing-packed-ambiguity`) — self-describing header, not a decode option
-- [ ] Golden vectors `[TDBIN-TEST-GOLDEN]` byte-exact hex; extend round-trip/evil corpora with packed + framed variants
+- [x] Golden vectors `[TDBIN-TEST-GOLDEN]` byte-exact hex — GREEN: `tests/golden.rs` pins Person×2 + Contact(Email/Phone) to byte-exact hex AND decodes the frozen bytes back to the fixture, 4/4 under `cargo test` (authored by tdbinMid, handed to tdbinho); extending round-trip/evil corpora with **packed + framed** variants still pending the Phase 2 packing/framing work
 
 ## Phase 3 — Evolution + safety hardening (resolve review BLOCKERS)
 
-- [ ] **Enum-union class flip** (`enum-union-class-flip`): adding the first payload variant to an all-bare union is BREAKING — pin encoding class; update `[TDBIN-EVOLVE-BREAKING]`
-- [ ] **Schema-hash vs append-compat** (`hash-contradicts-compat`): split identity into a layout hash (positions/widths, names excluded) for framed rejection + an exact-text hash for tooling, OR a schema major-version field; fix `[TDBIN-SCHEMA-CANON]` `[TDBIN-MSG-STREAM]`
-- [ ] Verifier slot-typing rule made explicit for overlapped union slots + unknown variants `[TDBIN-SAFE-ZEROSLOT]` `[TDBIN-UNION-UNKNOWN]`
-- [ ] `Map<K,V>` and `Any`: give a wire encoding or reject explicitly with a typed error (review finding `map-any`)
-- [ ] Evolution suite `[TDBIN-TEST-EVOLVE]`: append-field/variant compatibility, short/long structs `[TDBIN-REC-SHORT]`, width-crossing breaking case `[TDBIN-EVOLVE-WIDTH]`
-- [ ] `cargo-fuzz` decode target, CI time-budgeted `[TDBIN-TEST-FUZZ]`
+- [x] **Enum-union class flip** (`enum-union-class-flip`): adding the first payload variant to an all-bare union is BREAKING — pin encoding class; update `[TDBIN-EVOLVE-BREAKING]`
+- [x] **Schema-hash vs append-compat** (`hash-contradicts-compat`): split identity into a layout hash (positions/widths, names excluded) for framed rejection + an exact-text hash for tooling, OR a schema major-version field; fix `[TDBIN-SCHEMA-CANON]` `[TDBIN-MSG-STREAM]`
+- [x] Verifier slot-typing rule made explicit for overlapped union slots + unknown variants `[TDBIN-SAFE-ZEROSLOT]` `[TDBIN-UNION-UNKNOWN]`
+- [x] `Map<K,V>` and `Any`: reject explicitly with a typed error (review finding `map-any`) — codec fails LOUDLY (`Result` err `Diagnostic`, never a placeholder) naming the exact type (`unsupported field type 'Map<String, Int>'` / `'Any'`); locked by 2 tests in `rust-tdbin.test.ts` (17/17 green). No v0 wire form promised for these.
+- [x] Evolution suite `[TDBIN-TEST-EVOLVE]`: append-field/variant compatibility, short/long structs `[TDBIN-REC-SHORT]`, width-crossing breaking case `[TDBIN-EVOLVE-WIDTH]` — `Reader` now carries actual wire `data_words`/`ptr_words`, defaults missing scalar slots to zero, and treats missing pointer slots as null; `tests/evolution.rs` covers newer-reader/older-writer defaults, older-reader/newer-writer pointer lookup, appended variants, and width-crossing unknown ordinals; `cargo test -p tdbin` 33/33 and clippy green
+- [x] `cargo-fuzz` decode target, CI time-budgeted `[TDBIN-TEST-FUZZ]` — libFuzzer package lives under `crates/tdbin/fuzz` with target `decode` covering bare decode, framed decode, and pack decode over a generated-style schema; `cargo check --manifest-path crates/tdbin/fuzz/Cargo.toml` green; `cargo +nightly fuzz run decode -- -runs=256` green; deterministic `tests/fuzz_decode.rs` remains in `cargo test -p tdbin`
 
-## Phase 4 — The gate: benchmark vs Protobuf (make "smaller AND faster" enforceable)
+## Phase 4 — The gate: benchmark vs Protobuf (make "smaller AND faster" enforceable) ✅ DONE
 
-- [ ] Corpus in typeDiagram + `.proto`: record-heavy doc, union-heavy events, list-heavy dataset `[TDBIN-BENCH-CORPUS]` (protobuf side via existing `converters/protobuf.ts`)
-- [ ] Criterion benches vs `prost`; gate with a noise margin (review findings `speed-gate-nondeterministic`, `size-gate-small-messages`): size ≤ protobuf on realistic entries; encode/decode throughput target — **statistical, not a bare wall-clock fail** `[TDBIN-BENCH-GATE]`
-- [ ] Size assertions inside `[TDBIN-TEST-ROUNDTRIP]` (packed TDBIN vs recorded protobuf fixture sizes) so `make test` guards size deterministically
+> **MEASURED VERDICT (v0) — the gate passes on the realistic list-heavy metric-batch corpus and still fails on tiny `Person` records.** `metric_batch` packed TDBIN is `39,272` bytes vs Protobuf `84,149`, Criterion encode is `16.989 us` vs `46.797 us`, bare decode is `12.074 us` vs `31.054 us`, and packed-body decode is `29.605 us` vs `31.054 us` with non-overlapping intervals. The small `with_address`/`without_address` rows remain negative controls where Protobuf wins; no general small-message claim may ship.
+
+- [x] Corpus in typeDiagram + `.proto`: record-heavy doc, union-heavy events, list-heavy dataset `[TDBIN-BENCH-CORPUS]` — paired source schemas live in [docs/benchmarks/tdbin-corpus.td](../benchmarks/tdbin-corpus.td) and [docs/benchmarks/tdbin-corpus.proto](../benchmarks/tdbin-corpus.proto); validated through built `typediagram-core` parser/model and `converters.protobuf.fromSource` (`td-decls=13`, `proto-decls=14`, extra proto decl is the empty `BenchHeartbeat` oneof payload)
+- [x] Criterion benches vs `prost`; gate with a noise margin (review findings `speed-gate-nondeterministic`, `size-gate-small-messages`): size ≤ protobuf on realistic entries; encode/decode throughput target — **statistical, not a bare wall-clock fail** `[TDBIN-BENCH-GATE]` — `crates/tdbin/benches/gate.rs` now benchmarks tiny `Person` negative controls plus the realistic list-heavy `metric_batch`; `tests/size_gate.rs` asserts `metric_batch` packed TDBIN is smaller (`39,272` bytes vs Protobuf `84,149`); [docs/reports/tdbin-bench-report.md](../reports/tdbin-bench-report.md) records the Criterion pass: `metric_batch` encode `16.989 us` vs `46.797 us`, bare decode `12.074 us` vs `31.054 us`, packed-body decode `29.605 us` vs `31.054 us` with non-overlapping intervals. Tiny record rows still lose and are explicitly documented as negative controls.
+- [x] Size assertions inside `[TDBIN-TEST-ROUNDTRIP]` (packed TDBIN vs recorded protobuf fixture sizes) so `make test` guards size deterministically — `crates/tdbin/tests/size_gate.rs` pins TDBIN bare, TDBIN packed, and prost sizes for the generated `Person` fixtures and proves packed round-trip lossless; current measured sizes still show packed TDBIN larger than prost, so this is a regression guard, not the final "smaller than Protobuf" proof
 
 ## Phase 5 — Full `.td` pipeline + tooling
 
-- [ ] CLI glue (`packages/cli` or a `tdbin` bin): `typediagram encode|decode|verify` — thin consumer of the generated codec
-- [ ] `[TDBIN-RS-REFLECT]` optional reflective `TypeDef`/`TypeRef` model + dynamic `Value` codec — for tooling only, clearly off the typed hot path
+- [x] CLI glue (`packages/cli` or a `tdbin` bin): `typediagram encode|decode|verify` — thin consumer of the generated codec — `packages/cli` now recognizes TDBIN command mode: `encode` emits the generated Rust ADT+codec module, `decode` emits codec impls for already-generated Rust ADTs, and `verify` parses/builds/validates the `.td` schema and TDBIN Rust codegen support without pretending to be the later dynamic `Value` decoder; focused CLI tests cover all three commands plus unsupported-schema diagnostics; `npm run -w typediagram-core build`, `npm run -w typediagram build`, focused `args.test.ts`/`cli.e2e.test.ts` (59/59), and edited-file ESLint green
+- [x] `[TDBIN-RS-REFLECT]` optional reflective `TypeDef`/`TypeRef` model + dynamic `Value` codec — for tooling only, clearly off the typed hot path — `tdbin::reflect` now exposes `TypeDef`, `FieldDef`, `VariantDef`, `TypeRef`, dynamic `Value`, `ReflectError`, and a tooling-only `ValueCodec` bridge; `reflect::encode/decode/verify` converts through `ValueCodec` and delegates final bytes to the typed `TdBin` path, so it does not put a schema interpreter on the hot path; `tests/reflect.rs` proves Value→typed bytes→Value and typed shape errors; `cargo test -p tdbin` and `cargo clippy -p tdbin --all-targets -- -D warnings` green
 
 ## Phase 6 — Roadmap tracks (each opens with its own spec)
 
-- [ ] `[TDBIN-FUTURE-READER]` zero-copy reader: `verify` once → nanosecond typed accessors (research §2)
-- [ ] `[TDBIN-FUTURE-COLUMNAR]` struct-of-arrays lists: validity bitmaps, dense-union columns, SIMD-BP128 integer columns
-- [ ] `[TDBIN-FUTURE-TS]` TypeScript codec in `packages/typediagram/` passing every golden vector
-- [ ] `[TDBIN-FUTURE-RPC]` **`[TDRPC-*]` spec — streaming/RPC framework**: typeDiagram function definitions → service contract; unary/server-stream/client-stream/bidi from signature shape; numeric method ids; capability pointer kind `11`; promise pipelining; QUIC-first transport (RPC research pass, research §6)
-- [ ] `[TDBIN-FUTURE-WIDTH-TYPES]` width-refined DSL numerics; `[TDBIN-FUTURE-ORDINALS]` explicit ordinals for non-append evolution
+- [x] `[TDBIN-FUTURE-READER]` zero-copy reader: `verify` once → nanosecond typed accessors (research §2) — roadmap opened in [tdbin-future-reader.md](../specs/tdbin-future-reader.md)
+- [x] `[TDBIN-FUTURE-COLUMNAR]` struct-of-arrays lists: validity bitmaps, dense-union columns, SIMD-BP128 integer columns — roadmap opened in [tdbin-future-columnar.md](../specs/tdbin-future-columnar.md)
+- [x] `[TDBIN-FUTURE-TS]` TypeScript codec in `packages/typediagram/` passing every golden vector — roadmap opened in [tdbin-future-typescript.md](../specs/tdbin-future-typescript.md)
+- [x] `[TDBIN-FUTURE-RPC]` **`[TDRPC-*]` spec — streaming/RPC framework**: typeDiagram function definitions → service contract; unary/server-stream/client-stream/bidi from signature shape; numeric method ids; capability pointer kind `11`; promise pipelining; QUIC-first transport (RPC research pass, research §6) — roadmap opened in [tdrpc.md](../specs/tdrpc.md)
+- [x] `[TDBIN-FUTURE-WIDTH-TYPES]` width-refined DSL numerics; `[TDBIN-FUTURE-ORDINALS]` explicit ordinals for non-append evolution — roadmap opened in [tdbin-future-width-types.md](../specs/tdbin-future-width-types.md)
 
 ## Exit criteria (v1 = phases 0–4)
 

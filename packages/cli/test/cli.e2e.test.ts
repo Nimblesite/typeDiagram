@@ -197,6 +197,72 @@ describe("[CLI-E2E-TO] --to language export", () => {
   });
 });
 
+describe("[CLI-TDBIN] generated Rust TDBIN glue", () => {
+  it("encode emits generated Rust ADTs plus TDBIN codec impls", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["encode", fixturePath("scalars.td")], out.stream, err.stream);
+    expect(err.text()).toBe("");
+    expect(code).toBe(0);
+    expect(out.text()).toContain("pub struct AuditEvent");
+    expect(out.text()).toContain("impl tdbin::Struct for AuditEvent");
+    expect(out.text()).toContain("w.word_list(at, Self::DATA_WORDS, 0, Some(&history_words))?;");
+  });
+
+  it("decode emits codec impls for already-generated Rust ADTs", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["decode", fixturePath("scalars.td")], out.stream, err.stream);
+    expect(err.text()).toBe("");
+    expect(code).toBe(0);
+    expect(out.text()).not.toContain("pub struct AuditEvent");
+    expect(out.text()).toContain("impl tdbin::Struct for AuditEvent");
+    expect(out.text()).toContain("fn read_struct");
+  });
+
+  it("verify validates TDBIN schema support without emitting Rust source", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["verify", fixturePath("scalars.td")], out.stream, err.stream);
+    expect(err.text()).toBe("");
+    expect(code).toBe(0);
+    expect(out.text()).toBe("tdbin schema ok\n");
+  });
+
+  it("verify reports unsupported TDBIN schemas as diagnostics", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["verify", fixturePath("small.td")], out.stream, err.stream);
+    expect(code).toBe(1);
+    expect(out.text()).toBe("");
+    expect(err.text()).toContain("tdbin:");
+  });
+
+  it("verify reports missing files, parse errors, and model errors", async () => {
+    for (const argv of [
+      ["verify", "/no/such/tdbin-schema.td"],
+      ["verify", fixturePath("bad.td")],
+      ["verify", fixturePath("duplicate.td")],
+    ]) {
+      const out = makeStream();
+      const err = makeStream();
+      const code = await main(argv, out.stream, err.stream);
+      expect(code).toBe(1);
+      expect(out.text()).toBe("");
+      expect(err.text().length).toBeGreaterThan(0);
+    }
+  });
+
+  it("verify reports Rust codegen validation errors before TDBIN generation", async () => {
+    const out = makeStream();
+    const err = makeStream();
+    const code = await main(["verify", fixturePath("unknown-types.td")], out.stream, err.stream);
+    expect(code).toBe(1);
+    expect(out.text()).toBe("");
+    expect(err.text()).toMatch(/unknown type/i);
+  });
+});
+
 // Ensure fixture file exists (sanity).
 describe("[CLI-E2E-FIXTURE] fixtures present", () => {
   it("small.td contains expected content", async () => {

@@ -20,7 +20,7 @@ import { type Result, err } from "../result.js";
 import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef, printTypeRef } from "./parse-typeref.js";
+import { isList, isMap, isOption, mapBuiltinName, parseTypeRef, printTypeRef } from "./parse-typeref.js";
 import { extractBalancedBlock } from "./brace-lang.js";
 
 // ── Type mapping ──
@@ -337,10 +337,6 @@ const collectOneofFieldNames = (body: string): string[] => {
 };
 
 // ── To proto ──
-
-const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
-const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
-const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";
 
 /**
  * Returns a proto3 expression for the given TD type, or null if the type

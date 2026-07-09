@@ -46,7 +46,7 @@ pub trait TdBin: Struct {                                    // blanket impl for
   (`[TDBIN-RS-NOPANIC]`).
 - `to_bytes` is deterministic/canonical (`[TDBIN-ENC-CANON]`): the same value always yields the
   same bytes, and `bytes → object → bytes` is byte-identical.
-- **The ADT types *and* their codec are produced by typeDiagram codegen — never hand-written.**
+- **The ADT types _and_ their codec are produced by typeDiagram codegen — never hand-written.**
   `packages/typediagram/src/converters/rust.ts` emits the `struct`/`enum`; `rust-tdbin.ts`
   (`generateRustModule`) emits the `impl tdbin::Struct`. `crates/tdbin/tests/generated/mod.rs` is
   a checked-in example of that output, round-tripped by `tests/roundtrip.rs` under `cargo test`.
@@ -60,11 +60,11 @@ Phase 2+ (`[TDBIN-MSG-FRAME]`, `[TDBIN-PRIM-MAP]`).
 
 > ⚠️ **Optional extra, off the hot path.** The `TypeDef` / `TypeRef` schema model and the dynamic
 > `Value` codec (`build_schema` / `encode` / `decode` / `verify`) described here are a **tooling
-> feature** — for programs that want to inspect a model's structure, or encode/decode *without*
+> feature** — for programs that want to inspect a model's structure, or encode/decode _without_
 > generated types. They are **explicitly NOT the core serialization path** and are **not required**
 > to round-trip typeDiagram ADTs; the direct typed `Struct` / `TdBin` path above owns that, and it
 > is what makes TDBIN fast (no reflective `Value` hop). This reflective model is a later, separable
-> deliverable (plan Phase 5, `[TDBIN-FUTURE-*]`); it targets the *same* bytes, so the two paths
+> deliverable (plan Phase 5, `[TDBIN-FUTURE-*]`); it targets the _same_ bytes, so the two paths
 > interoperate. Nothing below is implemented in v0.
 
 The reflective/dynamic API is plain functions returning `Result<T, E>` — no classes, no global state:
@@ -131,18 +131,23 @@ Four `#[non_exhaustive]` `thiserror` enums; every variant carries actionable con
 Tests are black-box over the public API, deterministic, assertion-dense, and merged (no per-assertion splitting). Each test name references its spec ID.
 
 ### [TDBIN-TEST-ROUNDTRIP]
+
 One comprehensive round-trip test per schema corpus entry: build a **complex** schema (nested records, a recursive tree, every primitive, unions with bare + named + tuple + pinned variants, the full `Option` matrix, `List<List<T>>`, generics `Pair<Int,String>`/`Result<T,E>`, unicode strings, empty lists/strings) → `encode` (bare, framed, packed × unpacked) → `verify` → `decode` → deep-equality with the input, PLUS in the same test: exact expected byte lengths, packed ≤ unpacked, defaults round-trip as `None`/zero, field-order-independence of `Record.fields`, and re-encode determinism (`[TDBIN-ENC-CANON]`).
 
 ### [TDBIN-TEST-GOLDEN]
+
 Golden vectors: for each corpus schema+value, the exact wire bytes as hex fixtures asserted byte-for-byte both directions. These fixtures are the future cross-language conformance suite (`[TDBIN-FUTURE-TS]`) — they MUST never change without a wire-format version bump.
 
 ### [TDBIN-TEST-EVIL]
+
 Adversarial corpus, all asserting **typed errors, never panics**: truncation at every byte boundary of a golden message; every pointer field perturbed (offset out of bounds, reserved kinds, oversized sections); composite tag count mismatches; depth bombs (> 64); amplification bombs (aliased fan-out); invalid UTF-8; packed streams truncated mid-run; wrong magic/version/hash; unknown discriminants (asserting `UnknownVariant` specifically).
 
 ### [TDBIN-TEST-EVOLVE]
+
 Evolution suite: encode with schema v1, decode with v1+appended-field / appended-variant schema (defaults surface, `[TDBIN-EVOLVE-APPEND]`) and the reverse (extra data ignored, `[TDBIN-REC-SHORT]`); plus a width-crossing case asserting the documented breaking behavior (`[TDBIN-EVOLVE-WIDTH]` — hash mismatch on framed messages).
 
 ### [TDBIN-TEST-FUZZ]
+
 `cargo-fuzz` target: `decode(arbitrary bytes)` on a fixed corpus schema — no panics, no timeouts, no OOM (bounded by `DecodeOptions`). Run in CI on a time budget.
 
 ---
@@ -150,10 +155,13 @@ Evolution suite: encode with schema v1, decode with v1+appended-field / appended
 ## [TDBIN-BENCH] The gate that makes "smaller AND faster than Protobuf" enforceable
 
 ### [TDBIN-BENCH-CORPUS]
+
 A fixed benchmark corpus of ≥ 3 realistic payload shapes defined in **both** typeDiagram and `.proto`: (a) a record-heavy document (typeDiagram's own diagram model), (b) a union-heavy event stream (many small tagged messages), (c) a list-heavy dataset (structs with numeric/string columns). Same logical values on both sides.
 
 ### [TDBIN-BENCH-GATE]
+
 Criterion benches comparing `tdbin` against `prost` on the corpus. The gate (CI-checked, not vibes):
+
 - **Size:** TDBIN packed framed bytes ≤ Protobuf encoded bytes on every corpus entry.
 - **Speed:** TDBIN `encode` and `decode` each ≥ 1.5× the throughput of prost's on every corpus entry (target headroom; the roadmap zero-copy reader raises this to order-of-magnitude on reads, research §2).
 - Regressions against the recorded baseline fail the build. Numbers are recorded in the bench report committed with the change.

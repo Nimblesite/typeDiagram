@@ -102,6 +102,12 @@ describe("layout — measureBlock", () => {
     expect(result.h).toBeCloseTo(2 * 10 * 1.2);
   });
 
+  it("keeps the current widest line when later lines are shorter", () => {
+    const result = measureBlock(["hello world", "hi"], 10);
+    expect(result.w).toBeCloseTo(11 * 0.6 * 10);
+    expect(result.h).toBeCloseTo(2 * 10 * 1.2);
+  });
+
   it("measures empty block", () => {
     const result = measureBlock([], 10);
     expect(result.w).toBe(0);

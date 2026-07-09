@@ -182,6 +182,79 @@ type Foo = string
     expect(model.decls[0]?.kind).toBe("record");
   });
 
+  it("parses nested generics, marker-method unions, embedded interfaces, and malformed trailing bodies", () => {
+    const src = `
+type Box[T any, U comparable] struct {
+  Items []map[string]Foo[int64, []string]
+  Maybe *Foo[Bar[int64, string], Baz]
+  Inline struct { Name string }
+  NestedMap map[Foo[Bar]]string
+  Broken map[string
+  ignored
+}
+
+type Event interface {
+  isEvent()
+}
+
+type EventCreated struct {
+  ID string
+  Labels map[string]map[string]int64
+}
+
+type EventEmpty struct {}
+
+func (EventCreated) isEvent() {}
+func (EventEmpty) isEvent() {}
+
+type Embedded interface {
+  // comment
+  Text
+  isEmbedded()
+  Image
+}
+
+type Text struct {
+  Body string
+}
+
+type Image struct {}
+type Alias[T any] = Foo[T]
+type Bad = struct
+type AlsoBad = interface
+type Missing struct {
+`;
+    const model = unwrap(go.fromSource(src));
+    const box = model.decls.find((d) => d.name === "Box");
+    expect(box?.kind).toBe("record");
+    expect(box?.generics).toEqual(["T", "U"]);
+    const fields = box?.kind === "record" ? box.fields : [];
+    expect(fields.find((f) => f.name === "Items")?.type.name).toBe("List");
+    expect(fields.find((f) => f.name === "Items")?.type.args[0]?.name).toBe("Map");
+    expect(fields.find((f) => f.name === "Maybe")?.type.name).toBe("Option");
+    expect(fields.find((f) => f.name === "Inline")?.type.name).toBe("struct { Name string }");
+    expect(fields.find((f) => f.name === "NestedMap")?.type.args[0]?.name).toBe("Foo");
+    expect(fields.find((f) => f.name === "Broken")?.type.name).toBe("map[string");
+
+    const event = model.decls.find((d) => d.name === "Event");
+    expect(event?.kind).toBe("union");
+    const eventVariants = event?.kind === "union" ? event.variants : [];
+    expect(eventVariants.map((v) => v.name)).toEqual(["Created", "Empty"]);
+    expect(eventVariants[0]?.fields[1]?.type.args[1]?.name).toBe("Map");
+    expect(eventVariants[1]?.fields).toEqual([]);
+
+    const embedded = model.decls.find((d) => d.name === "Embedded");
+    expect(embedded?.kind).toBe("union");
+    expect(embedded?.kind === "union" ? embedded.variants.map((v) => v.name) : []).toEqual(["Text", "Image"]);
+
+    const aliasDecl = model.decls.find((d) => d.name === "Alias");
+    expect(aliasDecl?.kind).toBe("alias");
+    expect(aliasDecl?.kind === "alias" ? aliasDecl.target.args[0]?.name : "").toBe("T");
+    expect(model.decls.some((d) => d.name === "Bad")).toBe(false);
+    expect(model.decls.some((d) => d.name === "AlsoBad")).toBe(false);
+    expect(model.decls.some((d) => d.name === "Missing")).toBe(false);
+  });
+
   it("returns error on Go file with only functions", () => {
     const src = `
 package main

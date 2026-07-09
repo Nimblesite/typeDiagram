@@ -299,18 +299,30 @@ export const emitRustDecl = (d: ResolvedDecl, docs = false): string[] => {
   const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
   const lead = docs ? [rustDoc("", d.name, d.kind)] : [];
   const field = (f: ResolvedField): string =>
-    docs ? `${rustDoc("    ", f.name, "field")}\n    pub ${f.name}: ${mapTdToRs(f.type)},` : `    pub ${f.name}: ${mapTdToRs(f.type)},`;
+    docs
+      ? `${rustDoc("    ", f.name, "field")}\n    pub ${f.name}: ${mapTdToRs(f.type)},`
+      : `    pub ${f.name}: ${mapTdToRs(f.type)},`;
   if (d.kind === "record") {
     return [...lead, `pub struct ${d.name}${genericsStr} {`, ...d.fields.map(field), "}", ""];
   }
   if (d.kind === "union") {
     const header = d.untagged === true ? ["#[serde(untagged)]"] : [];
-    return [...lead, ...header, `pub enum ${d.name}${genericsStr} {`, ...d.variants.map((v) => emitRustVariant(v, docs)), "}", ""];
+    return [
+      ...lead,
+      ...header,
+      `pub enum ${d.name}${genericsStr} {`,
+      ...d.variants.map((v) => emitRustVariant(v, docs)),
+      "}",
+      "",
+    ];
   }
   return [...lead, `pub type ${d.name}${genericsStr} = ${mapTdToRs(d.target)};`, ""];
 };
 
-const toRust = (model: Model): string => visibleDeclsForTarget(model.decls, "rust").flatMap((d) => emitRustDecl(d)).join("\n");
+const toRust = (model: Model): string =>
+  visibleDeclsForTarget(model.decls, "rust")
+    .flatMap((d) => emitRustDecl(d))
+    .join("\n");
 
 export const rust: Converter = {
   language: "rust",

@@ -37,3 +37,23 @@ pub fn f64_bits(value: f64) -> u64 {
 pub fn f64_from(word: u64) -> f64 {
     f64::from_bits(word)
 }
+
+/// Split a 16-byte semantic scalar into two little-endian words.
+#[must_use]
+pub const fn bytes16_words(bytes: &[u8; 16]) -> (u64, u64) {
+    let [b0, b1, b2, b3, b4, b5, b6, b7, b8, b9, b10, b11, b12, b13, b14, b15] = *bytes;
+    (
+        u64::from_le_bytes([b0, b1, b2, b3, b4, b5, b6, b7]),
+        u64::from_le_bytes([b8, b9, b10, b11, b12, b13, b14, b15]),
+    )
+}
+
+/// Join two little-endian words into a 16-byte semantic scalar.
+#[must_use]
+pub const fn bytes16_from_words(first: u64, second: u64) -> [u8; 16] {
+    let [a0, a1, a2, a3, a4, a5, a6, a7] = first.to_le_bytes();
+    let [b0, b1, b2, b3, b4, b5, b6, b7] = second.to_le_bytes();
+    [
+        a0, a1, a2, a3, a4, a5, a6, a7, b0, b1, b2, b3, b4, b5, b6, b7,
+    ]
+}

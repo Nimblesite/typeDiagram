@@ -92,7 +92,7 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
       child: () => capture,
     };
 
-    setPluginLogger(capture as never);
+    setPluginLogger(capture);
     render("```typediagram\ntype X { a: Int }\n```");
     const renderLog = entries.find((e) => e.msg === "rendered typediagram fence to SVG");
     expect(renderLog).toBeDefined();
@@ -115,7 +115,7 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
       error: (msg: string) => entries.push({ msg }),
       child: () => capture,
     };
-    setPluginLogger(capture as never);
+    setPluginLogger(capture);
     render("```typediagram\ntype Z { a: Int }\n```");
     // The overridden capture logger received logs (not the lazy channel one)
     expect(entries.some((e) => e.msg === "plugin installed on markdown-it instance")).toBe(true);
@@ -137,7 +137,7 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
       child: () => capture,
     };
 
-    setPluginLogger(capture as never);
+    setPluginLogger(capture);
     render("```typediagram\ntype X { @bad }\n```");
     const errLog = entries.find((e) => e.msg === "typediagram render failed");
     expect(errLog).toBeDefined();

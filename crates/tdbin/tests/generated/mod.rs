@@ -152,7 +152,7 @@ impl tdbin::Struct for Person {
     fn write_struct(&self, w: &mut tdbin::Writer, at: usize) -> Result<(), tdbin::EncodeError> {
         w.string(at, Self::DATA_WORDS, 0, Some(&self.name))?;
         w.scalar(at, 0, tdbin::scalar::i64_bits(self.age))?;
-        w.scalar(at, 1, tdbin::scalar::bool_bits(self.active))?;
+        w.bool_bit(at, 1, 0, self.active)?;
         w.scalar(at, 2, tdbin::scalar::f64_bits(self.score))?;
         w.child(at, Self::DATA_WORDS, 1, self.address.as_ref())?;
         w.string(at, Self::DATA_WORDS, 2, self.nickname.as_deref())?;
@@ -165,7 +165,7 @@ impl tdbin::Struct for Person {
             .string(at, Self::DATA_WORDS, 0)?
             .ok_or(tdbin::DecodeError::UnexpectedNull)?;
         let age = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let active = tdbin::scalar::bool_from(r.scalar(at, 1)?);
+        let active = r.bool_bit(at, 1, 0)?;
         let score = tdbin::scalar::f64_from(r.scalar(at, 2)?);
         let address = r.child::<Address>(at, Self::DATA_WORDS, 1)?;
         let nickname = r.string(at, Self::DATA_WORDS, 2)?;

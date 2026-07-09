@@ -353,7 +353,7 @@ describe("[VSCODE-EXT] activate", () => {
       renderer: {
         rules: {
           get fence() {
-            return installedFence as never;
+            return installedFence;
           },
           set fence(v: unknown) {
             installedFence = v;
@@ -379,7 +379,7 @@ describe("[VSCODE-EXT] activate", () => {
     }));
     const { extendMarkdownIt } = await import("../src/extension.js");
     const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md as never);
+    extendMarkdownIt(md);
     // Wait for the warmup microtask chain. Warmup calls into elk which takes ~30-200ms.
     // We give it a reasonable window.
     await new Promise((r) => setTimeout(r, 400));
@@ -417,7 +417,7 @@ describe("[VSCODE-EXT] activate", () => {
     mock.mockOutputChannel.appendLine.mockClear();
     const { extendMarkdownIt } = await import("../src/extension.js");
     const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md as never);
+    extendMarkdownIt(md);
     const initialLines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     // Must have logged that VS Code called us
     expect(initialLines.some((l) => l.includes("called by VS Code markdown preview"))).toBe(true);
@@ -445,7 +445,7 @@ describe("[VSCODE-EXT] activate", () => {
     mock.commands.executeCommand.mockRejectedValueOnce(new Error("refresh boom"));
     const { extendMarkdownIt } = await import("../src/extension.js");
     const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md as never);
+    extendMarkdownIt(md);
     await new Promise((r) => setTimeout(r, 400));
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("markdown.preview.refresh failed") && l.includes("refresh boom"))).toBe(true);
@@ -466,7 +466,7 @@ describe("[VSCODE-EXT] activate", () => {
     }));
     const { extendMarkdownIt } = await import("../src/extension.js");
     const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md as never);
+    extendMarkdownIt(md);
     await new Promise((r) => setTimeout(r, 300));
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("warmup failed") && l.includes("elk blew up"))).toBe(true);
@@ -483,7 +483,7 @@ describe("[VSCODE-EXT] activate", () => {
     expect(api.extendMarkdownIt).toBe(extendMarkdownIt);
     // Invoking what VS Code will receive must actually plug into markdown-it
     const md = { renderer: { rules: {} as Record<string, unknown> } };
-    const returned = api.extendMarkdownIt(md as never);
+    const returned = api.extendMarkdownIt(md);
     expect(returned).toBe(md);
     expect(typeof md.renderer.rules["fence"]).toBe("function");
   });
@@ -534,7 +534,7 @@ describe("[VSCODE-EXT] activate", () => {
         toString: () => `file://${changes.path}`,
       }),
     };
-    mock.window.activeTextEditor = { document: { uri: activeUri } as never };
+    mock.window.activeTextEditor = { document: { uri: activeUri } };
     mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
     mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
     await exportHandler?.();

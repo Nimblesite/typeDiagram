@@ -4,15 +4,18 @@ import type { Result } from "./result.js";
 import { err, ok } from "./result.js";
 
 export type Theme = "light" | "dark";
+export type TdbinCommand = "encode" | "decode" | "verify";
 // [CLI-LANG] The supported language set is the framework registry — never hardcoded here,
 // so the CLI can never advertise a language the framework cannot emit (or omit one it can).
 export type Lang = converters.Language;
 export type Emit = "svg" | "td" | "td+svg";
 
 const LANG_LIST = converters.LANGUAGES.join("|");
+const TDBIN_COMMANDS: ReadonlySet<TdbinCommand> = new Set<TdbinCommand>(["encode", "decode", "verify"]);
 
 export interface CliArgs {
   readonly file: string | null;
+  readonly tdbinCommand: TdbinCommand | null;
   readonly theme: Theme;
   readonly fontSize: number | null;
   readonly from: Lang | null;
@@ -32,6 +35,7 @@ const LANGS: ReadonlySet<Lang> = new Set<Lang>(converters.LANGUAGES);
 const EMITS: ReadonlySet<Emit> = new Set<Emit>(["svg", "td", "td+svg"]);
 
 const isTheme = (v: string): v is Theme => THEMES.has(v as Theme);
+const isTdbinCommand = (v: string): v is TdbinCommand => TDBIN_COMMANDS.has(v as TdbinCommand);
 const isLang = (v: string): v is Lang => LANGS.has(v as Lang);
 const isEmit = (v: string): v is Emit => EMITS.has(v as Emit);
 
@@ -43,6 +47,7 @@ const parseFontSize = (v: string): Result<number, ArgError> => {
 export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> => {
   const state = {
     file: null as string | null,
+    tdbinCommand: null as TdbinCommand | null,
     theme: "light" as Theme,
     fontSize: null as number | null,
     from: null as Lang | null,
@@ -68,9 +73,11 @@ export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> =>
   }
   return state.from !== null && state.to !== null
     ? err({ message: "--from and --to are mutually exclusive" })
-    : state.json && !state.version
-      ? err({ message: "--json requires --version" })
-      : ok(state);
+    : state.tdbinCommand !== null && (state.from !== null || state.to !== null)
+      ? err({ message: "tdbin commands cannot be combined with --from or --to" })
+      : state.json && !state.version
+        ? err({ message: "--json requires --version" })
+        : ok(state);
 };
 
 const applyArg = (
@@ -78,6 +85,7 @@ const applyArg = (
   next: () => string | null,
   s: {
     file: string | null;
+    tdbinCommand: TdbinCommand | null;
     theme: Theme;
     fontSize: number | null;
     from: Lang | null;
@@ -106,9 +114,11 @@ const applyArg = (
                   ? applyEmit(next(), s)
                   : a.startsWith("-")
                     ? err({ message: `unknown flag: ${a}` })
-                    : s.file !== null
-                      ? err({ message: `unexpected positional arg: ${a}` })
-                      : ((s.file = a), ok(true as const));
+                    : s.tdbinCommand === null && s.file === null && isTdbinCommand(a)
+                      ? ((s.tdbinCommand = a), ok(true as const))
+                      : s.file !== null
+                        ? err({ message: `unexpected positional arg: ${a}` })
+                        : ((s.file = a), ok(true as const));
 
 const applyTheme = (v: string | null, s: { theme: Theme }): Result<true, ArgError> =>
   v === null
@@ -149,6 +159,9 @@ export const HELP_TEXT = `typediagram — render typeDiagram DSL to SVG, or conv
 
 Usage:
   typediagram [options] [file]
+  typediagram encode [file]
+  typediagram decode [file]
+  typediagram verify [file]
 
 Options:
   --from LANG          Convert from language source to SVG
@@ -165,5 +178,6 @@ If file is omitted, reads from stdin.
 SVG (or language source with --to) is written to stdout.
 With --emit td, outputs the intermediate typeDiagram source.
 With --emit td+svg, outputs typeDiagram source then a --- separator then SVG.
+TDBIN encode emits a generated Rust ADT+codec module; decode emits codec impls for generated Rust ADTs; verify validates schema support.
 Errors go to stderr; exit code 1 on failure.
 `;

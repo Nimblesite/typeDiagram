@@ -10,8 +10,16 @@ const KIND_STRUCT: u64 = 0;
 const KIND_LIST: u64 = 1;
 /// Two-bit mask selecting the pointer kind.
 const KIND_MASK: u64 = 0b11;
-/// List element-kind code for a byte list (String / Bytes bodies).
+/// List element-kind code for a bit list (`List<Bool>`).
+pub(crate) const ELEM_BIT: u8 = 1;
+/// List element-kind code for a byte list (String / Bytes / enum lists).
 pub(crate) const ELEM_BYTE: u8 = 2;
+/// List element-kind code for an eight-byte raw list.
+pub(crate) const ELEM_EIGHT_BYTES: u8 = 5;
+/// List element-kind code for a pointer list.
+pub(crate) const ELEM_POINTER: u8 = 6;
+/// List element-kind code for a composite list.
+pub(crate) const ELEM_COMPOSITE: u8 = 7;
 /// Most negative offset expressible in the signed 30-bit field.
 const OFFSET_MIN: i64 = -(1 << 29);
 /// Most positive offset expressible in the signed 30-bit field.

@@ -5,6 +5,7 @@
 //! bytes exactly as they appeared on the wire.
 
 use crate::error::{DecodeError, EncodeError};
+use crate::pack;
 
 /// Header magic bytes: ASCII `TDB1`.
 const MAGIC: [u8; 4] = [0x54, 0x44, 0x42, 0x31];
@@ -115,6 +116,15 @@ pub fn encode(body: &[u8], options: Options) -> Result<Vec<u8>, EncodeError> {
     append_hash(&mut out, options.schema_hash);
     out.extend_from_slice(body);
     Ok(out)
+}
+
+/// Pack `body`, then encode a packed TDBIN frame ([TDBIN-PACK]).
+///
+/// # Errors
+/// Returns [`EncodeError`] when packing or framing exceeds a limit.
+pub fn encode_packed(body: &[u8], schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError> {
+    let packed = pack::encode(body)?;
+    encode(&packed, Options::new(true, schema_hash))
 }
 
 /// Decode a TDBIN frame, validating every reserved field and length.

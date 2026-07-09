@@ -7,6 +7,8 @@ use core::fmt;
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum EncodeError {
+    /// A body was not aligned to the 8-byte word size required by TDBIN.
+    BadLength,
     /// A section, offset, or message exceeded a wire-format limit
     /// ([TDBIN-WIRE-LIMITS]).
     LimitExceeded,
@@ -18,6 +20,7 @@ pub enum EncodeError {
 impl fmt::Display for EncodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let msg = match self {
+            Self::BadLength => "body length is not word-aligned",
             Self::LimitExceeded => "value exceeds a TDBIN wire-format limit",
             Self::OffsetOutOfRange => "pointer offset does not fit the signed 30-bit field",
         };
@@ -43,8 +46,8 @@ pub enum DecodeError {
     ReservedBits,
     /// Frame body length did not match the available bytes ([TDBIN-MSG-FRAME]).
     LengthMismatch,
-    /// The frame body is packed, but typed unpacking is not available yet.
-    PackedUnsupported,
+    /// A packed body ended mid-element ([TDBIN-PACK]).
+    PackedTruncated,
     /// Wire length was zero or not a multiple of the 8-byte word size.
     BadLength,
     /// A pointer referenced a word outside the message body
@@ -88,7 +91,7 @@ impl fmt::Display for DecodeError {
             }
             Self::ReservedBits => f.write_str("frame reserved bits or fields were nonzero"),
             Self::LengthMismatch => f.write_str("frame body length does not match available bytes"),
-            Self::PackedUnsupported => f.write_str("packed frame bodies are not supported yet"),
+            Self::PackedTruncated => f.write_str("packed body ended mid-element"),
             Self::BadLength => f.write_str("wire length is zero or not word-aligned"),
             Self::PointerOutOfBounds { word_index } => {
                 write!(f, "pointer references out-of-bounds word {word_index}")

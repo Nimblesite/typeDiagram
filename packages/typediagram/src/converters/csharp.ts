@@ -11,7 +11,7 @@ import { type Result, err } from "../result.js";
 import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { isOption, mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 import {
   extractBalancedBlock,
   extractTrailingNullable,
@@ -259,8 +259,6 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
 };
 
 // ── To C# ──
-
-const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
 
 const mapTdToCs = (t: ResolvedTypeRef): string => {
   if (isOption(t) && t.args.length === 1) {
