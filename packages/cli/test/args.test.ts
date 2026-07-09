@@ -11,6 +11,7 @@ describe("[CLI-ARGS] parseArgs", () => {
     }
     expect(r.value).toEqual({
       file: null,
+      tdbinCommand: null,
       theme: "light",
       fontSize: null,
       from: null,
@@ -25,6 +26,23 @@ describe("[CLI-ARGS] parseArgs", () => {
   it("accepts positional file", () => {
     const r = parseArgs(["foo.td"]);
     expect(r.ok && r.value.file).toBe("foo.td");
+  });
+
+  it("parses TDBIN command plus optional file", () => {
+    const r = parseArgs(["encode", "schema.td"]);
+    expect(r.ok && r.value.tdbinCommand).toBe("encode");
+    expect(r.ok && r.value.file).toBe("schema.td");
+  });
+
+  it("parses TDBIN verify command without a file", () => {
+    const r = parseArgs(["verify"]);
+    expect(r.ok && r.value.tdbinCommand).toBe("verify");
+    expect(r.ok && r.value.file).toBeNull();
+  });
+
+  it("rejects TDBIN commands combined with --to", () => {
+    const r = parseArgs(["decode", "--to", "rust"]);
+    expect(r.ok).toBe(false);
   });
 
   it("parses --theme dark", () => {

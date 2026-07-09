@@ -1,0 +1,19 @@
+# agent-pmo:372ce7f
+# Deslop duplication gate — REPO-STANDARDS-SPEC [CI-DESLOP].
+# Single source of truth for this repo's duplication budget. Committed, PR-reviewed,
+# ratcheted DOWN only (never up without written justification).
+# CI runs `deslop .`, which reads this file and exits 3 (tanks the build) when
+# duplication exceeds the ceiling below.
+# Docs: https://deslop.live/docs/for-ai/
+
+[defaults]
+# Exclude ONLY build/coverage artifacts — never source, and NEVER tests. Tests are
+# first-class code here and stay in the duplication budget. node_modules/target/build
+# are already default-excluded; dist + coverage are this repo's generated-output dirs.
+exclude = [
+  "**/coverage/**",
+  "**/dist/**",
+]
+
+[threshold]
+max_duplication_percent = 15.0

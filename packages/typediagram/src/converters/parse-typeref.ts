@@ -38,3 +38,12 @@ export const printTypeRef = (t: ResolvedTypeRef): string =>
  */
 export const mapBuiltinName = (t: ResolvedTypeRef, table: Record<string, string>): string =>
   t.resolution.kind === "declared" ? t.name : (table[t.name] ?? t.name);
+
+/** True when `t` is the builtin `Option<...>`. */
+export const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
+
+/** True when `t` is the builtin `List<...>`. */
+export const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
+
+/** True when `t` is the builtin `Map<...>`. */
+export const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";

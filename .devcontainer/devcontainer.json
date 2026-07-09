@@ -1,7 +1,10 @@
 {
-  "_agent_pmo": "b636503",
-  "name": "typeDiagram (Node.js)",
+  "_agent_pmo": "372ce7f",
+  "name": "typeDiagram (Node.js + Rust)",
   "image": "mcr.microsoft.com/devcontainers/typescript-node:1-22",
+  "features": {
+    "ghcr.io/devcontainers/features/rust:1": {}
+  },
   "remoteUser": "vscode",
   "postCreateCommand": "make setup",
   "customizations": {
@@ -10,7 +13,8 @@
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "usernamehw.errorlens",
-        "ms-vscode.vscode-typescript-next"
+        "ms-vscode.vscode-typescript-next",
+        "rust-lang.rust-analyzer"
       ],
       "settings": {
         "editor.formatOnSave": true,

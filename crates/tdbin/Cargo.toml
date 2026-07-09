@@ -1,0 +1,30 @@
+# [TDBIN-RS-CRATE] TDBIN v0 runtime: the compact binary codec that generated
+# typeDiagram ADT code targets. Zero external deps so it builds offline; the
+# `thiserror`/`tracing` wiring lands with the logging pass ([TDBIN-RS-LOG]).
+[package]
+name = "tdbin"
+version = "0.0.0"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "TDBIN v0: compact binary codec runtime for typeDiagram algebraic data types."
+publish = false
+
+[lints]
+workspace = true
+
+# prost is the COMPETITOR baseline for the honest size/speed benchmark, pulled in
+# only for the `size_gate` test and the `bench` example. It is a DEV-dependency so
+# the shipped runtime stays zero-dep ([TDBIN-BENCH-CORPUS], [TDBIN-BENCH-GATE]).
+[dev-dependencies]
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
+prost = "0.14"
+
+# The TDBIN-vs-Protobuf speed benchmark, run via `cargo run --release --example bench`.
+[[example]]
+name = "bench"
+
+# The statistical TDBIN-vs-Protobuf benchmark, run via `cargo bench -p tdbin --bench gate`.
+[[bench]]
+name = "gate"
+harness = false

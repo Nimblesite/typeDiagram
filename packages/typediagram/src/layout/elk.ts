@@ -318,7 +318,7 @@ export async function warmupLayout(): Promise<void> {
     ],
     edges: [{ id: "e", sources: ["a"], targets: ["b"] }],
   };
-  await getElk().layout(trivial as unknown as Parameters<InstanceType<typeof ELK>["layout"]>[0]);
+  await getElk().layout(trivial);
   warmedUp = true;
 }
 
@@ -379,9 +379,7 @@ function layoutError(e: unknown): Result<LaidOutGraph, Diagnostic[]> {
 export async function layout(model: Model, opts: LayoutOpts = {}): Promise<Result<LaidOutGraph, Diagnostic[]>> {
   const { pre, graph, edgeMap } = prepare(model, opts);
   try {
-    const result = (await getElk().layout(
-      graph as unknown as Parameters<InstanceType<typeof ELK>["layout"]>[0]
-    )) as unknown as ElkResult;
+    const result = (await getElk().layout(graph)) as unknown as ElkResult;
     warmedUp = true;
     return ok(projectResult(pre, edgeMap, result));
   } catch (e) {

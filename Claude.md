@@ -2,7 +2,7 @@
 
 Read this file in full. Rules below are NON-NEGOTIABLE — violations are rejected in review.
 
-<!-- agent-pmo:b636503 -->
+<!-- agent-pmo:372ce7f -->
 
 ⚠️ **TOKEN ECONOMICS DISCIPLINE.** Check file size first. `Grep` over `Read`. Use `offset`/`limit`.
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
@@ -16,6 +16,8 @@ Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
 ## Project Overview
 
 typeDiagram is a small DSL for diagramming algebraic data types (records + tagged unions). Language-neutral, no methods. Includes a parser, model, layout engine, SVG renderer, and markdown support. Ships as an npm library, CLI tool, VS Code extension, and web playground.
+
+A **Rust workspace** under `crates/` (root `Cargo.toml`) is being introduced alongside the TypeScript monorepo. It is a multi-language repo: TypeScript config and Rust config are chained orthogonally, never merged.
 
 ## Testing Rules
 
@@ -66,6 +68,25 @@ typeDiagram is a small DSL for diagramming algebraic data types (records + tagge
 - No `as Type` casts without a comment explaining safety.
 - `tsconfig.json` MUST have `"strict": true`.
 - No throwing — return `Result<T,E>` (library or discriminated union).
+
+## Hard Rules — Rust
+
+Rust lives in the `crates/` workspace. Lints: `[workspace.lints]` in the root `Cargo.toml` (REPO-STANDARDS-SPEC [LINT-RUST]); formatting: `rustfmt.toml` ([LINT-RUST-FMT]).
+
+- **Every crate inherits the workspace lints** — add `[lints]` / `workspace = true` to its `Cargo.toml`.
+- **All lints ON and at `deny`.** `unsafe_code = "deny"`; clippy `all` + `pedantic` denied.
+- **No panics in library code.** `unwrap`, `expect`, `panic!`, `todo!`, `unimplemented!`, `unreachable!`, `indexing_slicing`, `arithmetic_side_effects` are all denied — return `Result<T,E>`, index via `.get()`.
+- **No lint suppressions.** No `#[allow(...)]` without a documented, reviewed reason. Fix the code.
+- **Public items documented** (`missing_docs = "deny"`). Structured logging via `tracing` — never `println!`.
+- **Format with `cargo fmt`.** Once the first crate lands, `make fmt`/`lint`/`test` gain `cargo fmt`/`cargo clippy -D warnings`/`cargo llvm-cov`.
+
+## Duplication — Deslop (MANDATORY MCP loop)
+
+Duplication is debt with a ratcheted budget in `.deslop.toml` (REPO-STANDARDS-SPEC [CI-DESLOP]); CI runs `deslop .` and fails when the repo exceeds it. Deslop scans this repo's TypeScript today and the Rust under `crates/`. Use its MCP tools:
+
+- **BEFORE** authoring any function, helper, fixture, or test setup → call `find-similar`. `signals.fused ≥ 0.85` or an `identical`/`nearly_identical` bucket → REUSE the existing code, do not duplicate; `0.6 ≤ fused < 0.85` → review the canonical occurrence and bias toward reuse.
+- **AFTER** changing code → `rescan`, then `top-offenders` / `cluster-by-id`; `report-for-file` / `report-for-range` for a file or selection; `schema-doc` once per session.
+- **NEVER** silence findings by widening the threshold, marking code hidden, or splitting it into trivially different shapes. `max_duplication_percent` only ratchets DOWN.
 
 ## CSS Budget
 

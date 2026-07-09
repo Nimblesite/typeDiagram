@@ -19,7 +19,7 @@ import {
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter, PythonOpts } from "./types.js";
-import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
+import { isList, isMap, isOption, mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
 
 // ── Type mapping ──
 
@@ -320,10 +320,6 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
 };
 
 // ── To Python ──
-
-const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
-const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
-const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";
 
 const mapTdToPyDataclass = (t: ResolvedTypeRef): string => {
   const name = mapBuiltinName(t, TD_TO_PY);

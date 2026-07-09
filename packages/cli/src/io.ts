@@ -21,10 +21,12 @@ const readFileSafe = async (path: string): Promise<Result<string, IoError>> => {
 
 const readStdin = (): Promise<Result<string, IoError>> => {
   return new Promise((resolve) => {
-    const chunks: Buffer[] = [];
-    process.stdin.on("data", (c) => chunks.push(c));
+    const chunks: string[] = [];
+    process.stdin.on("data", (chunk: string | Buffer) => {
+      chunks.push(typeof chunk === "string" ? chunk : chunk.toString("utf8"));
+    });
     process.stdin.on("end", () => {
-      resolve(ok(Buffer.concat(chunks).toString("utf8")));
+      resolve(ok(chunks.join("")));
     });
     process.stdin.on("error", (e) => {
       resolve(err({ message: `stdin error: ${e.message}` }));

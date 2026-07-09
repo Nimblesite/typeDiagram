@@ -16,17 +16,24 @@ describe("[INDEX-RENDER] render() browser function", () => {
   it("returns SVGElement when DOMParser is available", async () => {
     const mockElement = { tagName: "svg" };
     const mockDoc = { documentElement: mockElement };
-    const mockParser = { parseFromString: vi.fn(() => mockDoc) };
-    // @ts-expect-error stubbing global DOMParser
-    globalThis.DOMParser = vi.fn(() => mockParser);
+    const parseFromString = vi.fn(() => mockDoc);
+    const originalDomParser = globalThis.DOMParser;
+    const MockDOMParser = function (this: { parseFromString: typeof parseFromString }) {
+      this.parseFromString = parseFromString;
+    };
+    // Safe: this test installs the minimal constructor shape render() uses.
+    globalThis.DOMParser = MockDOMParser as unknown as typeof DOMParser;
     try {
       const r = await render("type Foo { x: String }");
       expect(r.ok).toBe(true);
       expect(r.ok && r.value).toBe(mockElement);
-      expect(mockParser.parseFromString).toHaveBeenCalledWith(expect.stringContaining("<svg"), "image/svg+xml");
+      expect(parseFromString).toHaveBeenCalledWith(expect.stringContaining("<svg"), "image/svg+xml");
     } finally {
-      // @ts-expect-error cleaning up global stub
-      delete globalThis.DOMParser;
+      if (typeof originalDomParser === "undefined") {
+        Reflect.deleteProperty(globalThis, "DOMParser");
+      } else {
+        globalThis.DOMParser = originalDomParser;
+      }
     }
   });
 

@@ -28,7 +28,9 @@ type SVGtoPDFFn = (
   y: number,
   options?: { width?: number; height?: number; assumePt?: boolean }
 ) => void;
-const SVGtoPDF: SVGtoPDFFn = SVGtoPDFUntyped as unknown as SVGtoPDFFn;
+// Safe: svg-to-pdfkit has no types, and this test calls only the documented
+// function shape above.
+const SVGtoPDF = SVGtoPDFUntyped as unknown as SVGtoPDFFn;
 import { warmupSyncRender } from "typediagram-core";
 import { composeHtml, extractSvgs } from "../src/export-pdf.js";
 
