@@ -2,14 +2,18 @@
 # Deslop duplication gate — REPO-STANDARDS-SPEC [CI-DESLOP].
 # Single source of truth for this repo's duplication budget. Committed, PR-reviewed,
 # ratcheted DOWN only (never up without written justification).
-# CI runs `deslop .`, which reads this file and exits 3 (tanking the build) when
-# measured repo-wide duplication exceeds the value below.
+# CI runs `deslop .`, which reads this file and exits 3 (tanks the build) when
+# duplication exceeds the ceiling below.
 # Docs: https://deslop.live/docs/for-ai/
-#
-# MEASURED, not guessed: the live Deslop report put repo-wide duplication at
-# 21.33% at setup time (Deslop scans this repo's TypeScript + the incoming Rust).
-# The ceiling below is that value plus a small jitter buffer. The bulk of it is
-# table-style test data in packages/typediagram/test/converters/*.test.ts — drive
-# this number DOWN as that is de-duplicated; never raise it.
+
+[defaults]
+# Exclude ONLY build/coverage artifacts — never source, and NEVER tests. Tests are
+# first-class code here and stay in the duplication budget. node_modules/target/build
+# are already default-excluded; dist + coverage are this repo's generated-output dirs.
+exclude = [
+  "**/coverage/**",
+  "**/dist/**",
+]
+
 [threshold]
-max_duplication_percent = 21.5
+max_duplication_percent = 15.0

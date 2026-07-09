@@ -96,3 +96,6 @@ packages/web/test-results/
 **/*.rs.bk
 # Cargo.lock IS committed on purpose — this workspace produces a binary (CLI).
 # Do NOT add Cargo.lock here.
+
+
+*.log
