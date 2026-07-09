@@ -117,8 +117,7 @@ jobs:
           DESLOP_VERSION: "0.5.1" # pin — https://github.com/Nimblesite/Deslop/releases
         run: |
           curl -sSfL "https://github.com/Nimblesite/Deslop/releases/download/v${DESLOP_VERSION}/deslop-${DESLOP_VERSION}-linux-x64.tar.gz" | tar -xz
-          echo "$PWD/deslop-${DESLOP_VERSION}-linux-x64" >> "$GITHUB_PATH"
-          deslop .
+          "./deslop-${DESLOP_VERSION}-linux-x64/deslop" .
 
       # [SWR-GATE-CI] [SWR-GATE-VERIFY-BINARIES] manifest + CLI version contract.
       - name: Shipwright acceptance gates
