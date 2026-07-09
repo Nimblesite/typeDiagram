@@ -2,7 +2,14 @@
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
 import { formatVariantName, withDiscriminant } from "../variant.js";
-import { isTupleVariantFields, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
+import {
+  isTupleVariantFields,
+  type Model,
+  type ResolvedDecl,
+  type ResolvedTypeRef,
+  type ResolvedVariant,
+  visibleDeclsForTarget,
+} from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
@@ -265,46 +272,33 @@ const fromRust = (source: string): Result<Model, Diagnostic[]> => {
 
 // ── To Rust ──
 
-const mapTdToRs = (t: ResolvedTypeRef): string => {
+export const mapTdToRs = (t: ResolvedTypeRef): string => {
   const name = mapBuiltinName(t, TD_TO_RS);
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToRs).join(", ")}>`;
 };
 
-const toRust = (model: Model): string => {
-  const lines: string[] = [];
-  const decls = visibleDeclsForTarget(model.decls, "rust");
+const emitRustVariant = (v: ResolvedVariant): string =>
+  v.fields.length === 0
+    ? `    ${formatVariantName(v.name, v.discriminant)},`
+    : isTupleVariantFields(v.fields)
+      ? `    ${v.name}(${v.fields.map((f) => mapTdToRs(f.type)).join(", ")}),`
+      : `    ${v.name} { ${v.fields.map((f) => `${f.name}: ${mapTdToRs(f.type)}`).join(", ")} },`;
 
-  for (const d of decls) {
-    const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
-
-    if (d.kind === "record") {
-      lines.push(`pub struct ${d.name}${genericsStr} {`);
-      for (const f of d.fields) {
-        lines.push(`    pub ${f.name}: ${mapTdToRs(f.type)},`);
-      }
-      lines.push("}", "");
-    } else if (d.kind === "union") {
-      if (d.untagged === true) {
-        lines.push("#[serde(untagged)]");
-      }
-      lines.push(`pub enum ${d.name}${genericsStr} {`);
-      for (const v of d.variants) {
-        if (v.fields.length === 0) {
-          lines.push(`    ${formatVariantName(v.name, v.discriminant)},`);
-        } else if (isTupleVariantFields(v.fields)) {
-          lines.push(`    ${v.name}(${v.fields.map((f) => mapTdToRs(f.type)).join(", ")}),`);
-        } else {
-          lines.push(`    ${v.name} { ${v.fields.map((f) => `${f.name}: ${mapTdToRs(f.type)}`).join(", ")} },`);
-        }
-      }
-      lines.push("}", "");
-    } else {
-      lines.push(`pub type ${d.name}${genericsStr} = ${mapTdToRs(d.target)};`, "");
-    }
+/** [CONV-RUST-DECL] Emit one Rust type declaration (no derives). Shared by the
+ *  type converter and the TDBIN codec generator so neither duplicates it. */
+export const emitRustDecl = (d: ResolvedDecl): string[] => {
+  const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
+  if (d.kind === "record") {
+    return [`pub struct ${d.name}${genericsStr} {`, ...d.fields.map((f) => `    pub ${f.name}: ${mapTdToRs(f.type)},`), "}", ""];
   }
-
-  return lines.join("\n");
+  if (d.kind === "union") {
+    const header = d.untagged === true ? ["#[serde(untagged)]"] : [];
+    return [...header, `pub enum ${d.name}${genericsStr} {`, ...d.variants.map(emitRustVariant), "}", ""];
+  }
+  return [`pub type ${d.name}${genericsStr} = ${mapTdToRs(d.target)};`, ""];
 };
+
+const toRust = (model: Model): string => visibleDeclsForTarget(model.decls, "rust").flatMap(emitRustDecl).join("\n");
 
 export const rust: Converter = {
   language: "rust",
