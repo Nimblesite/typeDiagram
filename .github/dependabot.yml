@@ -6,16 +6,17 @@
 #     against staging; ci.yml / codeql.yml only trigger on `pull_request: [main]`
 #     (matched on the PR *base*), so staging PRs run NO build/test/CodeQL.
 #   * SECURITY updates -> GitHub IGNORES `target-branch` and always opens them
-#     against `main`; .github/workflows/dependabot-automerge.yml catches them there
-#     and folds them into the SAME staging branch, then retires the PR.
+#     against `main`; they must be manually staged into the same consolidation
+#     branch, because privileged auto-merging of PR heads is an unsafe workflow
+#     pattern.
 #   * groups           -> each ecosystem collapses ALL bump types (patch+minor+major)
 #     into ONE PR; a parallel `*-security` group does the same for CVE bumps.
 #
 # The whole batch reaches main via ONE `dependabot-upgrades -> main` consolidation
 # PR, where CI + CodeQL run exactly once.
 #
-# REQUIREMENT: the `dependabot-upgrades` branch must exist and stay UNPROTECTED,
-# cut from main AFTER this file + dependabot-automerge.yml are on main.
+# REQUIREMENT: the `dependabot-upgrades` branch must exist, cut from main AFTER
+# this file is on main.
 version: 2
 
 updates:

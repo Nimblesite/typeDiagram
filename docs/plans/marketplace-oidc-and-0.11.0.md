@@ -48,8 +48,8 @@ Key facts from the runbooks:
       (non-sensitive directory identifiers, from inventory).
 - [x] Confirm publisher membership already covers `nimblesite.*` (shared app) — the
       extension's publisher is `nimblesite`, covered by the shared Contributor member.
-- [x] github-pages env: deploy-pages runs on `workflow_run` from `main`, not a tag, so
-      the Part E tag-policy gotcha does not apply.
+- [x] github-pages env: deploy-pages runs via `workflow_dispatch` on an operator-selected
+      trusted ref, so privileged Pages deployment never checks out a `workflow_run` SHA.
 
 ### B. Rewrite `release.yml` marketplace publish
 

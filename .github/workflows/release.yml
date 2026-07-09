@@ -3,8 +3,8 @@ name: Release
 
 # [SWR-REL-WORKFLOW] Tag-triggered only. Builds the EXACT tagged SHA; the version is
 # stamped in the runner working tree by scripts/stamp-version.mjs and never committed
-# or pushed back ([SWR-VERSION-BUILD-STAMPING]). The website deploys automatically via
-# deploy-pages.yml's workflow_run trigger when this workflow completes.
+# or pushed back ([SWR-VERSION-BUILD-STAMPING]). Deploy the website manually via
+# deploy-pages.yml after a green Release.
 on:
   push:
     tags:

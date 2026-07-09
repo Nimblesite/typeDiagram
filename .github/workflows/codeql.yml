@@ -52,9 +52,8 @@ jobs:
     # Code scanning (SARIF upload) requires GitHub Advanced Security on PRIVATE
     # repos. Gating on public visibility lets a private repo skip cleanly (no red
     # X) and self-enable the moment it is made public — no follow-up edit needed.
-    # Dependabot PRs are excluded: they are swept into `dependabot-upgrades` by
-    # dependabot-automerge.yml and never merge to main directly, so scanning them
-    # only burns the matrix on a bump we discard — CodeQL runs on the
+    # Dependabot version PRs target `dependabot-upgrades`; security PRs that
+    # GitHub forces to main must be manually staged there. CodeQL runs on the
     # consolidation PR instead. ([GITHUB-DEPENDABOT])
     if: github.event.repository.visibility == 'public' && github.actor != 'dependabot[bot]'
     permissions:

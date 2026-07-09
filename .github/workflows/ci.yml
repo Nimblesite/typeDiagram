@@ -21,9 +21,9 @@ defaults:
 jobs:
   ci:
     name: CI
-    # Dependabot PRs are swept into `dependabot-upgrades` by dependabot-automerge.yml
-    # and never merge to main directly, so CI would only burn minutes on a bump we
-    # discard. CI runs once, on the `dependabot-upgrades -> main` consolidation PR.
+    # Dependabot version PRs target `dependabot-upgrades`; security PRs that
+    # GitHub forces to main must be manually staged there. CI runs once, on the
+    # `dependabot-upgrades -> main` consolidation PR.
     # ([GITHUB-DEPENDABOT])
     if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
