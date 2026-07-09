@@ -32,6 +32,19 @@ impl std::error::Error for EncodeError {}
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum DecodeError {
+    /// Frame magic did not match `TDB1` ([TDBIN-MSG-FRAME]).
+    BadMagic,
+    /// Frame version is not supported ([TDBIN-MSG-FRAME]).
+    BadVersion {
+        /// Version byte read from the frame header.
+        version: u8,
+    },
+    /// Reserved frame flag bits or fields were nonzero ([TDBIN-MSG-FRAME]).
+    ReservedBits,
+    /// Frame body length did not match the available bytes ([TDBIN-MSG-FRAME]).
+    LengthMismatch,
+    /// The frame body is packed, but typed unpacking is not available yet.
+    PackedUnsupported,
     /// Wire length was zero or not a multiple of the 8-byte word size.
     BadLength,
     /// A pointer referenced a word outside the message body
@@ -69,6 +82,13 @@ pub enum DecodeError {
 impl fmt::Display for DecodeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::BadMagic => f.write_str("frame magic is not TDB1"),
+            Self::BadVersion { version } => {
+                write!(f, "frame version {version} is not supported")
+            }
+            Self::ReservedBits => f.write_str("frame reserved bits or fields were nonzero"),
+            Self::LengthMismatch => f.write_str("frame body length does not match available bytes"),
+            Self::PackedUnsupported => f.write_str("packed frame bodies are not supported yet"),
             Self::BadLength => f.write_str("wire length is zero or not word-aligned"),
             Self::PointerOutOfBounds { word_index } => {
                 write!(f, "pointer references out-of-bounds word {word_index}")

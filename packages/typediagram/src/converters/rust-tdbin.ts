@@ -30,6 +30,7 @@ const SCALARS: Record<string, { bits: string; from: string }> = {
 /** How a record field is laid out on the wire. */
 type FieldPlan =
   | { kind: "scalar"; slot: number; bits: string; from: string }
+  | { kind: "optScalar"; presenceSlot: number; valueSlot: number; bits: string; from: string }
   | { kind: "string"; slot: number; optional: boolean }
   | { kind: "bytes"; slot: number; optional: boolean }
   | { kind: "child"; slot: number; optional: boolean; rustType: string };
@@ -67,14 +68,37 @@ const pointerInner = (t: ResolvedTypeRef, slot: number, optional: boolean): Fiel
         ? { kind: "child", slot, optional, rustType: mapTdToRs(t) }
         : null;
 
-/** Classify one record field into a scalar or pointer plan. */
-const classifyField = (t: ResolvedTypeRef, dataSlot: number, ptrSlot: number): { plan: FieldPlan; dataSlot: number; ptrSlot: number } | null => {
-  const scalar = t.args.length === 0 && t.resolution.kind === "primitive" ? SCALARS[t.name] : undefined;
+/** A classified field plan plus the advanced data/pointer cursors. */
+type Placed = { plan: FieldPlan; dataSlot: number; ptrSlot: number } | null;
+
+/** The one-word scalar codec for a bare primitive (Bool/Int/Float), else undefined. */
+const scalarOf = (t: ResolvedTypeRef): { bits: string; from: string } | undefined =>
+  t.args.length === 0 && t.resolution.kind === "primitive" ? SCALARS[t.name] : undefined;
+
+/** Classify an `Option<T>` field: a scalar inner takes a presence slot + a value
+ *  slot ([TDBIN-PRIM-OPTION], word-granular in v0 until bit-packing collapses the
+ *  flag to 1 bit); a pointer inner takes one pointer slot with null = `None`. */
+const classifyOption = (inner: ResolvedTypeRef, dataSlot: number, ptrSlot: number): Placed => {
+  const innerScalar = scalarOf(inner);
+  if (innerScalar !== undefined) {
+    const plan: FieldPlan = { kind: "optScalar", presenceSlot: dataSlot, valueSlot: dataSlot + 1, bits: innerScalar.bits, from: innerScalar.from };
+    return { plan, dataSlot: dataSlot + 2, ptrSlot };
+  }
+  const plan = pointerInner(inner, ptrSlot, true);
+  return plan === null ? null : { plan, dataSlot, ptrSlot: ptrSlot + 1 };
+};
+
+/** Classify one record field into a scalar, `Option<scalar>`, or pointer plan. */
+const classifyField = (t: ResolvedTypeRef, dataSlot: number, ptrSlot: number): Placed => {
+  const scalar = scalarOf(t);
   if (scalar !== undefined) {
     return { plan: { kind: "scalar", slot: dataSlot, bits: scalar.bits, from: scalar.from }, dataSlot: dataSlot + 1, ptrSlot };
   }
   const optionInner = t.name === "Option" && t.args.length === 1 ? t.args[0] : undefined;
-  const plan = optionInner !== undefined ? pointerInner(optionInner, ptrSlot, true) : pointerInner(t, ptrSlot, false);
+  if (optionInner !== undefined) {
+    return classifyOption(optionInner, dataSlot, ptrSlot);
+  }
+  const plan = pointerInner(t, ptrSlot, false);
   return plan === null ? null : { plan, dataSlot, ptrSlot: ptrSlot + 1 };
 };
 
@@ -129,6 +153,11 @@ const writeField = (name: string, p: FieldPlan): string => {
   switch (p.kind) {
     case "scalar":
       return `        w.scalar(at, ${p.slot}, tdbin::scalar::${p.bits}(${self}))?;`;
+    case "optScalar":
+      return [
+        `        w.scalar(at, ${p.presenceSlot}, u64::from(${self}.is_some()))?;`,
+        `        w.scalar(at, ${p.valueSlot}, ${self}.map_or(0, tdbin::scalar::${p.bits}))?;`,
+      ].join("\n");
     case "string":
       return `        w.string(at, Self::DATA_WORDS, ${p.slot}, ${p.optional ? `${self}.as_deref()` : `Some(&${self})`})?;`;
     case "bytes":
@@ -146,6 +175,12 @@ const readField = (name: string, p: FieldPlan): string => {
   switch (p.kind) {
     case "scalar":
       return `        let ${name} = tdbin::scalar::${p.from}(r.scalar(at, ${p.slot})?);`;
+    case "optScalar":
+      return [
+        `        let ${name}_present = r.scalar(at, ${p.presenceSlot})? != 0;`,
+        `        let ${name}_value = tdbin::scalar::${p.from}(r.scalar(at, ${p.valueSlot})?);`,
+        `        let ${name} = ${name}_present.then_some(${name}_value);`,
+      ].join("\n");
     case "string":
       return `        let ${name} = r.string(at, Self::DATA_WORDS, ${p.slot})${optTail(p.optional)};`;
     case "bytes":

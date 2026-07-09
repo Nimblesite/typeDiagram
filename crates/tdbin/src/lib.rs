@@ -15,6 +15,7 @@
 //! round-trip. Every item references its `[TDBIN-*]` spec ID.
 
 mod error;
+pub mod frame;
 mod layout;
 mod pointer;
 mod reader;
@@ -80,6 +81,28 @@ pub trait TdBin: Struct {
     /// Returns [`DecodeError`] on malformed input.
     fn from_bytes(wire: &[u8]) -> Result<Self, DecodeError> {
         Reader::message(wire)
+    }
+
+    /// Encode to a fresh framed byte vector ([TDBIN-MSG-FRAME]).
+    ///
+    /// # Errors
+    /// Returns [`EncodeError`] if the value or frame exceeds a wire-format limit.
+    fn to_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError> {
+        let body = self.to_bytes()?;
+        frame::encode(&body, frame::Options::new(false, schema_hash))
+    }
+
+    /// Decode from framed bytes, safe on arbitrary untrusted input.
+    ///
+    /// # Errors
+    /// Returns [`DecodeError`] on malformed frames, packed bodies, or bad body bytes.
+    fn from_framed_bytes(wire: &[u8]) -> Result<Self, DecodeError> {
+        let message = frame::decode(wire)?;
+        if message.is_packed() {
+            Err(DecodeError::PackedUnsupported)
+        } else {
+            Reader::message(message.body())
+        }
     }
 }
 

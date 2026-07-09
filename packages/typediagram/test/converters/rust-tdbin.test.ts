@@ -42,6 +42,14 @@ type Person {
   contact: Contact
 }`;
 
+// The Option<scalar> fixture committed to crates/tdbin/tests/generated_opt/mod.rs.
+const MEASUREMENT_TD = `type Measurement {
+  label: String
+  count: Option<Int>
+  flagged: Option<Bool>
+  ratio: Option<Float>
+}`;
+
 describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
   it("bakes DATA_WORDS/PTR_WORDS and slot-addressed scalar/pointer field codecs", () => {
     const code = codecFor(PERSON_TD);
@@ -105,6 +113,25 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
   });
 });
 
+describe("[CONV-RUST-TDBIN] Option<scalar> presence + value slots", () => {
+  it("allocates a presence slot then a value slot per Option<scalar> ([TDBIN-PRIM-OPTION])", () => {
+    const code = codecFor(MEASUREMENT_TD);
+    // label (String) is the sole pointer; three Option<scalar> fill 6 data words.
+    expect(code).toMatch(/impl tdbin::Struct for Measurement \{\n    const DATA_WORDS: u16 = 6;\n    const PTR_WORDS: u16 = 1;/);
+    // Write: presence = is_some(), value = map_or(0, codec) so None writes zeros.
+    expect(code).toContain("w.scalar(at, 0, u64::from(self.count.is_some()))?;");
+    expect(code).toContain("w.scalar(at, 1, self.count.map_or(0, tdbin::scalar::i64_bits))?;");
+    expect(code).toContain("w.scalar(at, 2, u64::from(self.flagged.is_some()))?;");
+    expect(code).toContain("w.scalar(at, 3, self.flagged.map_or(0, tdbin::scalar::bool_bits))?;");
+    expect(code).toContain("w.scalar(at, 5, self.ratio.map_or(0, tdbin::scalar::f64_bits))?;");
+    // Read: the presence flag gates then_some over the decoded value.
+    expect(code).toContain("let count_present = r.scalar(at, 0)? != 0;");
+    expect(code).toContain("let count_value = tdbin::scalar::i64_from(r.scalar(at, 1)?);");
+    expect(code).toContain("let count = count_present.then_some(count_value);");
+    expect(code).toContain("let ratio = ratio_present.then_some(ratio_value);");
+  });
+});
+
 describe("[CONV-RUST-TDBIN] generateRustModule assembles a deny-all-clean module", () => {
   it("emits doc comments, derives, aliases, and the codec together", () => {
     const mod = unwrap(generateRustModule(modelFor(`alias Id = Int\ntype Tag {\n  label: String\n}`)));
@@ -120,6 +147,12 @@ describe("[CONV-RUST-TDBIN] generateRustModule assembles a deny-all-clean module
 describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)", () => {
   it("rejects an unsupported field type", () => {
     const r = emitRustCodec(modelFor(`type R {\n  items: List<Int>\n}`));
+    expect(r.ok).toBe(false);
+    expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type");
+  });
+
+  it("rejects an Option over an unsupported inner type", () => {
+    const r = emitRustCodec(modelFor(`type R {\n  x: Option<List<Int>>\n}`));
     expect(r.ok).toBe(false);
     expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type");
   });
@@ -148,19 +181,24 @@ describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)
   });
 });
 
-describe("[CONV-RUST-TDBIN] drift guard vs the committed crate fixture", () => {
-  it("generateRustModule reproduces crates/tdbin/tests/generated/mod.rs (modulo rustfmt)", () => {
-    const generated = unwrap(generateRustModule(modelFor(PERSON_TD)));
-    const committed = readFileSync(
-      fileURLToPath(new URL("../../../../crates/tdbin/tests/generated/mod.rs", import.meta.url)),
-      "utf8"
-    );
+describe("[CONV-RUST-TDBIN] drift guard vs the committed crate fixtures", () => {
+  // rustfmt only rewraps and adds trailing commas; compare token streams with
+  // whitespace and trailing commas normalized away.
+  const norm = (s: string): string => s.replace(/\s+/g, "").replace(/,(?=[)}\]])/g, "");
+  const expectReproduces = (td: string, relPath: string): void => {
+    const generated = unwrap(generateRustModule(modelFor(td)));
+    const committed = readFileSync(fileURLToPath(new URL(relPath, import.meta.url)), "utf8");
     const marker = committed.indexOf("// <<<GENERATED");
     expect(marker).toBeGreaterThan(-1);
     const body = committed.slice(committed.indexOf("\n", marker) + 1);
-    // rustfmt only rewraps and adds trailing commas; compare token streams with
-    // whitespace and trailing commas normalized away.
-    const norm = (s: string): string => s.replace(/\s+/g, "").replace(/,(?=[)}\]])/g, "");
     expect(norm(body)).toBe(norm(generated));
+  };
+
+  it("reproduces generated/mod.rs (Person fixture)", () => {
+    expectReproduces(PERSON_TD, "../../../../crates/tdbin/tests/generated/mod.rs");
+  });
+
+  it("reproduces generated_opt/mod.rs (Option<scalar> Measurement fixture)", () => {
+    expectReproduces(MEASUREMENT_TD, "../../../../crates/tdbin/tests/generated_opt/mod.rs");
   });
 });

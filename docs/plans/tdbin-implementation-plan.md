@@ -55,7 +55,7 @@ v0 wire subset (documented in-crate): one word per scalar (bool/int/float), Stri
 - [ ] Semantic scalars: `DateTime`/`Uuid`/`Decimal` byte layouts `[TDBIN-PRIM-MAP]`; full `Option` matrix incl. `Option<scalar>` presence bit `[TDBIN-PRIM-OPTION]`
 - [ ] `Option<empty-record>` must NOT alias the null pointer (review finding `empty-struct-null-collision`) — reserve a non-zero marker or forbid zero-size struct pointers
 - [ ] Cap'n-Proto word packing `[TDBIN-PACK-WORD]` `[TDBIN-PACK-RUNS]`, bounds-checked, output-capped
-- [ ] Framing `[TDBIN-MSG-FRAME]`: magic/version/flags/body_len; **decode must know framing/packed from the bytes** (review finding `decode-framing-packed-ambiguity`) — self-describing header, not a decode option
+- [x] Framing `[TDBIN-MSG-FRAME]`: magic/version/flags/body_len; **decode must know framing/packed from the bytes** (review finding `decode-framing-packed-ambiguity`) — self-describing header, not a decode option
 - [ ] Golden vectors `[TDBIN-TEST-GOLDEN]` byte-exact hex; extend round-trip/evil corpora with packed + framed variants
 
 ## Phase 3 — Evolution + safety hardening (resolve review BLOCKERS)

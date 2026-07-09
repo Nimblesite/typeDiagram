@@ -8,8 +8,12 @@
 
 /// The codegen-emitted ADT types and their TDBIN codec, under test.
 mod generated;
+/// The codegen-emitted `Option<scalar>` fixture (separate module so the framing
+/// and golden test binaries do not carry an unused type under `-D dead-code`).
+mod generated_opt;
 
 use generated::{Address, Contact, EmailContact, Person, PhoneContact};
+use generated_opt::Measurement;
 use tdbin::{DecodeError, TdBin};
 
 /// A boxed error alias so tests can use `?` without `unwrap`.
@@ -48,6 +52,26 @@ fn person_without_address() -> Person {
             number: 1912,
             country: 44,
         }),
+    }
+}
+
+/// A measurement with every `Option<scalar>` present.
+fn measurement_full() -> Measurement {
+    Measurement {
+        label: "temp".to_owned(),
+        count: Some(42),
+        flagged: Some(true),
+        ratio: Some(0.5),
+    }
+}
+
+/// A measurement with every `Option<scalar>` absent (`None` encodes as zeros).
+fn measurement_empty() -> Measurement {
+    Measurement {
+        label: "empty".to_owned(),
+        count: None,
+        flagged: None,
+        ratio: None,
     }
 }
 
@@ -138,4 +162,34 @@ fn adversarial_inputs_return_typed_errors() -> TestResult {
         Err(DecodeError::PointerOutOfBounds { .. } | DecodeError::InvalidUtf8) => Ok(()),
         other => Err(format!("expected a bounds error on truncation, got {other:?}").into()),
     }
+}
+
+/// [TDBIN-PRIM-OPTION] `Option<scalar>` presence flags round-trip: `Some` keeps
+/// the value, `None` decodes back to `None`, both directions stay byte-identical,
+/// and present/absent never collide on the wire.
+#[test]
+fn option_scalar_presence_round_trips() -> TestResult {
+    for measurement in [measurement_full(), measurement_empty()] {
+        let bytes = measurement.to_bytes()?;
+        let decoded = Measurement::from_bytes(&bytes)?;
+        assert_eq!(
+            decoded, measurement,
+            "Option<scalar> must round-trip exactly"
+        );
+        assert_eq!(
+            decoded.to_bytes()?,
+            bytes,
+            "re-encode must be byte-identical"
+        );
+    }
+    let empty = Measurement::from_bytes(&measurement_empty().to_bytes()?)?;
+    assert_eq!(empty.count, None, "absent Int decodes to None");
+    assert_eq!(empty.flagged, None, "absent Bool decodes to None");
+    assert_eq!(empty.ratio, None, "absent Float decodes to None");
+    assert_ne!(
+        measurement_full().to_bytes()?,
+        measurement_empty().to_bytes()?,
+        "present and absent must not collide"
+    );
+    Ok(())
 }
