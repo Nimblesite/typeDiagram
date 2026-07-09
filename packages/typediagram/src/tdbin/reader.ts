@@ -1,6 +1,14 @@
 import { ok, type Result } from "../result.js";
 import { tdbinErr } from "./error.js";
-import { ELEM_BIT, ELEM_BYTE, ELEM_COMPOSITE, ELEM_EIGHT_BYTES, ELEM_POINTER, decodePointer, targetWord } from "./pointer.js";
+import {
+  ELEM_BIT,
+  ELEM_BYTE,
+  ELEM_COMPOSITE,
+  ELEM_EIGHT_BYTES,
+  ELEM_POINTER,
+  decodePointer,
+  targetWord,
+} from "./pointer.js";
 import type { Pointer, Reader, StructCodec, TdbinError } from "./types.js";
 import { WORD_BITS, WORD_BYTES, readWord, utf8Decode } from "./word.js";
 
@@ -34,7 +42,12 @@ export const boolBit = (reader: Reader, at: number, slot: number, bit: number): 
     : tdbinErr<boolean>("LimitExceeded");
 };
 
-export const string = (reader: Reader, at: number, _dataWords: number, slot: number): Result<string | null, TdbinError> => {
+export const string = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number
+): Result<string | null, TdbinError> => {
   const raw = bytes(reader, at, _dataWords, slot);
   if (!raw.ok) {
     return raw;
@@ -45,16 +58,28 @@ export const string = (reader: Reader, at: number, _dataWords: number, slot: num
   return utf8Decode(raw.value);
 };
 
-export const bytes = (reader: Reader, at: number, _dataWords: number, slot: number): Result<Uint8Array | null, TdbinError> =>
-  readBytes(reader, at, slot);
+export const bytes = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number
+): Result<Uint8Array | null, TdbinError> => readBytes(reader, at, slot);
 
 export const byteList = bytes;
 
-export const boolList = (reader: Reader, at: number, _dataWords: number, slot: number): Result<boolean[] | null, TdbinError> =>
-  readList(reader, at, slot, ELEM_BIT, readBoolBody);
+export const boolList = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number
+): Result<boolean[] | null, TdbinError> => readList(reader, at, slot, ELEM_BIT, readBoolBody);
 
-export const wordList = (reader: Reader, at: number, _dataWords: number, slot: number): Result<bigint[] | null, TdbinError> =>
-  readList(reader, at, slot, ELEM_EIGHT_BYTES, readWordBody);
+export const wordList = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number
+): Result<bigint[] | null, TdbinError> => readList(reader, at, slot, ELEM_EIGHT_BYTES, readWordBody);
 
 export const bytes16List = (
   reader: Reader,
@@ -64,11 +89,19 @@ export const bytes16List = (
 ): Result<readonly (readonly [bigint, bigint])[] | null, TdbinError> =>
   readComposite(reader, at, slot, readBytes16Body);
 
-export const stringList = (reader: Reader, at: number, _dataWords: number, slot: number): Result<string[] | null, TdbinError> =>
-  readPointerList(reader, at, slot, readStringPointer);
+export const stringList = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number
+): Result<string[] | null, TdbinError> => readPointerList(reader, at, slot, readStringPointer);
 
-export const bytesList = (reader: Reader, at: number, _dataWords: number, slot: number): Result<Uint8Array[] | null, TdbinError> =>
-  readPointerList(reader, at, slot, readBytesPointer);
+export const bytesList = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number
+): Result<Uint8Array[] | null, TdbinError> => readPointerList(reader, at, slot, readBytesPointer);
 
 export const child = <T>(
   reader: Reader,
@@ -92,10 +125,14 @@ export const childList = <T>(
   _dataWords: number,
   slot: number,
   codec: StructCodec<T>
-): Result<T[] | null, TdbinError> =>
-  readComposite(reader, at, slot, (r, info) => readChildBody(r, info, codec));
+): Result<T[] | null, TdbinError> => readComposite(reader, at, slot, (r, info) => readChildBody(r, info, codec));
 
-const readRoot = <T>(codec: StructCodec<T>, source: Uint8Array, view: DataView, ptr: Pointer): Result<T, TdbinError> => {
+const readRoot = <T>(
+  codec: StructCodec<T>,
+  source: Uint8Array,
+  view: DataView,
+  ptr: Pointer
+): Result<T, TdbinError> => {
   if (ptr.kind !== "struct") {
     return ptr.kind === "null" ? tdbinErr<T>("NullRoot") : tdbinErr<T>("PointerKindMismatch");
   }
@@ -111,7 +148,13 @@ const readRoot = <T>(codec: StructCodec<T>, source: Uint8Array, view: DataView, 
   return codec.read(reader, at.value);
 };
 
-const createReader = (source: Uint8Array, view: DataView, dataWords: number, ptrWords: number, wordCount: number): Reader => ({
+const createReader = (
+  source: Uint8Array,
+  view: DataView,
+  dataWords: number,
+  ptrWords: number,
+  wordCount: number
+): Reader => ({
   bytes: source,
   view,
   dataWords,
@@ -169,7 +212,12 @@ const readPointerList = <T>(
     readPointerBody(r, ptrWord, offset, count, readOne)
   );
 
-const readChildPointer = <T>(reader: Reader, ptrWord: number, codec: StructCodec<T>, ptr: Pointer): Result<T | null, TdbinError> => {
+const readChildPointer = <T>(
+  reader: Reader,
+  ptrWord: number,
+  codec: StructCodec<T>,
+  ptr: Pointer
+): Result<T | null, TdbinError> => {
   if (ptr.kind === "null") {
     return ok(null);
   }
@@ -229,17 +277,29 @@ const descend = (reader: Reader, dataWords: number, ptrWords: number): Result<Re
   return ok({ ...reader, dataWords, ptrWords, depth: reader.depth - 1 });
 };
 
-const readListBytes = (reader: Reader, ptrWord: number, offset: number, count: number): Result<Uint8Array, TdbinError> => {
+const readListBytes = (
+  reader: Reader,
+  ptrWord: number,
+  offset: number,
+  count: number
+): Result<Uint8Array, TdbinError> => {
   const startWord = targetWord(ptrWord, offset);
   if (!startWord.ok) {
     return startWord;
   }
   const start = startWord.value * WORD_BYTES;
   const end = start + count;
-  return end <= reader.bytes.length ? ok(reader.bytes.slice(start, end)) : tdbinErr("PointerOutOfBounds", { wordIndex: ptrWord });
+  return end <= reader.bytes.length
+    ? ok(reader.bytes.slice(start, end))
+    : tdbinErr("PointerOutOfBounds", { wordIndex: ptrWord });
 };
 
-const readBoolBody = (reader: Reader, ptrWord: number, offset: number, count: number): Result<boolean[], TdbinError> => {
+const readBoolBody = (
+  reader: Reader,
+  ptrWord: number,
+  offset: number,
+  count: number
+): Result<boolean[], TdbinError> => {
   const start = targetWord(ptrWord, offset);
   if (!start.ok) {
     return start;
@@ -285,7 +345,10 @@ const readBytesPointer = (reader: Reader, ptrWord: number): Result<Uint8Array, T
   return raw.ok ? ok(raw.value ?? new Uint8Array()) : raw;
 };
 
-const readBytes16Body = (reader: Reader, info: CompositeList): Result<readonly (readonly [bigint, bigint])[], TdbinError> => {
+const readBytes16Body = (
+  reader: Reader,
+  info: CompositeList
+): Result<readonly (readonly [bigint, bigint])[], TdbinError> => {
   if (info.dataWords !== 2 || info.ptrWords !== 0) {
     return tdbinErr<readonly (readonly [bigint, bigint])[]>("PointerKindMismatch");
   }
@@ -337,7 +400,12 @@ const compositeInfo = (
   return bounds.ok ? ok({ first: tagAt + 1, count, dataWords, ptrWords, stride }) : bounds;
 };
 
-const readInlineStruct = <T>(reader: Reader, at: number, info: CompositeList, codec: StructCodec<T>): Result<T, TdbinError> => {
+const readInlineStruct = <T>(
+  reader: Reader,
+  at: number,
+  info: CompositeList,
+  codec: StructCodec<T>
+): Result<T, TdbinError> => {
   const bounds = requireStructBounds(reader.bytes, at, info.dataWords, info.ptrWords);
   if (!bounds.ok) {
     return bounds;
@@ -382,21 +450,24 @@ const readBytes16Items = (
   reader: Reader,
   info: CompositeList
 ): Result<readonly (readonly [bigint, bigint])[], TdbinError> =>
-  Array.from({ length: info.count }).reduce<Result<readonly (readonly [bigint, bigint])[], TdbinError>>((state, _value, index) => {
-    if (!state.ok) {
-      return state;
-    }
-    const at = elemAt(info, index);
-    if (!at.ok) {
-      return at;
-    }
-    const first = readWord(reader.bytes, reader.view, at.value);
-    if (!first.ok) {
-      return first;
-    }
-    const second = readWord(reader.bytes, reader.view, at.value + 1);
-    return second.ok ? ok([...state.value, [first.value, second.value]]) : second;
-  }, ok([]));
+  Array.from({ length: info.count }).reduce<Result<readonly (readonly [bigint, bigint])[], TdbinError>>(
+    (state, _value, index) => {
+      if (!state.ok) {
+        return state;
+      }
+      const at = elemAt(info, index);
+      if (!at.ok) {
+        return at;
+      }
+      const first = readWord(reader.bytes, reader.view, at.value);
+      if (!first.ok) {
+        return first;
+      }
+      const second = readWord(reader.bytes, reader.view, at.value + 1);
+      return second.ok ? ok([...state.value, [first.value, second.value]]) : second;
+    },
+    ok([])
+  );
 
 const elemAt = (info: CompositeList, index: number): Result<number, TdbinError> => ok(info.first + info.stride * index);
 
@@ -404,4 +475,6 @@ const requireStructBounds = (source: Uint8Array, at: number, dataWords: number, 
   requireWordRange(source, at, dataWords + ptrWords);
 
 const requireWordRange = (source: Uint8Array, at: number, words: number): Result<void, TdbinError> =>
-  at >= 0 && at + words <= source.length / WORD_BYTES ? ok(undefined) : tdbinErr("PointerOutOfBounds", { wordIndex: at });
+  at >= 0 && at + words <= source.length / WORD_BYTES
+    ? ok(undefined)
+    : tdbinErr("PointerOutOfBounds", { wordIndex: at });

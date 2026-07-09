@@ -1,6 +1,15 @@
 import { ok, type Result } from "../result.js";
 import { tdbinErr } from "./error.js";
-import { ELEM_BIT, ELEM_BYTE, ELEM_COMPOSITE, ELEM_EIGHT_BYTES, ELEM_POINTER, encodeList, encodeStruct, relOffset } from "./pointer.js";
+import {
+  ELEM_BIT,
+  ELEM_BYTE,
+  ELEM_COMPOSITE,
+  ELEM_EIGHT_BYTES,
+  ELEM_POINTER,
+  encodeList,
+  encodeStruct,
+  relOffset,
+} from "./pointer.js";
 import type { StructCodec, TdbinError, Writer } from "./types.js";
 import { WORD_BITS, WORD_BYTES, utf8Encode, wordsToBytes } from "./word.js";
 
@@ -55,7 +64,13 @@ export const bytes = (
   return value === null ? setWord(writer, ptrWord, 0n) : writeByteList(writer, ptrWord, value);
 };
 
-export const boolList = (writer: Writer, at: number, dataWords: number, slot: number, values: readonly boolean[] | null) => {
+export const boolList = (
+  writer: Writer,
+  at: number,
+  dataWords: number,
+  slot: number,
+  values: readonly boolean[] | null
+) => {
   const ptrWord = ptrIndex(at, dataWords, slot);
   return values === null ? setWord(writer, ptrWord, 0n) : writeBoolList(writer, ptrWord, values);
 };
@@ -84,7 +99,13 @@ export const bytes16List = (
   return values === null ? setWord(writer, ptrWord, 0n) : writeBytes16List(writer, ptrWord, values);
 };
 
-export const stringList = (writer: Writer, at: number, dataWords: number, slot: number, values: readonly string[] | null) => {
+export const stringList = (
+  writer: Writer,
+  at: number,
+  dataWords: number,
+  slot: number,
+  values: readonly string[] | null
+) => {
   const ptrWord = ptrIndex(at, dataWords, slot);
   return values === null ? setWord(writer, ptrWord, 0n) : writePointerList(writer, ptrWord, values, writeStringPointer);
 };
@@ -206,7 +227,8 @@ const writeChild = <T>(writer: Writer, ptrWord: number, codec: StructCodec<T>, v
 const writeChildList = <T>(writer: Writer, ptrWord: number, codec: StructCodec<T>, values: readonly T[]) => {
   const stride = codec.dataWords + codec.ptrWords;
   const elemWords = stride * values.length;
-  const start = stride === 0 && values.length !== 0 ? tdbinErr<number>("LimitExceeded") : reserve(writer, elemWords + 1);
+  const start =
+    stride === 0 && values.length !== 0 ? tdbinErr<number>("LimitExceeded") : reserve(writer, elemWords + 1);
   const tag = start.ok ? writeCompositeTag(writer, start.value, values.length, codec.dataWords, codec.ptrWords) : start;
   const items = start.ok && tag.ok ? writeCompositeItems(writer, start.value, stride, codec, values) : tag;
   return start.ok && items.ok ? setListPtr(writer, ptrWord, start.value, ELEM_COMPOSITE, elemWords) : items;
@@ -252,10 +274,7 @@ const packBytes = (writer: Writer, start: number, data: Uint8Array) => {
     const word = new Uint8Array(WORD_BYTES);
     word.set(chunk);
     const view = new DataView(word.buffer);
-    const result = setWord(writer, start + offset / WORD_BYTES, view.getBigUint64(0, true));
-    if (!result.ok) {
-      return result;
-    }
+    writer.body[start + offset / WORD_BYTES] = view.getBigUint64(0, true);
   }
   return ok(undefined);
 };
@@ -284,6 +303,7 @@ const writeEachPointer = <T>(
     ok(undefined)
   );
 
-const writeStringPointer = (writer: Writer, ptrWord: number, value: string) => writeByteList(writer, ptrWord, utf8Encode(value));
+const writeStringPointer = (writer: Writer, ptrWord: number, value: string) =>
+  writeByteList(writer, ptrWord, utf8Encode(value));
 
 const writeBytesPointer = (writer: Writer, ptrWord: number, value: Uint8Array) => writeByteList(writer, ptrWord, value);

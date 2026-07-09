@@ -33,7 +33,10 @@ export const encodeFrame = (body: Uint8Array, options: FrameOptions = {}): Resul
   return ok(out);
 };
 
-export const encodePackedFrame = (body: Uint8Array, schemaHash: bigint | null = null): Result<Uint8Array, TdbinError> => {
+export const encodePackedFrame = (
+  body: Uint8Array,
+  schemaHash: bigint | null = null
+): Result<Uint8Array, TdbinError> => {
   const packed = encodePacked(body);
   return packed.ok ? encodeFrame(packed.value, { packed: true, schemaHash }) : packed;
 };
@@ -56,7 +59,8 @@ export const looksFramed = (bytes: Uint8Array): boolean =>
   bytes.length >= MAGIC.length && MAGIC.every((byte, offset) => bytes[offset] === byte);
 
 const optionFlags = (options: FrameOptions): number =>
-  (options.packed === true ? FLAG_PACKED : 0) | (options.schemaHash === undefined || options.schemaHash === null ? 0 : FLAG_HASH);
+  (options.packed === true ? FLAG_PACKED : 0) |
+  (options.schemaHash === undefined || options.schemaHash === null ? 0 : FLAG_HASH);
 
 const decodeFrameBody = (
   bytes: Uint8Array,

@@ -94,11 +94,7 @@ const pointerField = (
         ? { kind: "child", slot, optional, typeName: t.resolution.kind === "declared" ? t.resolution.declName : t.name }
         : null;
 
-const classifyField = (
-  decls: readonly ResolvedDecl[],
-  t: ResolvedTypeRef,
-  cursor: LayoutCursor
-): FieldPlan | null => {
+const classifyField = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef, cursor: LayoutCursor): FieldPlan | null => {
   if (isPrim(t, "Bool")) {
     return allocateBool(cursor);
   }
@@ -136,7 +132,8 @@ const classifyVariant = (variant: ResolvedVariant): Result<VariantPlan, Diagnost
   if (variant.fields.length === 0) {
     return ok(null);
   }
-  const single = variant.fields.length === 1 && isTupleVariantFields(variant.fields) ? variant.fields[0]?.type : undefined;
+  const single =
+    variant.fields.length === 1 && isTupleVariantFields(variant.fields) ? variant.fields[0]?.type : undefined;
   if (single === undefined) {
     return err(diag(`tdbin-ts: variant '${variant.name}' must be bare or a single tuple field in v0`));
   }
@@ -169,9 +166,13 @@ const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[]
         `    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.slot)}, ${field}Bits.value);`,
       ];
     case "float":
-      return [`    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.slot)}, tdbin.scalar.f64Bits(${value}));`];
+      return [
+        `    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.slot)}, tdbin.scalar.f64Bits(${value}));`,
+      ];
     case "bool":
-      return [`    const ${field} = tdbin.writer.boolBit(writer, at, ${tsNum(plan.slot)}, ${tsNum(plan.bit)}, ${value});`];
+      return [
+        `    const ${field} = tdbin.writer.boolBit(writer, at, ${tsNum(plan.slot)}, ${tsNum(plan.bit)}, ${value});`,
+      ];
     case "string":
       return [
         `    const ${field} = tdbin.writer.string(writer, at, ${codec}.dataWords, ${tsNum(plan.slot)}, ${plan.optional ? `${value} ?? null` : value});`,
@@ -200,11 +201,14 @@ const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] 
     case "bytes":
       return [`    const ${field} = tdbin.reader.bytes(reader, at, ${codec}.dataWords, ${tsNum(plan.slot)});`];
     case "child":
-      return [`    const ${field} = tdbin.reader.child(reader, at, ${codec}.dataWords, ${tsNum(plan.slot)}, ${plan.typeName}Codec);`];
+      return [
+        `    const ${field} = tdbin.reader.child(reader, at, ${codec}.dataWords, ${tsNum(plan.slot)}, ${plan.typeName}Codec);`,
+      ];
   }
 };
 
-const fieldResultName = (field: string, plan: FieldPlan): string => (plan.kind === "int" || plan.kind === "float" ? `${field}Word` : field);
+const fieldResultName = (field: string, plan: FieldPlan): string =>
+  plan.kind === "int" || plan.kind === "float" ? `${field}Word` : field;
 
 const fieldValue = (field: string, plan: FieldPlan): string => {
   const result = fieldResultName(field, plan);
@@ -295,7 +299,11 @@ const emitUnionCodec = (union: ResolvedUnion, plan: UnionPlan): string =>
     `    const ordinal = tdbin.reader.scalar(reader, at, 0);`,
     `    if (!ordinal.ok) return ordinal;`,
     `    switch (ordinal.value) {`,
-    ...plan.variants.flatMap((variant) => [`      case ${tsNum(variant.ordinal)}n: {`, ...readVariantPayload(union.name, variant), `      }`]),
+    ...plan.variants.flatMap((variant) => [
+      `      case ${tsNum(variant.ordinal)}n: {`,
+      ...readVariantPayload(union.name, variant),
+      `      }`,
+    ]),
     `      default: return tdbin.readerError("UnknownVariant", { ordinal: ordinal.value });`,
     `    }`,
     `  },`,

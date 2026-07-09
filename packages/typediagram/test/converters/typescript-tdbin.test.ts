@@ -44,7 +44,9 @@ describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
     expect(code).toContain("tdbin.writer.string(writer, at, PersonCodec.dataWords, 0, value.name)");
     expect(code).toContain("const ageBits = tdbin.scalar.i64Bits(value.age);");
     expect(code).toContain("tdbin.writer.boolBit(writer, at, 1, 0, value.active)");
-    expect(code).toContain("tdbin.writer.child(writer, at, PersonCodec.dataWords, 1, AddressCodec, value.address ?? null)");
+    expect(code).toContain(
+      "tdbin.writer.child(writer, at, PersonCodec.dataWords, 1, AddressCodec, value.address ?? null)"
+    );
     expect(code).toContain("const scoreWord = tdbin.reader.scalar(reader, at, 2);");
     expect(code).toContain("age: tdbin.scalar.i64From(ageWord.value)");
     expect(code).toContain("address: address.value ?? undefined");

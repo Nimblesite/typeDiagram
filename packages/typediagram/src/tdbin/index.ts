@@ -14,7 +14,8 @@ export * as scalar from "./word.js";
 export * as writer from "./writer.js";
 export const readerError = tdbinErr;
 
-export const encode = <T>(codec: StructCodec<T>, value: T): Result<Uint8Array, TdbinError> => writeMessage(codec, value);
+export const encode = <T>(codec: StructCodec<T>, value: T): Result<Uint8Array, TdbinError> =>
+  writeMessage(codec, value);
 
 export const decode = <T>(codec: StructCodec<T>, bytes: Uint8Array): Result<T, TdbinError> => readMessage(codec, bytes);
 

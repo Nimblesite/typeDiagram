@@ -78,11 +78,12 @@ const decodeNonNull = (word: bigint, offset: number): Result<Pointer, TdbinError
 
 export const targetWord = (ptrWord: number, offset: number): Result<number, TdbinError> => {
   const target = ptrWord + 1 + offset;
-  return Number.isSafeInteger(target) && target >= 0 ? ok(target) : tdbinErr("PointerOutOfBounds", { wordIndex: ptrWord });
+  return Number.isSafeInteger(target) && target >= 0
+    ? ok(target)
+    : tdbinErr("PointerOutOfBounds", { wordIndex: ptrWord });
 };
 
 export const relOffset = (target: number, ptrWord: number): Result<number, TdbinError> => {
   const offset = target - (ptrWord + 1);
   return Number.isSafeInteger(offset) ? ok(offset) : tdbinErr("LimitExceeded");
 };
-

@@ -71,4 +71,3 @@ export interface FrameMessage {
   readonly packed: boolean;
   readonly schemaHash: bigint | null;
 }
-

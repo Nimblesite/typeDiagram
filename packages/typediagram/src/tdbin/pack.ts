@@ -16,11 +16,7 @@ export const encodePacked = (body: Uint8Array): Result<Uint8Array, TdbinError> =
   const out: number[] = [];
   let offset = 0;
   while (offset < body.length) {
-    const encoded = encodeWord(body, offset, out);
-    if (!encoded.ok) {
-      return encoded;
-    }
-    offset = encoded.value;
+    offset = encodeWord(body, offset, out);
   }
   return ok(Uint8Array.from(out));
 };
@@ -39,7 +35,7 @@ export const decodePacked = (packed: Uint8Array): Result<Uint8Array, TdbinError>
   return ok(Uint8Array.from(out));
 };
 
-const encodeWord = (body: Uint8Array, offset: number, out: number[]): Result<number, TdbinError> => {
+const encodeWord = (body: Uint8Array, offset: number, out: number[]): number => {
   const word = body.slice(offset, offset + WORD_BYTES);
   const tag = tagWord(word);
   return tag === ZERO_RUN_TAG
@@ -49,24 +45,24 @@ const encodeWord = (body: Uint8Array, offset: number, out: number[]): Result<num
       : encodeSparseWord(offset, word, tag, out);
 };
 
-const encodeZeroRun = (body: Uint8Array, offset: number, out: number[]): Result<number, TdbinError> => {
+const encodeZeroRun = (body: Uint8Array, offset: number, out: number[]): number => {
   const extra = countMatchingExtras(body, offset + WORD_BYTES, isZeroWord);
   out.push(ZERO_RUN_TAG, extra);
-  return ok(offset + (extra + 1) * WORD_BYTES);
+  return offset + (extra + 1) * WORD_BYTES;
 };
 
-const encodeDenseRun = (body: Uint8Array, offset: number, word: Uint8Array, out: number[]): Result<number, TdbinError> => {
+const encodeDenseRun = (body: Uint8Array, offset: number, word: Uint8Array, out: number[]): number => {
   const extra = countMatchingExtras(body, offset + WORD_BYTES, isDenseWord);
   out.push(DENSE_RUN_TAG, ...word, extra);
   const start = offset + WORD_BYTES;
   out.push(...body.slice(start, start + extra * WORD_BYTES));
-  return ok(start + extra * WORD_BYTES);
+  return start + extra * WORD_BYTES;
 };
 
-const encodeSparseWord = (offset: number, word: Uint8Array, tag: number, out: number[]): Result<number, TdbinError> => {
+const encodeSparseWord = (offset: number, word: Uint8Array, tag: number, out: number[]): number => {
   out.push(tag);
   word.forEach((byte) => (byte === 0 ? undefined : out.push(byte)));
-  return ok(offset + WORD_BYTES);
+  return offset + WORD_BYTES;
 };
 
 const decodeTag = (tag: number, packed: Uint8Array, cursor: number, out: number[]): Result<number, TdbinError> =>
@@ -99,7 +95,12 @@ const decodeDenseRun = (packed: Uint8Array, cursor: number, out: number[]): Resu
     : tdbinErr("PackedTruncated");
 };
 
-const decodeSparseWord = (tag: number, packed: Uint8Array, cursor: number, out: number[]): Result<number, TdbinError> => {
+const decodeSparseWord = (
+  tag: number,
+  packed: Uint8Array,
+  cursor: number,
+  out: number[]
+): Result<number, TdbinError> => {
   const word = new Uint8Array(WORD_BYTES);
   let next = cursor;
   for (let offset = 0; offset < WORD_BYTES; offset += 1) {

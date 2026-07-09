@@ -31,4 +31,3 @@ export const tdbinErr = <T>(
   code: TdbinErrorCode,
   details: Omit<TdbinError, "code" | "message"> = {}
 ): Result<T, TdbinError> => err(tdbinError(code, details));
-

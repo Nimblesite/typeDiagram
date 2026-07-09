@@ -17,7 +17,8 @@ interface PhoneContact {
   readonly country: number;
 }
 
-type Contact = { readonly kind: "Email"; readonly _0: EmailContact } | { readonly kind: "Phone"; readonly _0: PhoneContact };
+type Contact =
+  { readonly kind: "Email"; readonly _0: EmailContact } | { readonly kind: "Phone"; readonly _0: PhoneContact };
 
 interface Person {
   readonly name: string;
@@ -47,7 +48,11 @@ const AddressCodec: StructCodec<Address> = {
   read: (reader, at) => {
     const street = readRequired(tdbin.reader.string(reader, at, AddressCodec.dataWords, 0));
     const zip = street.ok ? tdbin.reader.scalar(reader, at, 0) : street;
-    return street.ok && zip.ok ? ok({ street: street.value, zip: tdbin.scalar.i64From(zip.value) }) : street.ok ? zip : street;
+    return street.ok && zip.ok
+      ? ok({ street: street.value, zip: tdbin.scalar.i64From(zip.value) })
+      : street.ok
+        ? zip
+        : street;
   },
 };
 
@@ -100,9 +105,15 @@ const PersonCodec: StructCodec<Person> = {
     const age = name.ok ? writeInt(writer, at, 0, value.age) : name;
     const active = age.ok ? tdbin.writer.boolBit(writer, at, 1, 0, value.active) : age;
     const score = active.ok ? tdbin.writer.scalar(writer, at, 2, tdbin.scalar.f64Bits(value.score)) : active;
-    const address = score.ok ? tdbin.writer.child(writer, at, PersonCodec.dataWords, 1, AddressCodec, value.address ?? null) : score;
-    const nickname = address.ok ? tdbin.writer.string(writer, at, PersonCodec.dataWords, 2, value.nickname ?? null) : address;
-    return nickname.ok ? tdbin.writer.child(writer, at, PersonCodec.dataWords, 3, ContactCodec, value.contact) : nickname;
+    const address = score.ok
+      ? tdbin.writer.child(writer, at, PersonCodec.dataWords, 1, AddressCodec, value.address ?? null)
+      : score;
+    const nickname = address.ok
+      ? tdbin.writer.string(writer, at, PersonCodec.dataWords, 2, value.nickname ?? null)
+      : address;
+    return nickname.ok
+      ? tdbin.writer.child(writer, at, PersonCodec.dataWords, 3, ContactCodec, value.contact)
+      : nickname;
   },
   read: (reader, at) => {
     const name = readRequired(tdbin.reader.string(reader, at, PersonCodec.dataWords, 0));
@@ -111,9 +122,21 @@ const PersonCodec: StructCodec<Person> = {
     const score = active.ok ? tdbin.reader.scalar(reader, at, 2) : active;
     const address = score.ok ? tdbin.reader.child(reader, at, PersonCodec.dataWords, 1, AddressCodec) : score;
     const nickname = address.ok ? tdbin.reader.string(reader, at, PersonCodec.dataWords, 2) : address;
-    const contact = nickname.ok ? readRequired(tdbin.reader.child(reader, at, PersonCodec.dataWords, 3, ContactCodec)) : nickname;
+    const contact = nickname.ok
+      ? readRequired(tdbin.reader.child(reader, at, PersonCodec.dataWords, 3, ContactCodec))
+      : nickname;
     return name.ok && age.ok && active.ok && score.ok && address.ok && nickname.ok && contact.ok
-      ? ok(personFromParts(name.value, age.value, active.value, score.value, address.value, nickname.value, contact.value))
+      ? ok(
+          personFromParts(
+            name.value,
+            age.value,
+            active.value,
+            score.value,
+            address.value,
+            nickname.value,
+            contact.value
+          )
+        )
       : contact.ok
         ? readError()
         : contact;
