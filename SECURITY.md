@@ -9,7 +9,7 @@ discussions, or pull requests.**
 
 Report privately through GitHub's **private vulnerability reporting**: go to the
 repository's **Security** tab → **Report a vulnerability** (or
-`https://github.com/MelbourneDeveloper/type_diagram/security/advisories/new`). This opens a
+`https://github.com/Nimblesite/typeDiagram/security/advisories/new`). This opens a
 private, structured advisory only the maintainers can see.
 
 If you cannot use that channel, email **cftools@nimblesite.co**.

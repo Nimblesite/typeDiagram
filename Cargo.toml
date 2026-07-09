@@ -19,7 +19,7 @@ members = ["crates/*"]
 [workspace.package]
 edition = "2021"
 license = "MIT"
-repository = "https://github.com/MelbourneDeveloper/type_diagram"
+repository = "https://github.com/Nimblesite/typeDiagram"
 
 [workspace.lints.rust]
 unsafe_code = "deny"
