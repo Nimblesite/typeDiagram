@@ -6,6 +6,7 @@ import {
   isTupleVariantFields,
   type Model,
   type ResolvedDecl,
+  type ResolvedField,
   type ResolvedTypeRef,
   type ResolvedVariant,
   visibleDeclsForTarget,
@@ -277,28 +278,39 @@ export const mapTdToRs = (t: ResolvedTypeRef): string => {
   return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToRs).join(", ")}>`;
 };
 
-const emitRustVariant = (v: ResolvedVariant): string =>
-  v.fields.length === 0
-    ? `    ${formatVariantName(v.name, v.discriminant)},`
-    : isTupleVariantFields(v.fields)
-      ? `    ${v.name}(${v.fields.map((f) => mapTdToRs(f.type)).join(", ")}),`
-      : `    ${v.name} { ${v.fields.map((f) => `${f.name}: ${mapTdToRs(f.type)}`).join(", ")} },`;
+/** A one-line Rust doc comment for a generated item ([CONV-RUST-DECL]). Emitted
+ *  only when `docs` is requested so generated code satisfies `missing_docs`. */
+const rustDoc = (indent: string, name: string, kind: string): string => `${indent}/// The \`${name}\` ${kind}.`;
+
+const emitRustVariant = (v: ResolvedVariant, docs: boolean): string => {
+  const body =
+    v.fields.length === 0
+      ? `    ${formatVariantName(v.name, v.discriminant)},`
+      : isTupleVariantFields(v.fields)
+        ? `    ${v.name}(${v.fields.map((f) => mapTdToRs(f.type)).join(", ")}),`
+        : `    ${v.name} { ${v.fields.map((f) => `${f.name}: ${mapTdToRs(f.type)}`).join(", ")} },`;
+  return docs ? `${rustDoc("    ", v.name, "variant")}\n${body}` : body;
+};
 
 /** [CONV-RUST-DECL] Emit one Rust type declaration (no derives). Shared by the
- *  type converter and the TDBIN codec generator so neither duplicates it. */
-export const emitRustDecl = (d: ResolvedDecl): string[] => {
+ *  type converter and the TDBIN codec generator so neither duplicates it. With
+ *  `docs`, prepends `///` comments so the output is `missing_docs`-clean. */
+export const emitRustDecl = (d: ResolvedDecl, docs = false): string[] => {
   const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
+  const lead = docs ? [rustDoc("", d.name, d.kind)] : [];
+  const field = (f: ResolvedField): string =>
+    docs ? `${rustDoc("    ", f.name, "field")}\n    pub ${f.name}: ${mapTdToRs(f.type)},` : `    pub ${f.name}: ${mapTdToRs(f.type)},`;
   if (d.kind === "record") {
-    return [`pub struct ${d.name}${genericsStr} {`, ...d.fields.map((f) => `    pub ${f.name}: ${mapTdToRs(f.type)},`), "}", ""];
+    return [...lead, `pub struct ${d.name}${genericsStr} {`, ...d.fields.map(field), "}", ""];
   }
   if (d.kind === "union") {
     const header = d.untagged === true ? ["#[serde(untagged)]"] : [];
-    return [...header, `pub enum ${d.name}${genericsStr} {`, ...d.variants.map(emitRustVariant), "}", ""];
+    return [...lead, ...header, `pub enum ${d.name}${genericsStr} {`, ...d.variants.map((v) => emitRustVariant(v, docs)), "}", ""];
   }
-  return [`pub type ${d.name}${genericsStr} = ${mapTdToRs(d.target)};`, ""];
+  return [...lead, `pub type ${d.name}${genericsStr} = ${mapTdToRs(d.target)};`, ""];
 };
 
-const toRust = (model: Model): string => visibleDeclsForTarget(model.decls, "rust").flatMap(emitRustDecl).join("\n");
+const toRust = (model: Model): string => visibleDeclsForTarget(model.decls, "rust").flatMap((d) => emitRustDecl(d)).join("\n");
 
 export const rust: Converter = {
   language: "rust",

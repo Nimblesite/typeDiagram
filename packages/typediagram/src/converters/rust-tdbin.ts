@@ -8,6 +8,7 @@ import type { Diagnostic } from "../parser/diagnostics.js";
 import {
   isTupleVariantFields,
   type Model,
+  type ResolvedDecl,
   type ResolvedField,
   type ResolvedRecord,
   type ResolvedTypeRef,
@@ -97,7 +98,7 @@ const classifyVariant = (v: ResolvedVariant): Result<VariantPlan, Diagnostic[]> 
   if (v.fields.length === 0) {
     return ok(null);
   }
-  const single = v.fields.length === 1 && isTupleVariantFields(v.fields) ? v.fields[0].type : undefined;
+  const single = v.fields.length === 1 && isTupleVariantFields(v.fields) ? v.fields[0]?.type : undefined;
   if (single === undefined) {
     return err(diag(`tdbin: variant '${v.name}' must be bare or a single tuple field in v0`));
   }
@@ -110,12 +111,12 @@ const classifyVariant = (v: ResolvedVariant): Result<VariantPlan, Diagnostic[]> 
 
 const classifyUnion = (u: ResolvedUnion): Result<UnionPlan, Diagnostic[]> => {
   const variants: UnionPlan["variants"] = [];
-  for (let i = 0; i < u.variants.length; i++) {
-    const payload = classifyVariant(u.variants[i]);
+  for (const [ordinal, v] of u.variants.entries()) {
+    const payload = classifyVariant(v);
     if (!payload.ok) {
       return payload;
     }
-    variants.push({ name: u.variants[i].name, ordinal: i, payload: payload.value });
+    variants.push({ name: v.name, ordinal, payload: payload.value });
   }
   const ptrWords = variants.some((v) => v.payload !== null) ? 1 : 0;
   return ok({ ptrWords, variants });
@@ -137,17 +138,20 @@ const writeField = (name: string, p: FieldPlan): string => {
   }
 };
 
+/** Tail after a `Result<Option<_>, _>` reader: keep the `Option` when the field
+ *  is optional, else unwrap it or fail with `UnexpectedNull`. */
+const optTail = (optional: boolean): string => (optional ? "?" : "?.ok_or(tdbin::DecodeError::UnexpectedNull)?");
+
 const readField = (name: string, p: FieldPlan): string => {
-  const nn = "?.ok_or(tdbin::DecodeError::UnexpectedNull)?";
   switch (p.kind) {
     case "scalar":
       return `        let ${name} = tdbin::scalar::${p.from}(r.scalar(at, ${p.slot})?);`;
     case "string":
-      return `        let ${name} = r.string(at, Self::DATA_WORDS, ${p.slot})?${p.optional ? "" : nn};`;
+      return `        let ${name} = r.string(at, Self::DATA_WORDS, ${p.slot})${optTail(p.optional)};`;
     case "bytes":
-      return `        let ${name} = r.bytes(at, Self::DATA_WORDS, ${p.slot})?${p.optional ? "" : nn};`;
+      return `        let ${name} = r.bytes(at, Self::DATA_WORDS, ${p.slot})${optTail(p.optional)};`;
     case "child":
-      return `        let ${name} = r.child::<${p.rustType}>(at, Self::DATA_WORDS, ${p.slot})?${p.optional ? "" : nn};`;
+      return `        let ${name} = r.child::<${p.rustType}>(at, Self::DATA_WORDS, ${p.slot})${optTail(p.optional)};`;
   }
 };
 
@@ -169,8 +173,10 @@ const emitRecordCodec = (rec: ResolvedRecord, plan: RecordPlan): string =>
     `}`,
   ].join("\n");
 
-const writeVariantArm = (union: string, v: UnionPlan["variants"][number]): string => {
-  const head = `            ${union}::${v.name}`;
+// Variants are constructed inside `impl tdbin::Struct for <union>`, so they are
+// spelled `Self::Variant` (clippy `use_self`, denied under pedantic).
+const writeVariantArm = (v: UnionPlan["variants"][number]): string => {
+  const head = `            Self::${v.name}`;
   if (v.payload === null) {
     return `${head} => {\n                w.scalar(at, 0, ${v.ordinal})?;\n                Ok(())\n            }`;
   }
@@ -178,13 +184,13 @@ const writeVariantArm = (union: string, v: UnionPlan["variants"][number]): strin
   return `${head}(payload) => {\n                w.scalar(at, 0, ${v.ordinal})?;\n                ${call}\n            }`;
 };
 
-const readVariantArm = (union: string, v: UnionPlan["variants"][number]): string => {
+const readVariantArm = (v: UnionPlan["variants"][number]): string => {
   const nn = "?.ok_or(tdbin::DecodeError::UnexpectedNull)?";
   if (v.payload === null) {
-    return `            ${v.ordinal} => Ok(${union}::${v.name}),`;
+    return `            ${v.ordinal} => Ok(Self::${v.name}),`;
   }
   const read = v.payload.kind === "child" ? `r.child::<${v.payload.rustType}>(at, Self::DATA_WORDS, 0)${nn}` : `r.string(at, Self::DATA_WORDS, 0)${nn}`;
-  return `            ${v.ordinal} => Ok(${union}::${v.name}(${read})),`;
+  return `            ${v.ordinal} => Ok(Self::${v.name}(${read})),`;
 };
 
 const emitUnionCodec = (u: ResolvedUnion, plan: UnionPlan): string =>
@@ -195,13 +201,13 @@ const emitUnionCodec = (u: ResolvedUnion, plan: UnionPlan): string =>
     ``,
     `    fn write_struct(&self, w: &mut tdbin::Writer, at: usize) -> Result<(), tdbin::EncodeError> {`,
     `        match self {`,
-    ...plan.variants.map((v) => writeVariantArm(u.name, v)),
+    ...plan.variants.map(writeVariantArm),
     `        }`,
     `    }`,
     ``,
     `    fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {`,
     `        match r.scalar(at, 0)? {`,
-    ...plan.variants.map((v) => readVariantArm(u.name, v)),
+    ...plan.variants.map(readVariantArm),
     `            ordinal => Err(tdbin::DecodeError::UnknownVariant { ordinal }),`,
     `        }`,
     `    }`,
@@ -233,18 +239,24 @@ export const emitRustCodec = (model: Model): Result<string, Diagnostic[]> => {
   return ok(blocks.join("\n\n"));
 };
 
-const deriveFor = (d: { kind: string }): string => (d.kind === "alias" ? "" : "#[derive(Debug, Clone, PartialEq)]\n");
+const deriveFor = (d: ResolvedDecl): string => (d.kind === "alias" ? "" : "#[derive(Debug, Clone, PartialEq)]\n");
+
+/** Emit one ADT type with its doc comment first, then the derive, then the body
+ *  (from the shared Rust converter) — the order rustc/clippy expect. */
+const emitTypeWithDocs = (d: ResolvedDecl): string => {
+  const [doc, ...rest] = emitRustDecl(d, true);
+  return `${doc ?? ""}\n${deriveFor(d)}${rest.join("\n")}`;
+};
 
 /** Emit a self-contained Rust module: derived ADT types (from the existing
- *  Rust converter) plus their TDBIN codec. Everything the crate needs to
- *  round-trip a typeDiagram model, generated end to end. */
+ *  Rust converter) plus their TDBIN codec — deny-all-clean (doc comments,
+ *  derives). Everything the crate needs to round-trip a typeDiagram model,
+ *  generated end to end. */
 export const generateRustModule = (model: Model): Result<string, Diagnostic[]> => {
   const codec = emitRustCodec(model);
   if (!codec.ok) {
     return codec;
   }
-  const types = visibleDeclsForTarget(model.decls, "rust")
-    .map((d) => `${deriveFor(d)}${emitRustDecl(d).join("\n")}`)
-    .join("\n");
+  const types = visibleDeclsForTarget(model.decls, "rust").map(emitTypeWithDocs).join("\n");
   return ok(`${types}\n${codec.value}\n`);
 };

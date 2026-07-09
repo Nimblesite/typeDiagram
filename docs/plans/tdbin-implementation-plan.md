@@ -39,14 +39,14 @@ typeDiagram .td ──parse──▶ Model ──┬─ rust.ts  toSource(model)
 
 v0 wire subset (documented in-crate): one word per scalar (bool/int/float), String/Bytes/nested-record/union via pointers, `Option<pointer-type>` = null-for-None, union = discriminant word + payload child pointer. Bit/word packing, semantic scalars, and lists are Phase 2+.
 
-## Phase 1 — Codegen: typeDiagram Model → Rust ADT + TDBIN codec  ⬅ IN PROGRESS
+## Phase 1 — Codegen: typeDiagram Model → Rust ADT + TDBIN codec  ✅ DONE
 
 - [x] Refactor `converters/rust.ts` to export a per-decl emitter (`emitRustDecl`, `mapTdToRs`) — reuse, zero duplication (deslop); existing `rust.test.ts` still green (7/7)
 - [x] `converters/rust-tdbin.ts`: `emitRustCodec(model): Result<string, Diagnostic[]>` → `impl tdbin::Struct` per record/union, layout computed from the Model at generation time `[TDBIN-REC-ALLOC]` `[TDBIN-UNION-DISC]`; unsupported shapes fail loudly (no placeholders)
 - [x] Field classification: scalar (Bool/Int/Float → data section) vs pointer (String/Bytes/`Option<ptr>`/declared record|union → pointer section); union ordinal = declaration index (pinned discriminants codegen-only, never on wire) `[TDBIN-UNION-DISC]`
-- [ ] vitest: assert emitted codec for a Person-shaped `.td` (exact `DATA_WORDS`/`PTR_WORDS`, slot indices, match arms) — guards codegen in CI
-- [ ] **End-to-end proof**: generate types (`rust.toSource`) + codec (`emitRustCodec`) from a `.td`, compile the GENERATED Rust against the `tdbin` rlib, round-trip it — **typeDiagram ADT → binary → typeDiagram ADT** on generated code
-- [ ] Follow-up: make generated code deny-all-clean (doc comments, derives) so the generated round-trip lives in-crate under `make test`
+- [x] vitest `test/converters/rust-tdbin.test.ts`: asserts emitted codec for a Person-shaped `.td` (exact `DATA_WORDS`/`PTR_WORDS`, slot indices, `Self::` union arms + `UnknownVariant` fallback, required-vs-`Option` reads), every unsupported-shape error path, plus a **drift guard** tying `generateRustModule` output to the committed crate fixture. `rust-tdbin.ts` coverage 100% stmts / 99% branch; full package suite 373/373 green over threshold `[TDBIN-TEST-ROUNDTRIP]`
+- [x] **End-to-end proof**: generated types (`rust.toSource`) + codec (`emitRustCodec`) for a `.td` are committed to `crates/tdbin/tests/generated/mod.rs`, compiled against the `tdbin` crate and round-tripped by `tests/roundtrip.rs` under `cargo test` (5/5) — **typeDiagram ADT → binary → typeDiagram ADT** on generated code, object↔binary identity + byte-identical re-encode + adversarial typed-errors
+- [x] Follow-up: generated code is deny-all-clean (doc comments on every type/field/variant, `#[derive]`s, `Self::` variants, checked codec) — `cargo clippy --all-targets` (deny-all) = 0 errors, `cargo fmt --check` clean; the generated round-trip lives in-crate under `make test`
 
 ## Phase 2 — Wire completeness (size + fidelity)
 

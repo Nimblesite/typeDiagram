@@ -1,189 +1,19 @@
 //! [TDBIN-TEST-ROUNDTRIP] Bidirectional round-trip tests over the public API:
 //! typed object -> binary -> typed object, AND binary -> object -> binary
-//! (byte-identical). The example types below are shaped exactly like the
-//! `impl Struct` blocks typeDiagram codegen emits from a Model.
+//! (byte-identical). The `Person`/`Contact`/`Address`/... types AND their
+//! `impl tdbin::Struct` codecs are NOT hand-written here — they are emitted by
+//! typeDiagram codegen (`converters/rust-tdbin.ts`) into `generated/mod.rs`, so
+//! these assertions prove the *generated* code round-trips: the end-to-end
+//! typeDiagram ADT -> binary -> typeDiagram ADT proof runs under `cargo test`.
 
-use tdbin::scalar::{bool_bits, bool_from, f64_bits, f64_from, i64_bits, i64_from};
-use tdbin::{DecodeError, EncodeError, Reader, Struct, TdBin, Writer};
+/// The codegen-emitted ADT types and their TDBIN codec, under test.
+mod generated;
+
+use generated::{Address, Contact, EmailContact, Person, PhoneContact};
+use tdbin::{DecodeError, TdBin};
 
 /// A boxed error alias so tests can use `?` without `unwrap`.
 type TestResult = Result<(), Box<dyn std::error::Error>>;
-
-// ── Example ADTs (as codegen would emit) ──
-
-/// A nested record reached through a pointer slot.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct Address {
-    /// Street line (pointer slot 0).
-    street: String,
-    /// Postal code (data slot 0).
-    zip: i64,
-}
-
-impl Struct for Address {
-    const DATA_WORDS: u16 = 1;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.scalar(at, 0, i64_bits(self.zip))?;
-        w.string(at, Self::DATA_WORDS, 0, Some(&self.street))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let zip = i64_from(r.scalar(at, 0)?);
-        let street = r
-            .string(at, Self::DATA_WORDS, 0)?
-            .ok_or(DecodeError::UnexpectedNull)?;
-        Ok(Self { street, zip })
-    }
-}
-
-/// The email variant payload of `Contact`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct EmailContact {
-    /// Email address (pointer slot 0).
-    addr: String,
-}
-
-impl Struct for EmailContact {
-    const DATA_WORDS: u16 = 0;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.string(at, Self::DATA_WORDS, 0, Some(&self.addr))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let addr = r
-            .string(at, Self::DATA_WORDS, 0)?
-            .ok_or(DecodeError::UnexpectedNull)?;
-        Ok(Self { addr })
-    }
-}
-
-/// The phone variant payload of `Contact`.
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct PhoneContact {
-    /// Subscriber number (data slot 0).
-    number: i64,
-    /// Country calling code (data slot 1).
-    country: i64,
-}
-
-impl Struct for PhoneContact {
-    const DATA_WORDS: u16 = 2;
-    const PTR_WORDS: u16 = 0;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.scalar(at, 0, i64_bits(self.number))?;
-        w.scalar(at, 1, i64_bits(self.country))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let number = i64_from(r.scalar(at, 0)?);
-        let country = i64_from(r.scalar(at, 1)?);
-        Ok(Self { number, country })
-    }
-}
-
-/// A tagged union: discriminant in data slot 0, payload in pointer slot 0.
-#[derive(Debug, Clone, PartialEq, Eq)]
-enum Contact {
-    /// Reachable by email.
-    Email(EmailContact),
-    /// Reachable by phone.
-    Phone(PhoneContact),
-}
-
-impl Struct for Contact {
-    const DATA_WORDS: u16 = 1;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        match self {
-            Self::Email(payload) => {
-                w.scalar(at, 0, 0)?;
-                w.child(at, Self::DATA_WORDS, 0, Some(payload))
-            }
-            Self::Phone(payload) => {
-                w.scalar(at, 0, 1)?;
-                w.child(at, Self::DATA_WORDS, 0, Some(payload))
-            }
-        }
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        match r.scalar(at, 0)? {
-            0 => Ok(Self::Email(
-                r.child(at, Self::DATA_WORDS, 0)?
-                    .ok_or(DecodeError::UnexpectedNull)?,
-            )),
-            1 => Ok(Self::Phone(
-                r.child(at, Self::DATA_WORDS, 0)?
-                    .ok_or(DecodeError::UnexpectedNull)?,
-            )),
-            ordinal => Err(DecodeError::UnknownVariant { ordinal }),
-        }
-    }
-}
-
-/// The root record: every scalar kind, an optional nested record, an
-/// optional string, and a union.
-#[derive(Debug, Clone, PartialEq)]
-struct Person {
-    /// Full name (pointer slot 0).
-    name: String,
-    /// Age in years (data slot 0).
-    age: i64,
-    /// Whether the account is active (data slot 1).
-    active: bool,
-    /// A floating-point score (data slot 2).
-    score: f64,
-    /// Optional mailing address (pointer slot 1).
-    address: Option<Address>,
-    /// Optional nickname (pointer slot 2).
-    nickname: Option<String>,
-    /// Preferred contact channel (pointer slot 3).
-    contact: Contact,
-}
-
-impl Struct for Person {
-    const DATA_WORDS: u16 = 3;
-    const PTR_WORDS: u16 = 4;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.scalar(at, 0, i64_bits(self.age))?;
-        w.scalar(at, 1, bool_bits(self.active))?;
-        w.scalar(at, 2, f64_bits(self.score))?;
-        w.string(at, Self::DATA_WORDS, 0, Some(&self.name))?;
-        w.child(at, Self::DATA_WORDS, 1, self.address.as_ref())?;
-        w.string(at, Self::DATA_WORDS, 2, self.nickname.as_deref())?;
-        w.child(at, Self::DATA_WORDS, 3, Some(&self.contact))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let age = i64_from(r.scalar(at, 0)?);
-        let active = bool_from(r.scalar(at, 1)?);
-        let score = f64_from(r.scalar(at, 2)?);
-        let name = r
-            .string(at, Self::DATA_WORDS, 0)?
-            .ok_or(DecodeError::UnexpectedNull)?;
-        let address = r.child::<Address>(at, Self::DATA_WORDS, 1)?;
-        let nickname = r.string(at, Self::DATA_WORDS, 2)?;
-        let contact = r
-            .child::<Contact>(at, Self::DATA_WORDS, 3)?
-            .ok_or(DecodeError::UnexpectedNull)?;
-        Ok(Self {
-            name,
-            age,
-            active,
-            score,
-            address,
-            nickname,
-            contact,
-        })
-    }
-}
 
 // ── Fixtures ──
 

@@ -10,38 +10,74 @@ Every public behavior lives under a `[TDBIN-RS-*]` / `[TDBIN-TEST-*]` / `[TDBIN-
 ## [TDBIN-RS-CRATE] Crate
 
 - Path `crates/tdbin`, library name `tdbin`. Inherits workspace lints (`[lints] workspace = true`) — all lints deny, per root `Cargo.toml` (REPO-STANDARDS-SPEC `[LINT-RUST]`).
-- Dependencies: `thiserror` (error derive), `tracing` (structured logging). Dev-dependencies: `criterion` (benches), `prost` + `prost-build` or pre-generated fixtures (the Protobuf comparison corpus, `[TDBIN-BENCH-GATE]`).
+- Dependencies (v0): **none** — zero external deps so the crate builds offline. Errors are hand-written enums (the `thiserror` derive lands with the logging pass), and `tracing`/`criterion`/`prost` arrive with `[TDBIN-RS-LOG]` / `[TDBIN-BENCH-GATE]` respectively.
 - No `unsafe`. No panics reachable from any public function on any input — `unwrap`/`expect`/`panic!`/indexing are workspace-denied; all offset arithmetic is `checked_*` and failures surface as errors (`[TDBIN-RS-NOPANIC]`).
 
-## [TDBIN-RS-API] Public API
+## [TDBIN-RS-API] Public API — direct typed path (CORE, implemented in v0)
 
-The API is plain functions returning `Result<T, E>` — no classes, no builders-as-objects, no global state:
+**This is the core serialization path and what the `tdbin` crate ships today.** typeDiagram
+codegen emits, per record and union, an `impl tdbin::Struct` whose layout — data (scalar)
+section, pointer section, slot indices, union discriminant — is **baked in at generation time**.
+A blanket `TdBin` gives every such type `to_bytes`/`from_bytes`: a typed value encodes straight
+to bytes and decodes straight back into the typed object, with **no runtime `Schema` and no
+intermediate dynamic `Value`**. Eliminating that reflective hop is what lets it beat a
+schema-driven codec on speed.
+
+```rust
+pub trait Struct: Sized {
+    const DATA_WORDS: u16;   // fixed scalar-section width   [TDBIN-REC-ALLOC]
+    const PTR_WORDS:  u16;   // fixed pointer-section width   [TDBIN-REC-SECTIONS]
+    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError>;
+    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError>;
+}
+
+pub trait TdBin: Struct {                                    // blanket impl for every Struct
+    fn to_bytes(&self) -> Result<Vec<u8>, EncodeError>;      // Writer::message  [TDBIN-ENC-CANON]
+    fn from_bytes(wire: &[u8]) -> Result<Self, DecodeError>; // Reader::message  [TDBIN-SAFE]
+}
+```
+
+- `Writer` and `Reader<'a>` are the public building blocks the generated impls call: `scalar` /
+  `string` / `bytes` / `child` slot accessors over a word arena, checked offsets, single-pass
+  bounds-checked reads.
+- `from_bytes` is **safe on arbitrary untrusted bytes** (`[TDBIN-SAFE]`): every read is
+  bounds-checked, with a depth cap of 64 (`[TDBIN-SAFE-DEPTH]`), an amplification budget
+  (`[TDBIN-SAFE-AMPLIFY]`), and UTF-8 validation (`[TDBIN-SAFE-UTF8]`). No panics on any input
+  (`[TDBIN-RS-NOPANIC]`).
+- `to_bytes` is deterministic/canonical (`[TDBIN-ENC-CANON]`): the same value always yields the
+  same bytes, and `bytes → object → bytes` is byte-identical.
+- **The ADT types *and* their codec are produced by typeDiagram codegen — never hand-written.**
+  `packages/typediagram/src/converters/rust.ts` emits the `struct`/`enum`; `rust-tdbin.ts`
+  (`generateRustModule`) emits the `impl tdbin::Struct`. `crates/tdbin/tests/generated/mod.rs` is
+  a checked-in example of that output, round-tripped by `tests/roundtrip.rs` under `cargo test`.
+
+v0 wire subset is bare framing, unpacked: one word per scalar (bool/int/float), String / Bytes /
+nested record / union via pointers, `Option<pointer-type>` = null-for-None, union = discriminant
+word + payload child pointer. `EncodeOptions { packed, framing }`, semantic scalars, and lists are
+Phase 2+ (`[TDBIN-MSG-FRAME]`, `[TDBIN-PRIM-MAP]`).
+
+## [TDBIN-RS-REFLECT] Optional reflective model — NOT part of serialize/deserialize
+
+> ⚠️ **Optional extra, off the hot path.** The `TypeDef` / `TypeRef` schema model and the dynamic
+> `Value` codec (`build_schema` / `encode` / `decode` / `verify`) described here are a **tooling
+> feature** — for programs that want to inspect a model's structure, or encode/decode *without*
+> generated types. They are **explicitly NOT the core serialization path** and are **not required**
+> to round-trip typeDiagram ADTs; the direct typed `Struct` / `TdBin` path above owns that, and it
+> is what makes TDBIN fast (no reflective `Value` hop). This reflective model is a later, separable
+> deliverable (plan Phase 5, `[TDBIN-FUTURE-*]`); it targets the *same* bytes, so the two paths
+> interoperate. Nothing below is implemented in v0.
+
+The reflective/dynamic API is plain functions returning `Result<T, E>` — no classes, no global state:
 
 ```rust
 pub fn build_schema(defs: &[TypeDef]) -> Result<Schema, SchemaError>;
 pub fn schema_hash(schema: &Schema) -> u64;                       // [TDBIN-SCHEMA-HASH]
-
-pub fn encode(
-    schema: &Schema, root_type: &str, value: &Value, opts: &EncodeOptions,
-) -> Result<Vec<u8>, EncodeError>;
-
-pub fn decode(
-    schema: &Schema, root_type: &str, wire: &[u8], opts: &DecodeOptions,
-) -> Result<Value, DecodeError>;
-
-pub fn verify(
-    schema: &Schema, root_type: &str, wire: &[u8], opts: &DecodeOptions,
-) -> Result<VerifyStats, DecodeError>;                            // [TDBIN-SAFE]
+pub fn encode(schema: &Schema, root_type: &str, value: &Value, opts: &EncodeOptions) -> Result<Vec<u8>, EncodeError>;
+pub fn decode(schema: &Schema, root_type: &str, wire: &[u8], opts: &DecodeOptions) -> Result<Value, DecodeError>;
+pub fn verify(schema: &Schema, root_type: &str, wire: &[u8], opts: &DecodeOptions) -> Result<VerifyStats, DecodeError>; // [TDBIN-SAFE]
 ```
 
-- `decode` = verify + materialize in one O(n) pass; it MUST be safe on arbitrary untrusted bytes (`[TDBIN-SAFE]`).
-- `verify` exposes the standalone pass (returns traversed-word/depth stats) for callers that will later use the zero-copy reader (`[TDBIN-FUTURE-READER]`).
-- `encode` output is deterministic (`[TDBIN-ENC-CANON]`) and honors `EncodeOptions { packed: bool, framing: Framing }` with `Framing::Bare | Framing::Framed { include_hash: bool }` (`[TDBIN-MSG-FRAME]`).
-- `DecodeOptions { max_body_bytes: u64, expected_hash: Option<u64> }` — depth (64) and amplification caps are wire-format constants, not options (`[TDBIN-SAFE-DEPTH]`, `[TDBIN-SAFE-AMPLIFY]`).
-
-## [TDBIN-RS-SCHEMA] Schema model
-
-`TypeDef` mirrors the typeDiagram language reference exactly (records, unions with bare/named-field/tuple variants and optional pinned discriminants, aliases, generics):
+`TypeDef` mirrors the typeDiagram language reference exactly (records, unions with bare/named-field/tuple variants and optional pinned discriminants, aliases, generics), and `build_schema` validates + monomorphizes (`[TDBIN-SCHEMA-MONO]`) + expands aliases (`[TDBIN-SCHEMA-ALIAS]`) + precomputes layouts once (`[TDBIN-REC-ALLOC]`). The `.td` text → `TypeDef` parser is itself a separate deliverable (`crates/td-schema`); `tdbin` is parser-agnostic.
 
 ```rust
 pub enum TypeDef {
@@ -57,32 +93,18 @@ pub enum TypeRef {
     Named { name: String, args: Vec<TypeRef> },
     Param(String),
 }
-```
 
-`build_schema` validates (duplicate names, unknown references, arity, recursion only through pointer types, union size caps), **monomorphizes** all reachable generic instantiations (`[TDBIN-SCHEMA-MONO]`), expands aliases (`[TDBIN-SCHEMA-ALIAS]`), and precomputes every layout via `[TDBIN-REC-ALLOC]` / `[TDBIN-UNION-OVERLAP]`. Layout computation happens once here — never during encode/decode. Tuple-variant payload fields get positional names `"0"`, `"1"`, ….
-
-The `.td` text → `TypeDef` parser is a separate deliverable (`crates/td-schema`, plan phase); `tdbin` itself is parser-agnostic.
-
-## [TDBIN-RS-VALUE] Dynamic value model
-
-v1 is schema-driven and dynamic (static codegen comes later):
-
-```rust
-pub enum Value {
-    Unit,
-    Bool(bool), Int(i64), Float(f64),
+pub enum Value {                                  // dynamic tree — the hop the typed path avoids
+    Unit, Bool(bool), Int(i64), Float(f64),
     Str(String), Bytes(Vec<u8>),
-    DateTime(i64),            // µs since Unix epoch, UTC   [TDBIN-PRIM-MAP]
-    Uuid([u8; 16]), Decimal([u8; 16]),
-    Option(Option<Box<Value>>),
-    List(Vec<Value>),
+    DateTime(i64), Uuid([u8; 16]), Decimal([u8; 16]),   // [TDBIN-PRIM-MAP]
+    Option(Option<Box<Value>>), List(Vec<Value>),
     Record { fields: Vec<(String, Value)> },
     Union  { variant: String, fields: Vec<(String, Value)> },
 }
 ```
 
-- `Record.fields` may omit fields (encode as default) and may appear in any order; unknown field names are an `EncodeError`.
-- Enum-unions are `Value::Union` with empty `fields` — one uniform shape.
+- `Record.fields` may omit fields (encode as default) and may appear in any order; unknown field names are an `EncodeError`. Enum-unions are `Value::Union` with empty `fields`.
 - `decode` materializes every field the reader's schema knows, applying defaults for short structs (`[TDBIN-REC-SHORT]`); an unknown discriminant is `DecodeError::UnknownVariant` (`[TDBIN-UNION-UNKNOWN]`).
 
 ## [TDBIN-RS-ERROR] Errors
