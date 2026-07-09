@@ -3,7 +3,7 @@
   "product": {
     "id": "typediagram",
     "displayName": "typeDiagram",
-    "version": "0.9.0"
+    "version": "0.0.0-dev"
   },
   "supplyChain": {
     "slsaBuildLevel": 2,
@@ -21,7 +21,7 @@
       "kind": "cli",
       "language": "typescript",
       "binaryName": "typediagram",
-      "expectedVersion": "0.9.0",
+      "expectedVersion": "0.0.0-dev",
       "platforms": ["all"],
       "sources": ["bundled"],
       "required": true

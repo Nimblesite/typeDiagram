@@ -1,4 +1,4 @@
-# agent-pmo:b636503
+# agent-pmo:372ce7f
 name: CI
 
 on:
@@ -21,6 +21,11 @@ defaults:
 jobs:
   ci:
     name: CI
+    # Dependabot PRs are swept into `dependabot-upgrades` by dependabot-automerge.yml
+    # and never merge to main directly, so CI would only burn minutes on a bump we
+    # discard. CI runs once, on the `dependabot-upgrades -> main` consolidation PR.
+    # ([GITHUB-DEPENDABOT])
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     # TIMEOUT EXCEPTION: vitest + bundle-size + eslint across 4 workspaces exceeds 10 min on cold npm cache.
     timeout-minutes: 15
@@ -101,6 +106,19 @@ jobs:
       - name: CI (make ci)
         if: steps.scope.outputs.scope == 'full'
         run: make ci
+
+      # Deslop duplication gate ([CI-DESLOP]). Threshold lives in committed
+      # .deslop.toml — ratcheted DOWN only. `deslop .` reads it and exits 3 (tanks
+      # the build) when repo-wide duplication exceeds it. Full scope only (web/docs
+      # PRs touch no Deslop-scanned source).
+      - name: Deslop duplication gate
+        if: steps.scope.outputs.scope == 'full'
+        env:
+          DESLOP_VERSION: "0.5.1" # pin — https://github.com/Nimblesite/Deslop/releases
+        run: |
+          curl -sSfL "https://github.com/Nimblesite/Deslop/releases/download/v${DESLOP_VERSION}/deslop-${DESLOP_VERSION}-linux-x64.tar.gz" | tar -xz
+          echo "$PWD/deslop-${DESLOP_VERSION}-linux-x64" >> "$GITHUB_PATH"
+          deslop .
 
       # [SWR-GATE-CI] [SWR-GATE-VERIFY-BINARIES] manifest + CLI version contract.
       - name: Shipwright acceptance gates
