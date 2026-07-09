@@ -4,7 +4,7 @@
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup rebuild-install-vsix dev dev-web clean-start test-playwright
+.PHONY: build test lint fmt clean ci setup rebuild-install-vsix dev dev-web clean-start test-playwright bench test-tdbin
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -142,6 +142,25 @@ _bundle_size:
 # =============================================================================
 # Repo-Specific Targets (not part of the 7 standard targets)
 # =============================================================================
+
+## test-tdbin: Run ONLY the tdbin Rust crate tests (cargo test -p tdbin), fail-fast.
+##             `make test` and `make ci` already run these as part of the whole
+##             workspace (cargo test --workspace); this is the fast, focused loop
+##             for iterating on the crate alone.
+test-tdbin:
+	@echo "==> tdbin crate tests (cargo test -p tdbin)..."
+	cargo test -p tdbin
+
+## bench: TDBIN vs Protobuf benchmark. Runs the `tdbin` crate tests (round-trip +
+##        the deterministic size gate) THEN the release-mode encode/decode/size
+##        benchmark example, which prints per-op timings and all three encoded
+##        sizes (TDBIN bare / TDBIN packed / protobuf) per corpus fixture.
+##        For the statistical Criterion gate instead: cargo bench -p tdbin --bench gate.
+bench:
+	@echo "==> TDBIN crate tests (round-trip + deterministic size gate)..."
+	cargo test -p tdbin
+	@echo "==> TDBIN vs Protobuf benchmark (release; sizes + per-op timings)..."
+	cargo run -p tdbin --release --example bench
 
 ## test-playwright: Run Playwright end-to-end tests only (packages/web), both
 ##                  desktop and mobile viewports. Does NOT run vitest or enforce

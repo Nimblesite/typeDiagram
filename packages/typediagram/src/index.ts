@@ -83,6 +83,7 @@ export * as model from "./model/index.js";
 export * as layoutLayer from "./layout/index.js";
 export * as renderSvgLayer from "./render-svg/index.js";
 export * as converters from "./converters/index.js";
+export * as tdbin from "./tdbin/index.js";
 
 // Result type
 export type { Result } from "./result.js";
