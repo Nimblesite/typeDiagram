@@ -4,6 +4,7 @@
 > **Goal:** a cross-language binary serialization format for typeDiagram ADTs (records + tagged unions) that is **smaller AND faster than Protobuf/gRPC** — both axes, no excuses.
 > **Method:** deep-research fan-out over authoritative sources (peer-reviewed papers — IPL, VLDB, SIGMOD, SPE; format authors' own specs/design rationale; Lemire's integer-decoding work). 118 claims, adversarially verified. Sources listed at the bottom, each numbered `[Sn]`.
 > **Scope note:** typeDiagram is the *definition language* (the schema). This doc is about the *wire format* the schema compiles to. Rust + TypeScript are the first codegen targets, but the format is language-neutral by design.
+> **Roadmap note:** the format will grow **bidirectional streaming** and become an **RPC framework (gRPC-class)**. That is a second, distinct literature (framing, multiplexing, flow control, promise pipelining) — captured at interim depth in §6, with a dedicated research pass running to deepen it. It reshapes several §4 decisions *now*, so it is not deferred.
 
 ---
 
@@ -216,10 +217,54 @@ Synthesizing the above into a concrete, both-axes-winning design. (Working name:
 4. **Evolution guarantees to promise:** adopt Cap'n Proto's "append into padding, XOR default" rules exactly `[S10]`; decide FlatBuffers-style "never remove, only deprecate" `[S23]`.
 5. **Which SIMD integer codec** to standardize the columnar hot path on: SIMD-BP128 (both-axes best `[S13]`) vs Stream VByte (memcpy-speed, simpler `[S2]`) — likely **bit-packing primary, stream-vbyte fallback**.
 6. **Nested encoding:** length/presence (13% smaller, needs ancestors) vs rep/def (read-one-column) `[S8]` — depends on whether we expect column-selective reads.
+7. **Transport for the RPC layer (§6):** ride HTTP/2-then-HTTP/3 and win on payload only (fast to ship, capped upside) vs a lean custom framing over TCP/QUIC (higher ceiling, more work). Decide after the RPC research pass; either way adopt **QUIC** to beat gRPC's TCP head-of-line blocking, and target **promise pipelining** as the round-trip-collapsing feature gRPC lacks.
 
 ---
 
-## 6. Sources
+## 6. Streaming & RPC (forward-looking — the format becomes a gRPC-class framework)
+
+Two-way streaming + an RPC layer is an explicit end goal, so "faster than gRPC" is now a **protocol-level** target, not just a payload-size one. This is a distinct research axis (transport / framing / session), so a dedicated deep-research pass is running to deepen it. Interim implications from the serialization research above:
+
+### 6.0 typeDiagram is the unified IDL (models + functions)
+One language defines both sides of the contract — the equivalent of Protobuf's `message` **and** `service`/`rpc` collapsed into typeDiagram:
+- **Model / `type` definitions** → the wire ADTs (records + tagged unions) encoded by TDBIN (§4). These are the request/response/stream payloads.
+- **Function definitions** → the **RPC service contract**. A typeDiagram function signature *is* the RPC method: its parameter type(s) and return type are TDBIN-encoded ADTs, and its shape encodes the streaming directionality.
+- **Streaming directionality lives in the signature**, not a separate keyword soup — the four gRPC modes map onto function shape:
+  | Mode | typeDiagram function shape |
+  |---|---|
+  | Unary | `f(Req) -> Resp` |
+  | Server-streaming | `f(Req) -> Stream<Resp>` |
+  | Client-streaming | `f(Stream<Req>) -> Resp` |
+  | Bidirectional | `f(Stream<Req>) -> Stream<Resp>` |
+- Because functions are first-class typeDiagram definitions, the **method set, argument types, and return types are all schema-known** → the RPC dispatch surface carries **no per-call method-name/tag overhead on the wire** (a numeric method id from the schema, like fields in §4.2), and codegen emits typed client/server stubs for Rust + TS from the same source. This is the RPC analogue of "drop the field tags" (§0): drop the method-name strings too.
+- **Promise pipelining (§6.4) is expressible** because a function's return type is a known ADT — a pipelined call references a *field of a not-yet-returned result* by its schema-known offset.
+
+
+
+### 6.1 The streaming ↔ zero-copy tension (decide now, it constrains §4)
+- Zero-copy formats that address children by **offset/pointer** (Cap'n Proto, FlatBuffers) generally need a child's size *before* writing the parent pointer → **back-patching**, which fights forward-only streaming writes. `[S10]`
+- **SBE is the streaming-native counter-design:** preorder, forward-only, no random access, no back-patching — built for low-latency financial message streams; the cost is *no random access*. `[S9]`
+- ➡️ **Reconcile:** length-prefixed **frames** on the stream (forward-only, SBE-like framing) with Cap'n Proto-style **pointers *inside* a frame** (random access within a message). Keep the write path forward-only *between* messages; bound back-patching to *within* a single message so encode can start emitting frames before the whole stream is built.
+
+### 6.2 Framing
+- Streaming needs **message framing** so a reader finds boundaries without parsing content. gRPC uses a **5-byte prefix per message** (1 byte compressed-flag + 4-byte big-endian length) carried over HTTP/2 DATA frames.
+- Our frame: `[len][schema-hash/version (once per stream, then elided)][body]`; body stays zero-copy-accessible after the O(n) verify (§3.8).
+
+### 6.3 Multiplexing, flow control, backpressure
+- gRPC gets bidirectional streaming, multiplexing, and header compression **for free from HTTP/2** (stream IDs, credit-based flow control, HPACK). To *beat* it we either (a) ride HTTP/2 / HTTP/3 and win purely on the payload (safe first step), or (b) design leaner framing over raw TCP/QUIC with our own stream IDs + credit-based flow control (higher ceiling, more work).
+- **HTTP/3 / QUIC** removes the TCP head-of-line blocking that penalizes multiplexed HTTP/2-over-TCP → the transport target to actually out-latency gRPC.
+
+### 6.4 The protocol-level bar to beat: Cap'n Proto RPC
+- Cap'n Proto RPC does what gRPC structurally cannot: **promise pipelining ("time-travel")** — the result of a call can be used as the argument to further calls *before the first returns*, collapsing dependent round-trips into one. That, not payload size, is where "faster than gRPC" is won at the protocol level. (Being quantified in the running research pass.)
+
+### 6.5 What this pins down in the value format *today*
+- Messages must be **length-prefixed / self-delimiting** so they compose into a stream.
+- Write path **forward-only where possible**, back-patching bounded to within one message → low-latency incremental encode.
+- **Schema/version negotiated once per stream**, not per message → the per-message schema-hash header is elided after handshake, reclaiming those bytes.
+
+---
+
+## 7. Sources
 
 Ranked-in tier per the research (primary = peer-reviewed paper / format author's own spec/rationale; blog = author's technical blog; secondary = reference doc).
 

@@ -67,7 +67,7 @@ jobs:
         # (repo language ∩ CodeQL-supported at runtime). `build-mode: none` suits
         # interpreted langs + rust; it avoids re-compiling what ci already builds.
         include:
-          - language: actions          # scans the workflow files themselves
+          - language: actions # scans the workflow files themselves
             build-mode: none
           - language: javascript-typescript
             build-mode: none
@@ -100,7 +100,7 @@ jobs:
         shell: bash
         env:
           SARIF_DIR: sarif-results
-          SEVERITY_THRESHOLD: '7.0'
+          SEVERITY_THRESHOLD: "7.0"
         run: |-
           set -euo pipefail
           shopt -s nullglob
