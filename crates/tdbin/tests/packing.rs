@@ -85,7 +85,10 @@ impl Struct for MaybeText {
                 r.string(at, Self::DATA_WORDS, 0)?
                     .ok_or(DecodeError::UnexpectedNull)?,
             )),
-            1 => Ok(Self::Empty),
+            1 => {
+                r.require_null_pointer(at, 0)?;
+                Ok(Self::Empty)
+            }
             ordinal => Err(DecodeError::UnknownVariant { ordinal }),
         }
     }
@@ -116,6 +119,21 @@ fn bare_union_variant_leaves_inactive_pointer_slot_zero() -> TestResult {
     let bytes = MaybeText::Empty.to_bytes()?;
     assert_eq!(MaybeText::from_bytes(&bytes)?, MaybeText::Empty);
     assert_eq!(read_word(&bytes, 2)?, 0);
+    Ok(())
+}
+
+/// [TDBIN-SAFE-ZEROSLOT] A known bare union arm rejects a non-null inactive slot.
+#[test]
+fn bare_union_variant_rejects_non_null_inactive_pointer() -> TestResult {
+    let mut bytes = MaybeText::Empty.to_bytes()?;
+    bytes
+        .get_mut(16..24)
+        .ok_or("missing inactive pointer slot")?
+        .copy_from_slice(&1_u64.to_le_bytes());
+    assert_eq!(
+        MaybeText::from_bytes(&bytes),
+        Err(DecodeError::PointerKindMismatch)
+    );
     Ok(())
 }
 

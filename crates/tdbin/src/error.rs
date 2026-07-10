@@ -46,6 +46,13 @@ pub enum DecodeError {
     ReservedBits,
     /// Frame body length did not match the available bytes ([TDBIN-MSG-FRAME]).
     LengthMismatch,
+    /// A framed message did not carry the expected layout hash.
+    HashMismatch {
+        /// Layout hash required by the typed decoder.
+        expected: u64,
+        /// Layout hash present on the frame, or `None` when omitted.
+        got: Option<u64>,
+    },
     /// A packed body ended mid-element ([TDBIN-PACK]).
     PackedTruncated,
     /// Wire length was zero or not a multiple of the 8-byte word size.
@@ -61,6 +68,8 @@ pub enum DecodeError {
     ReservedPointerKind,
     /// A pointer slot held a kind the field's type does not permit.
     PointerKindMismatch,
+    /// A composite-list tag disagreed with the list pointer's word count.
+    MalformedCompositeTag,
     /// Struct nesting exceeded the depth cap ([TDBIN-SAFE-DEPTH]).
     DepthExceeded,
     /// Traversal exceeded the amplification budget ([TDBIN-SAFE-AMPLIFY]).
@@ -91,6 +100,9 @@ impl fmt::Display for DecodeError {
             }
             Self::ReservedBits => f.write_str("frame reserved bits or fields were nonzero"),
             Self::LengthMismatch => f.write_str("frame body length does not match available bytes"),
+            Self::HashMismatch { expected, got } => {
+                write!(f, "frame schema hash {got:?} does not match {expected:#x}")
+            }
             Self::PackedTruncated => f.write_str("packed body ended mid-element"),
             Self::BadLength => f.write_str("wire length is zero or not word-aligned"),
             Self::PointerOutOfBounds { word_index } => {
@@ -98,6 +110,7 @@ impl fmt::Display for DecodeError {
             }
             Self::ReservedPointerKind => f.write_str("pointer used a reserved kind"),
             Self::PointerKindMismatch => f.write_str("pointer kind does not match the field type"),
+            Self::MalformedCompositeTag => f.write_str("composite-list tag is malformed"),
             Self::DepthExceeded => f.write_str("struct nesting exceeded the depth cap"),
             Self::AmplificationExceeded => {
                 f.write_str("traversal exceeded the amplification budget")

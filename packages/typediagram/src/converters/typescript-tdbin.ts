@@ -266,7 +266,10 @@ const writeVariantPayload = (union: string, variant: UnionPlan["variants"][numbe
 
 const readVariantPayload = (union: string, variant: UnionPlan["variants"][number]): string[] => {
   if (variant.payload === null) {
-    return [`        return ok({ kind: "${variant.name}" });`];
+    return [
+      `        const inactive = tdbin.reader.requireNullPointer(reader, at, 0);`,
+      `        return inactive.ok ? ok({ kind: "${variant.name}" }) : inactive;`,
+    ];
   }
   const payload =
     variant.payload.kind === "child"

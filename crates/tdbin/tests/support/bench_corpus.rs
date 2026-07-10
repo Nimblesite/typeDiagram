@@ -8,6 +8,18 @@
 #[path = "../generated/mod.rs"]
 pub mod generated;
 
+/// Record-heavy and union-heavy batch fixtures used by the benchmark suite.
+#[path = "batch_corpus.rs"]
+pub mod batches;
+
+/// Diagram-document fixture matching the committed benchmark schemas.
+#[path = "document_corpus.rs"]
+pub mod documents;
+
+/// Event-stream fixture matching the committed benchmark schemas.
+#[path = "event_corpus.rs"]
+pub mod events;
+
 /// The benchmark corpus: shared scalar constants, a hand-written Protobuf
 /// mirror of the TDBIN `Person` ADT (the competitor baseline), and paired
 /// fixtures that build the SAME two values for both codecs so every size and

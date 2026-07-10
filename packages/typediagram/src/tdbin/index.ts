@@ -37,11 +37,18 @@ export const encodePackedFramed = <T>(
   return body.ok ? encodePackedFrame(body.value, schemaHash) : body;
 };
 
-export const decodeAuto = <T>(codec: StructCodec<T>, bytes: Uint8Array): Result<T, TdbinError> => {
+export const decodeAuto = <T>(
+  codec: StructCodec<T>,
+  bytes: Uint8Array,
+  expectedHash: bigint | null = null
+): Result<T, TdbinError> => {
   if (!looksFramed(bytes)) {
     return decode(codec, bytes);
   }
   const framed = decodeFrame(bytes);
+  if (framed.ok && expectedHash !== null && framed.value.schemaHash !== expectedHash) {
+    return tdbinErr("HashMismatch", { expectedHash, gotHash: framed.value.schemaHash });
+  }
   const body = framed.ok ? unpackFrameBody(framed.value) : framed;
   return body.ok ? decode(codec, body.value) : body;
 };

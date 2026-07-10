@@ -107,8 +107,8 @@ const declaredUnion = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): Reso
 const isFieldError = (placed: unknown): placed is FieldError =>
   typeof placed === "object" && placed !== null && "error" in placed;
 
-const emptyRecordError = (t: ResolvedTypeRef): FieldError => ({
-  error: `tdbin: empty-record pointer '${printTypeRef(t)}' has no non-null v0 marker`,
+const emptyRecordListError = (t: ResolvedTypeRef): FieldError => ({
+  error: `tdbin: List<empty-record> '${printTypeRef(t)}' has a zero-word composite stride`,
 });
 
 const listInnerOf = (t: ResolvedTypeRef): ResolvedTypeRef | undefined =>
@@ -126,9 +126,7 @@ const pointerInner = (
     : isPrim(t, "Bytes")
       ? { kind: "bytes", slot, optional }
       : isDeclared(t)
-        ? (declaredRecord(decls, t)?.fields.length ?? 1) === 0
-          ? emptyRecordError(t)
-          : { kind: "child", slot, optional, rustType: mapTdToRs(t) }
+        ? { kind: "child", slot, optional, rustType: mapTdToRs(t) }
         : null;
 
 /** The one-word scalar codec for a bare primitive (Bool/Int/Float), else undefined. */
@@ -174,10 +172,6 @@ const allocateOptSemantic = (semantic: SemanticScalar, cursor: LayoutCursor): Fi
 /** Classify an `Option<T>` field: a scalar inner takes a presence slot + a value
  *  slot ([TDBIN-PRIM-OPTION], word-granular in v0 until bit-packing collapses the
  *  flag to 1 bit); a pointer inner takes one pointer slot with null = `None`. */
-const optionEmptyRecordError = (outer: ResolvedTypeRef): FieldError => ({
-  error: `tdbin: Option<empty-record> '${printTypeRef(outer)}' would alias the null pointer in v0`,
-});
-
 const BYTE_LIST_VARIANT_LIMIT = 256;
 
 const enumListPlan = (u: ResolvedUnion, t: ResolvedTypeRef): ListPlan | FieldError | null => {
@@ -193,7 +187,7 @@ const enumListPlan = (u: ResolvedUnion, t: ResolvedTypeRef): ListPlan | FieldErr
 const childListPlan = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): ListPlan | FieldError | null => {
   const rec = declaredRecord(decls, t);
   if (rec?.fields.length === 0) {
-    return emptyRecordError(t);
+    return emptyRecordListError(t);
   }
   if (rec !== undefined || declaredUnion(decls, t) !== undefined) {
     return { kind: "child", rustType: mapTdToRs(t) };
@@ -243,7 +237,6 @@ const classifyList = (
 
 const classifyOption = (
   decls: readonly ResolvedDecl[],
-  outer: ResolvedTypeRef,
   inner: ResolvedTypeRef,
   cursor: LayoutCursor
 ): FieldPlan | FieldError | null => {
@@ -273,9 +266,6 @@ const classifyOption = (
     };
     cursor.dataSlot = cursor.dataSlot + 2;
     return plan;
-  }
-  if ((declaredRecord(decls, inner)?.fields.length ?? 1) === 0) {
-    return optionEmptyRecordError(outer);
   }
   const plan = pointerInner(decls, inner, cursor.ptrSlot, true);
   if (isFieldError(plan)) {
@@ -308,7 +298,7 @@ const classifyField = (
   }
   const optionInner = t.name === "Option" && t.args.length === 1 ? t.args[0] : undefined;
   if (optionInner !== undefined) {
-    return classifyOption(decls, t, optionInner, cursor);
+    return classifyOption(decls, optionInner, cursor);
   }
   const listInner = listInnerOf(t);
   if (listInner !== undefined) {
@@ -703,7 +693,10 @@ const writeVariantArm = (v: UnionPlan["variants"][number]): string => {
 const readVariantArm = (v: UnionPlan["variants"][number]): string => {
   const nn = "?.ok_or(tdbin::DecodeError::UnexpectedNull)?";
   if (v.payload === null) {
-    return `            ${rsNumber(v.ordinal)} => Ok(Self::${v.name}),`;
+    return `            ${rsNumber(v.ordinal)} => {
+                r.require_null_pointer(at, 0)?;
+                Ok(Self::${v.name})
+            },`;
   }
   const read =
     v.payload.kind === "child"

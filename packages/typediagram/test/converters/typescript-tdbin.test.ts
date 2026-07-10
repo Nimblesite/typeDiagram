@@ -92,7 +92,8 @@ union Notice {
     );
     expect(code).toContain("tdbin.writer.bytes(writer, at, BlobCodec.dataWords, 0, value.raw)");
     expect(code).toContain("tdbin.writer.bytes(writer, at, BlobCodec.dataWords, 1, value.maybe ?? null)");
-    expect(code).toContain('return ok({ kind: "Empty" });');
+    expect(code).toContain("const inactive = tdbin.reader.requireNullPointer(reader, at, 0);");
+    expect(code).toContain('return inactive.ok ? ok({ kind: "Empty" }) : inactive;');
     expect(code).toContain("tdbin.writer.string(writer, at, NoticeCodec.dataWords, 0, value._0)");
     expect(code).toContain("tdbin.reader.string(reader, at, NoticeCodec.dataWords, 0)");
   });
@@ -104,5 +105,12 @@ union Notice {
     expect(generic.ok ? "" : generic.error[0]?.message).toContain("must be monomorphized");
     expect(multi.ok ? "" : multi.error[0]?.message).toContain("bare or a single tuple field");
     expect(payload.ok ? "" : payload.error[0]?.message).toContain("payload 'Int' unsupported");
+  });
+
+  it("emits empty records using the runtime's non-null zero-size marker", () => {
+    const code = unwrap(emitTypeScriptCodec(modelFor("type Empty {}")));
+    expect(code).toContain("export const EmptyCodec");
+    expect(code).toContain("dataWords: 0");
+    expect(code).toContain("ptrWords: 0");
   });
 });

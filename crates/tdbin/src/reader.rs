@@ -53,6 +53,7 @@ impl<'a> Reader<'a> {
         ((len != 0) && len.is_multiple_of(WORD_BYTES))
             .then_some(())
             .ok_or(DecodeError::BadLength)?;
+        crate::verify::message(bytes)?;
         let word_count = u64::try_from(len / WORD_BYTES).map_err(|_| DecodeError::BadLength)?;
         let budget = Rc::new(Cell::new(word_count));
         let head = layout::read_word(bytes, 0)?;
@@ -251,6 +252,21 @@ impl<'a> Reader<'a> {
         slot: u16,
     ) -> Result<Option<Vec<C>>, DecodeError> {
         self.read_composite(at, slot, Self::read_child_body::<C>)
+    }
+
+    /// Require an inactive union pointer slot to remain null.
+    ///
+    /// # Errors
+    /// Returns [`DecodeError::PointerKindMismatch`] for a non-null slot.
+    pub fn require_null_pointer(&self, at: usize, slot: u16) -> Result<(), DecodeError> {
+        if slot >= self.ptr_words {
+            return Ok(());
+        }
+        let ptr_word = self.ptr_index(at, slot)?;
+        match pointer::decode(layout::read_word(self.bytes, ptr_word)?)? {
+            Pointer::Null => Ok(()),
+            Pointer::Struct { .. } | Pointer::List { .. } => Err(DecodeError::PointerKindMismatch),
+        }
     }
 
     /// Read an optional raw byte list from pointer `slot`.
@@ -465,10 +481,33 @@ impl<'a> Reader<'a> {
         let start = Self::list_start(ptr_word, offset)?;
         let len = usize::try_from(count).map_err(|_| DecodeError::LimitExceeded)?;
         Self::require_word_range(self.bytes, start, len)?;
+        let bytes = self.word_body_bytes(start, len)?;
+        Self::decode_words(bytes, len, start)
+    }
+
+    /// Borrow a validated raw-word list body as bytes.
+    fn word_body_bytes(&self, start: usize, len: usize) -> Result<&[u8], DecodeError> {
+        let start_byte = start
+            .checked_mul(WORD_BYTES)
+            .ok_or(DecodeError::LimitExceeded)?;
+        let byte_len = len
+            .checked_mul(WORD_BYTES)
+            .ok_or(DecodeError::LimitExceeded)?;
+        let end_byte = start_byte
+            .checked_add(byte_len)
+            .ok_or(DecodeError::LimitExceeded)?;
+        self.bytes
+            .get(start_byte..end_byte)
+            .ok_or(DecodeError::PointerOutOfBounds { word_index: start })
+    }
+
+    /// Materialize little-endian words from one validated byte slice.
+    fn decode_words(bytes: &[u8], len: usize, start: usize) -> Result<Vec<u64>, DecodeError> {
         let mut out = Vec::with_capacity(len);
-        for i in 0..len {
-            let idx = start.checked_add(i).ok_or(DecodeError::LimitExceeded)?;
-            out.push(layout::read_word(self.bytes, idx)?);
+        for chunk in bytes.chunks_exact(WORD_BYTES) {
+            let word = <[u8; WORD_BYTES]>::try_from(chunk)
+                .map_err(|_| DecodeError::PointerOutOfBounds { word_index: start })?;
+            out.push(u64::from_le_bytes(word));
         }
         Ok(out)
     }
@@ -582,7 +621,7 @@ impl<'a> Reader<'a> {
             .ok_or(DecodeError::LimitExceeded)?;
         let actual = usize::try_from(elem_words).map_err(|_| DecodeError::LimitExceeded)?;
         if expected != actual || (stride == 0 && count != 0) {
-            return Err(DecodeError::PointerKindMismatch);
+            return Err(DecodeError::MalformedCompositeTag);
         }
         let first = tag_at.checked_add(1).ok_or(DecodeError::LimitExceeded)?;
         Self::require_word_range(
@@ -609,14 +648,28 @@ impl<'a> Reader<'a> {
     /// Unpack `count` bools from a bit-packed list body.
     fn unpack_bools(&self, start: usize, count: usize) -> Result<Vec<bool>, DecodeError> {
         let mut out = Vec::with_capacity(count);
-        for i in 0..count {
-            let word = i / WORD_BITS;
-            let bit = u32::try_from(i % WORD_BITS).map_err(|_| DecodeError::LimitExceeded)?;
-            let idx = start.checked_add(word).ok_or(DecodeError::LimitExceeded)?;
-            let mask = 1_u64.checked_shl(bit).ok_or(DecodeError::LimitExceeded)?;
-            out.push(layout::read_word(self.bytes, idx)? & mask != 0);
+        for word_offset in 0..count.div_ceil(WORD_BITS) {
+            let idx = start
+                .checked_add(word_offset)
+                .ok_or(DecodeError::LimitExceeded)?;
+            let word = layout::read_word(self.bytes, idx)?;
+            let remaining = count
+                .checked_sub(out.len())
+                .ok_or(DecodeError::LimitExceeded)?
+                .min(WORD_BITS);
+            Self::append_bool_word(&mut out, word, remaining)?;
         }
         Ok(out)
+    }
+
+    /// Append the requested low bits from one packed Bool word.
+    fn append_bool_word(out: &mut Vec<bool>, word: u64, count: usize) -> Result<(), DecodeError> {
+        for bit in 0..count {
+            let shift = u32::try_from(bit).map_err(|_| DecodeError::LimitExceeded)?;
+            let mask = 1_u64.checked_shl(shift).ok_or(DecodeError::LimitExceeded)?;
+            out.push(word & mask != 0);
+        }
+        Ok(())
     }
 
     /// Absolute word index of pointer `slot`.

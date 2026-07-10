@@ -57,6 +57,10 @@ message BenchEvent {
   }
 }
 
+message BenchEventBatch {
+  repeated BenchEvent events = 1;
+}
+
 message BenchHeartbeat {}
 
 message BenchNodeCreated {

@@ -21,6 +21,7 @@ pub mod pack;
 mod pointer;
 mod reader;
 pub mod reflect;
+mod verify;
 mod writer;
 
 pub mod scalar;
@@ -108,14 +109,34 @@ pub trait TdBin: Struct {
     /// # Errors
     /// Returns [`DecodeError`] on malformed frames, packed bodies, or bad body bytes.
     fn from_framed_bytes(wire: &[u8]) -> Result<Self, DecodeError> {
-        let message = frame::decode(wire)?;
-        if message.is_packed() {
-            let body = pack::decode(message.body())?;
-            Reader::message(&body)
-        } else {
-            Reader::message(message.body())
-        }
+        decode_framed::<Self>(wire, None)
+    }
+
+    /// Decode framed bytes while requiring an exact layout compatibility hash.
+    ///
+    /// # Errors
+    /// Returns [`DecodeError::HashMismatch`] when the hash is absent or differs.
+    fn from_framed_bytes_with_hash(wire: &[u8], expected: u64) -> Result<Self, DecodeError> {
+        decode_framed::<Self>(wire, Some(expected))
     }
 }
 
 impl<T: Struct> TdBin for T {}
+
+/// Decode a frame and optionally enforce its layout compatibility hash.
+fn decode_framed<T: Struct>(wire: &[u8], expected: Option<u64>) -> Result<T, DecodeError> {
+    let message = frame::decode(wire)?;
+    if let Some(hash) = expected {
+        (message.schema_hash() == Some(hash))
+            .then_some(())
+            .ok_or(DecodeError::HashMismatch {
+                expected: hash,
+                got: message.schema_hash(),
+            })?;
+    }
+    if message.is_packed() {
+        Reader::message(&pack::decode(message.body())?)
+    } else {
+        Reader::message(message.body())
+    }
+}

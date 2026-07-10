@@ -17,6 +17,13 @@ export const readWord = (bytes: Uint8Array, view: DataView, idx: number): Result
     : tdbinErr("PointerOutOfBounds", { wordIndex: idx });
 };
 
+export const requireWordRange = (bytes: Uint8Array, at: number, words: number): Result<void, TdbinError> => {
+  const end = at + words;
+  return Number.isSafeInteger(end) && at >= 0 && words >= 0 && end <= bytes.length / WORD_BYTES
+    ? ok(undefined)
+    : tdbinErr("PointerOutOfBounds", { wordIndex: at });
+};
+
 export const wordsToBytes = (words: readonly bigint[]): Uint8Array => {
   const out = new Uint8Array(words.length * WORD_BYTES);
   const view = new DataView(out.buffer, out.byteOffset, out.byteLength);

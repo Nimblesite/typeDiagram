@@ -51,6 +51,10 @@ union BenchEvent {
   Heartbeat
 }
 
+type BenchEventBatch {
+  events: List<BenchEvent>
+}
+
 type BenchNodeCreated {
   documentId: String
   node: BenchNode

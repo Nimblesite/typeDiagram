@@ -6,10 +6,12 @@ export type TdbinErrorCode =
   | "BadVersion"
   | "ReservedBits"
   | "LengthMismatch"
+  | "HashMismatch"
   | "PackedTruncated"
   | "PointerOutOfBounds"
   | "ReservedPointerKind"
   | "PointerKindMismatch"
+  | "MalformedCompositeTag"
   | "DepthExceeded"
   | "AmplificationExceeded"
   | "InvalidUtf8"
@@ -25,6 +27,8 @@ export interface TdbinError {
   readonly wordIndex?: number;
   readonly version?: number;
   readonly ordinal?: bigint;
+  readonly expectedHash?: bigint;
+  readonly gotHash?: bigint | null;
 }
 
 export interface StructCodec<T> {
@@ -36,6 +40,7 @@ export interface StructCodec<T> {
 
 export interface Writer {
   readonly body: bigint[];
+  readonly depth?: number;
 }
 
 export interface Budget {

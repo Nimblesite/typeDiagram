@@ -234,6 +234,28 @@ const EmptyCodec: StructCodec<undefined> = {
   read: () => ok(undefined),
 };
 
+interface Deep {
+  readonly next: Deep | null;
+}
+
+const DeepCodec: StructCodec<Deep> = {
+  dataWords: 0,
+  ptrWords: 1,
+  write: (writer, at, value) => tdbin.writer.child(writer, at, 0, 0, DeepCodec, value.next),
+  read: (reader, at) => {
+    const next = tdbin.reader.child(reader, at, 0, 0, DeepCodec);
+    return next.ok ? ok({ next: next.value }) : next;
+  },
+};
+
+const deepChain = (depth: number): Deep => {
+  let value: Deep = { next: null };
+  for (let index = 0; index < depth; index += 1) {
+    value = { next: value };
+  }
+  return value;
+};
+
 const failingCodec = (phase: "write" | "read"): StructCodec<undefined> => ({
   dataWords: 1,
   ptrWords: 0,
@@ -278,12 +300,28 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
     expect(expectOk(tdbin.decode(MaybeCodec, short))).toEqual(empty);
   });
 
+  it("encodes zero-size roots distinctly from null and enforces pointer depth", () => {
+    const empty = expectOk(tdbin.encode(EmptyCodec, undefined));
+    expect(empty).not.toEqual(new Uint8Array(8));
+    expectOk(tdbin.decode(EmptyCodec, empty));
+
+    const boundary = deepChain(64);
+    expect(expectOk(tdbin.decode(DeepCodec, expectOk(tdbin.encode(DeepCodec, boundary))))).toEqual(boundary);
+    expectErr(tdbin.encode(DeepCodec, deepChain(65)), "LimitExceeded");
+  });
+
   it("packs and unpacks zero, sparse, and dense words", () => {
     const dense = Uint8Array.of(1, 2, 3, 4, 5, 6, 7, 8);
     const sparse = Uint8Array.of(0, 9, 0, 0, 0, 0, 0, 0);
     const body = new Uint8Array([...new Uint8Array(8), ...sparse, ...dense, ...dense]);
     const packed = expectOk(tdbin.pack.encodePacked(body));
     expect(expectOk(tdbin.pack.decodePacked(packed))).toEqual(body);
+  });
+
+  it("enforces an expected framed schema hash", () => {
+    const framed = expectOk(tdbin.encodePackedFramed(ChildCodec, { count: 7 }, 0xaabbn));
+    expectErr(tdbin.decodeAuto(ChildCodec, framed, 0xccddn), "HashMismatch");
+    expect(tdbin.decodeAuto(ChildCodec, framed, 0xaabbn)).toEqual(ok({ count: 7 }));
   });
 
   it("returns typed errors for malformed frames, packed bodies, words, and pointers", () => {
@@ -293,6 +331,10 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
     expectErr(tdbin.pack.encodePacked(Uint8Array.of(1)), "BadLength");
     expectErr(tdbin.pack.decodePacked(Uint8Array.of(0xff, 1)), "PackedTruncated");
     expectErr(tdbin.scalar.i64Bits(Number.MAX_SAFE_INTEGER + 1), "LimitExceeded");
+    expect(tdbin.scalar.boolBits(true)).toBe(1n);
+    expect(tdbin.scalar.boolBits(false)).toBe(0n);
+    expect(tdbin.scalar.boolFrom(1n)).toBe(true);
+    expect(tdbin.scalar.boolFrom(0n)).toBe(false);
     expectErr(tdbin.scalar.bytes16Words(new Uint8Array(15)), "BadLength");
     expectErr(tdbin.scalar.utf8Decode(Uint8Array.of(0xff)), "InvalidUtf8");
     expectErr(tdbin.fromHex("f"), "BadLength");
@@ -313,10 +355,83 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
     );
   });
 
+  it("verifies unvisited pointers and rejects aliased amplification", () => {
+    const extraPointerRoot = 1n << 48n;
+    const reserved = tdbin.scalar.wordsToBytes([extraPointerRoot, 2n]);
+    expectErr(tdbin.decode(EmptyCodec, reserved), "ReservedPointerKind");
+
+    const twoPointerRoot = 2n << 48n;
+    const firstChild = (1n << 32n) | (1n << 2n);
+    const secondChild = 1n << 32n;
+    const aliased = tdbin.scalar.wordsToBytes([twoPointerRoot, firstChild, secondChild, 7n]);
+    expectErr(tdbin.decode(EmptyCodec, aliased), "AmplificationExceeded");
+  });
+
+  it("rejects malformed flat, pointer, and composite list structures", () => {
+    const root = expectOk(tdbin.pointer.encodeStruct(0, 0, 1));
+    const flat = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_BIT, 65));
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, flat])), "PointerOutOfBounds");
+    const negativeFlat = expectOk(tdbin.pointer.encodeList(-3, tdbin.pointer.ELEM_BIT, 1));
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, negativeFlat])), "PointerOutOfBounds");
+
+    const pointers = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_POINTER, 1));
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, pointers])), "PointerOutOfBounds");
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, pointers, 2n])), "ReservedPointerKind");
+
+    const composite = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_COMPOSITE, 1));
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, composite])), "PointerOutOfBounds");
+    const emptyComposite = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_COMPOSITE, 0));
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, emptyComposite, 0n])), "MalformedCompositeTag");
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, emptyComposite, 2n])), "ReservedPointerKind");
+    const zeroStrideTag = expectOk(tdbin.pointer.encodeStruct(1, 0, 0));
+    expectErr(
+      tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, emptyComposite, zeroStrideTag])),
+      "MalformedCompositeTag"
+    );
+
+    const badTag = expectOk(tdbin.pointer.encodeStruct(2, 1, 0));
+    expectErr(
+      tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, composite, badTag, 0n])),
+      "MalformedCompositeTag"
+    );
+    const pointerTag = expectOk(tdbin.pointer.encodeStruct(1, 0, 1));
+    expectErr(
+      tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, composite, pointerTag, 2n])),
+      "ReservedPointerKind"
+    );
+  });
+
+  it("charges aliased list bodies and enforces structural depth", () => {
+    const root = expectOk(tdbin.pointer.encodeStruct(0, 0, 2));
+    const firstPointers = expectOk(tdbin.pointer.encodeList(1, tdbin.pointer.ELEM_POINTER, 1));
+    const secondPointers = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_POINTER, 1));
+    expectErr(
+      tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, firstPointers, secondPointers, 0n])),
+      "AmplificationExceeded"
+    );
+
+    const firstComposite = expectOk(tdbin.pointer.encodeList(1, tdbin.pointer.ELEM_COMPOSITE, 1));
+    const secondComposite = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_COMPOSITE, 1));
+    const tag = expectOk(tdbin.pointer.encodeStruct(1, 0, 1));
+    expectErr(
+      tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes([root, firstComposite, secondComposite, tag, 0n])),
+      "AmplificationExceeded"
+    );
+
+    const link = expectOk(tdbin.pointer.encodeStruct(0, 0, 1));
+    const deep = Array<bigint>(67).fill(link);
+    deep[66] = 0n;
+    expectErr(tdbin.decode(EmptyCodec, tdbin.scalar.wordsToBytes(deep)), "DepthExceeded");
+  });
+
   it("rejects pointer kinds that do not match the requested field type", () => {
-    const structPointer = expectOk(tdbin.pointer.encodeStruct(-1, 1, 0));
+    const structPointer = expectOk(tdbin.pointer.encodeStruct(0, 1, 0));
     const byteListPointer = expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_BYTE, 0));
-    expectErr(tdbin.decode(SlotBytesCodec, onePointerMessage(structPointer)), "PointerKindMismatch");
+    const root = expectOk(tdbin.pointer.encodeStruct(0, 0, 1));
+    expectErr(
+      tdbin.decode(SlotBytesCodec, tdbin.scalar.wordsToBytes([root, structPointer, 0n])),
+      "PointerKindMismatch"
+    );
     expectErr(tdbin.decode(SlotChildCodec, onePointerMessage(byteListPointer)), "PointerKindMismatch");
     expectErr(tdbin.decode(SlotBoolListCodec, onePointerMessage(byteListPointer)), "PointerKindMismatch");
     expectErr(tdbin.decode(SlotChildListCodec, onePointerMessage(byteListPointer)), "PointerKindMismatch");
@@ -332,6 +447,7 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
     expect(expectOk(tdbin.reader.bytes16List(emptyReader, 0, 0, 0))).toBeNull();
     expect(expectOk(tdbin.reader.stringList(emptyReader, 0, 0, 0))).toBeNull();
     expect(expectOk(tdbin.reader.bytesList(emptyReader, 0, 0, 0))).toBeNull();
+    expectOk(tdbin.reader.requireNullPointer(emptyReader, 0, 0));
 
     const badPointerReader = fakeReader(new Uint8Array(8), 0, 1);
     expectErr(tdbin.reader.string(badPointerReader, 1, 0, 0), "PointerOutOfBounds");
@@ -362,8 +478,17 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
       "LimitExceeded"
     );
     expectErr(tdbin.writer.child({ body: [0n] }, 0, 0, 0, failingCodec("write"), undefined), "LimitExceeded");
+    const zeroChild = { body: [0n] };
+    expectOk(tdbin.writer.child(zeroChild, 0, 0, 0, EmptyCodec, undefined));
+    expect(zeroChild.body[0]).not.toBe(0n);
+    expectErr(tdbin.writer.child({ body: [0n], depth: 0 }, 0, 0, 0, ChildCodec, { count: 1 }), "LimitExceeded");
     expectErr(tdbin.writer.childList({ body: [0n] }, 0, 0, 0, EmptyCodec, [undefined]), "LimitExceeded");
     expectErr(tdbin.writer.childList({ body: [0n] }, 0, 0, 0, failingCodec("write"), [undefined]), "LimitExceeded");
+    expectErr(
+      tdbin.writer.childList({ body: [0n] }, 0, 0, 0, failingCodec("write"), [undefined, undefined]),
+      "LimitExceeded"
+    );
+    expectErr(tdbin.writer.childList({ body: [0n], depth: 0 }, 0, 0, 0, ChildCodec, [{ count: 1 }]), "LimitExceeded");
     expectErr(tdbin.encode({ ...EmptyCodec, dataWords: 1 << 27 }, undefined), "LimitExceeded");
     expectErr(tdbin.encode({ ...EmptyCodec, dataWords: 0x1_0000 }, undefined), "LimitExceeded");
     expectErr(tdbin.encode(failingCodec("write"), undefined), "LimitExceeded");
@@ -371,9 +496,13 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
     expectErr(tdbin.decode(failingCodec("read"), encoded), "LimitExceeded");
 
     const nullPointerReader = onePointerReader(0n);
+    expectOk(tdbin.reader.requireNullPointer(nullPointerReader, 1, 0));
     expect(expectOk(tdbin.reader.bytes(nullPointerReader, 1, 0, 0))).toBeNull();
     expect(expectOk(tdbin.reader.boolList(nullPointerReader, 1, 0, 0))).toBeNull();
     expect(expectOk(tdbin.reader.wordList(nullPointerReader, 1, 0, 0))).toBeNull();
+
+    const livePointerReader = onePointerReader(expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_BYTE, 0)));
+    expectErr(tdbin.reader.requireNullPointer(livePointerReader, 1, 0), "PointerKindMismatch");
 
     const farByteList = onePointerReader(expectOk(tdbin.pointer.encodeList(10, tdbin.pointer.ELEM_BYTE, 1)));
     expectErr(tdbin.reader.bytes(farByteList, 1, 0, 0), "PointerOutOfBounds");
@@ -414,7 +543,7 @@ describe("[TDBIN-FUTURE-TS] runtime coverage", () => {
       2
     );
     setWord(mismatchedComposite.bytes, 2, expectOk(tdbin.pointer.encodeStruct(1, 1, 0)));
-    expectErr(tdbin.reader.childList(mismatchedComposite, 1, 0, 0, ChildCodec), "PointerKindMismatch");
+    expectErr(tdbin.reader.childList(mismatchedComposite, 1, 0, 0, ChildCodec), "MalformedCompositeTag");
     const failingComposite = onePointerReader(
       expectOk(tdbin.pointer.encodeList(0, tdbin.pointer.ELEM_COMPOSITE, 2)),
       3

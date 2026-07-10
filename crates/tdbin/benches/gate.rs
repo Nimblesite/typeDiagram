@@ -11,10 +11,10 @@ mod bench_corpus;
 use std::hint::black_box;
 use std::time::Duration;
 
-use bench_corpus::corpus;
+use bench_corpus::{batches, corpus, documents, events};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use prost::Message;
-use tdbin::{pack, Struct, TdBin};
+use tdbin::{Struct, TdBin};
 
 /// Return a TDBIN encoded message or terminate the benchmark process.
 fn td_bytes<T: Struct>(value: &T) -> Vec<u8> {
@@ -27,12 +27,17 @@ fn td_bytes<T: Struct>(value: &T) -> Vec<u8> {
     }
 }
 
-/// Return a packed TDBIN body or terminate the benchmark process.
-fn packed_bytes(body: &[u8]) -> Vec<u8> {
-    match pack::encode(body) {
+/// Return a framed TDBIN message or terminate the benchmark process.
+fn td_framed_bytes<T: Struct>(value: &T, packed: bool) -> Vec<u8> {
+    let encoded = if packed {
+        value.to_packed_framed_bytes(None)
+    } else {
+        value.to_framed_bytes(None)
+    };
+    match encoded {
         Ok(bytes) => bytes,
         Err(error) => {
-            eprintln!("tdbin pack failed before benchmark: {error:?}");
+            eprintln!("tdbin framed encode failed before benchmark: {error:?}");
             std::process::exit(1);
         }
     }
@@ -57,12 +62,14 @@ where
     P: Message + Default,
 {
     let bare = td_bytes(td);
-    let packed = packed_bytes(&bare);
+    let framed = td_framed_bytes(td, false);
+    let packed_framed = td_framed_bytes(td, true);
     let protobuf = pb_bytes(pb);
     println!(
-        "[{label}] sizes: tdbin_bare={} tdbin_packed={} protobuf={}",
+        "[{label}] sizes: tdbin_bare={} tdbin_framed={} tdbin_packed_framed={} protobuf={}",
         bare.len(),
-        packed.len(),
+        framed.len(),
+        packed_framed.len(),
         protobuf.len()
     );
 
@@ -72,6 +79,20 @@ where
         td,
         |b, value| {
             b.iter(|| black_box(value).to_bytes());
+        },
+    );
+    let _ = group.bench_with_input(
+        BenchmarkId::new("tdbin_encode_framed", label),
+        td,
+        |b, value| {
+            b.iter(|| black_box(value).to_framed_bytes(None));
+        },
+    );
+    let _ = group.bench_with_input(
+        BenchmarkId::new("tdbin_encode_packed_framed", label),
+        td,
+        |b, value| {
+            b.iter(|| black_box(value).to_packed_framed_bytes(None));
         },
     );
     let _ = group.bench_with_input(
@@ -92,13 +113,17 @@ where
         },
     );
     let _ = group.bench_with_input(
-        BenchmarkId::new("tdbin_decode_packed_framed_body", label),
-        &packed,
+        BenchmarkId::new("tdbin_decode_framed", label),
+        &framed,
         |b, bytes| {
-            b.iter(|| {
-                pack::decode(black_box(bytes.as_slice()))
-                    .and_then(|body| T::from_bytes(black_box(body.as_slice())))
-            });
+            b.iter(|| T::from_framed_bytes(black_box(bytes.as_slice())));
+        },
+    );
+    let _ = group.bench_with_input(
+        BenchmarkId::new("tdbin_decode_packed_framed", label),
+        &packed_framed,
+        |b, bytes| {
+            b.iter(|| T::from_framed_bytes(black_box(bytes.as_slice())));
         },
     );
     let _ = group.bench_with_input(
@@ -131,13 +156,37 @@ fn criterion_benchmark(c: &mut Criterion) {
         &corpus::td_metric_batch(),
         &corpus::pb_metric_batch(),
     );
+    bench_fixture(
+        c,
+        "person_batch",
+        &batches::td_person_batch(),
+        &batches::pb_person_batch(),
+    );
+    bench_fixture(
+        c,
+        "contact_batch",
+        &batches::td_contact_batch(),
+        &batches::pb_contact_batch(),
+    );
+    bench_fixture(
+        c,
+        "diagram_document",
+        &documents::td_document(),
+        &documents::pb_document(),
+    );
+    bench_fixture(
+        c,
+        "event_batch",
+        &events::td_event_batch(),
+        &events::pb_event_batch(),
+    );
 }
 
 criterion_group! {
     name = benches;
     config = Criterion::default()
-        .sample_size(20)
-        .measurement_time(Duration::from_secs(3));
+        .sample_size(50)
+        .measurement_time(Duration::from_secs(5));
     targets = criterion_benchmark
 }
 criterion_main!(benches);

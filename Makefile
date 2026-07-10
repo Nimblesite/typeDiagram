@@ -151,16 +151,15 @@ test-tdbin:
 	@echo "==> tdbin crate tests (cargo test -p tdbin)..."
 	cargo test -p tdbin
 
-## bench: TDBIN vs Protobuf benchmark. Runs the `tdbin` crate tests (round-trip +
-##        the deterministic size gate) THEN the release-mode encode/decode/size
-##        benchmark example, which prints per-op timings and all three encoded
-##        sizes (TDBIN bare / TDBIN packed / protobuf) per corpus fixture.
-##        For the statistical Criterion gate instead: cargo bench -p tdbin --bench gate.
+## bench: TDBIN vs Protobuf benchmark. Runs tests and the full Criterion matrix,
+##        then generates Markdown and raw JSON reports from the measured output.
 bench:
 	@echo "==> TDBIN crate tests (round-trip + deterministic size gate)..."
 	cargo test -p tdbin
-	@echo "==> TDBIN vs Protobuf benchmark (release; sizes + per-op timings)..."
-	cargo run -p tdbin --release --example bench
+	@echo "==> TDBIN vs Protobuf Criterion benchmark matrix..."
+	cargo bench -p tdbin --bench gate -- --noplot
+	@echo "==> Generating data-derived TDBIN benchmark report..."
+	node scripts/tdbin-bench-report.mjs
 
 ## test-playwright: Run Playwright end-to-end tests only (packages/web), both
 ##                  desktop and mobile viewports. Does NOT run vitest or enforce

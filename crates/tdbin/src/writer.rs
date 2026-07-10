@@ -5,7 +5,7 @@
 use crate::error::EncodeError;
 use crate::layout::{self, WORD_BYTES};
 use crate::pointer::{self, ELEM_BIT, ELEM_BYTE, ELEM_COMPOSITE, ELEM_EIGHT_BYTES, ELEM_POINTER};
-use crate::Struct;
+use crate::{Struct, MAX_DEPTH};
 
 /// Upper bound on message body words (a safety cap for the encoder).
 const MAX_WORDS: usize = 1 << 26;
@@ -19,12 +19,17 @@ const BITS_PER_WORD: usize = WORD_BYTES * 8;
 pub struct Writer {
     /// The message body, one entry per 8-byte word.
     body: Vec<u64>,
+    /// Remaining recursive child-pointer depth.
+    depth: u32,
 }
 
 impl Writer {
     /// Create an empty writer.
     fn new() -> Self {
-        Self { body: Vec::new() }
+        Self {
+            body: Vec::new(),
+            depth: MAX_DEPTH,
+        }
     }
 
     /// Encode a root value into a complete message ([TDBIN-MSG-BARE]).
@@ -35,7 +40,11 @@ impl Writer {
         let mut writer = Self::new();
         let _root = writer.reserve(1)?;
         let words = T::body_words().ok_or(EncodeError::LimitExceeded)?;
-        let root_at = writer.reserve(words)?;
+        let root_at = if words == 0 {
+            0
+        } else {
+            writer.reserve(words)?
+        };
         value.write_struct(&mut writer, root_at)?;
         let offset = rel_offset(root_at, 0)?;
         let ptr = pointer::encode_struct(offset, T::DATA_WORDS, T::PTR_WORDS)?;
@@ -287,8 +296,12 @@ impl Writer {
     /// Append a child struct body and patch its pointer word.
     fn write_child<C: Struct>(&mut self, ptr_word: usize, child: &C) -> Result<(), EncodeError> {
         let words = C::body_words().ok_or(EncodeError::LimitExceeded)?;
-        let child_at = self.reserve(words)?;
-        child.write_struct(self, child_at)?;
+        let child_at = if words == 0 {
+            ptr_word
+        } else {
+            self.reserve(words)?
+        };
+        self.with_descended(|writer| child.write_struct(writer, child_at))?;
         let offset = rel_offset(child_at, ptr_word)?;
         let ptr = pointer::encode_struct(offset, C::DATA_WORDS, C::PTR_WORDS)?;
         self.set(ptr_word, ptr)
@@ -378,7 +391,7 @@ impl Writer {
             .ok_or(EncodeError::LimitExceeded)?;
         let start = self.reserve_tagged_list(elem_words)?;
         self.write_composite_tag(start, values.len(), C::DATA_WORDS, C::PTR_WORDS)?;
-        self.write_composite_items(start, stride, values)?;
+        self.with_descended(|writer| writer.write_composite_items(start, stride, values))?;
         self.set_list_ptr(ptr_word, start, ELEM_COMPOSITE, elem_words)
     }
 
@@ -504,6 +517,18 @@ impl Writer {
             out.extend_from_slice(&word.to_le_bytes());
         }
         out
+    }
+
+    /// Run one nested struct write with the pointer-depth budget decremented.
+    fn with_descended<T>(
+        &mut self,
+        write: impl FnOnce(&mut Self) -> Result<T, EncodeError>,
+    ) -> Result<T, EncodeError> {
+        let previous = self.depth;
+        self.depth = previous.checked_sub(1).ok_or(EncodeError::LimitExceeded)?;
+        let result = write(self);
+        self.depth = previous;
+        result
     }
 }
 

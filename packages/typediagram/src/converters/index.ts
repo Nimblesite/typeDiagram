@@ -12,7 +12,6 @@ import type { Converter, Language } from "./types.js";
 
 export { typescript, python, rust, go, csharp, fsharp, dart, protobuf, php };
 export { parseTypeRef, printTypeRef } from "./parse-typeref.js";
-export { emitTypeScriptCodec, generateTypeScriptModule } from "./typescript-tdbin.js";
 export type { Converter, Language } from "./types.js";
 
 // [CONV-REGISTRY] Canonical language→converter map. Typing it Record<Language, Converter>

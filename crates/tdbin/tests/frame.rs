@@ -123,6 +123,27 @@ fn tdbin_msg_frame_typed_decode_accepts_packed_body() -> TestResult {
     Ok(())
 }
 
+/// [TDBIN-SCHEMA-HASH] Typed framed decode can require the negotiated hash.
+#[test]
+fn tdbin_msg_frame_typed_decode_enforces_expected_hash() -> TestResult {
+    let person = person_for_frame(Contact::Email(EmailContact {
+        addr: "hash@example.com".to_owned(),
+    }));
+    let framed = person.to_packed_framed_bytes(Some(0xAABB))?;
+    assert_eq!(
+        Person::from_framed_bytes_with_hash(&framed, 0xCCDD),
+        Err(DecodeError::HashMismatch {
+            expected: 0xCCDD,
+            got: Some(0xAABB),
+        })
+    );
+    assert_eq!(
+        Person::from_framed_bytes_with_hash(&framed, 0xAABB)?,
+        person
+    );
+    Ok(())
+}
+
 /// [TDBIN-MSG-FRAME] Readers reject invalid header fields and body lengths.
 #[test]
 fn tdbin_msg_frame_rejects_invalid_headers() -> TestResult {

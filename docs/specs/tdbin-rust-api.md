@@ -34,16 +34,24 @@ pub trait Struct: Sized {
 pub trait TdBin: Struct {                                    // blanket impl for every Struct
     fn to_bytes(&self) -> Result<Vec<u8>, EncodeError>;      // Writer::message  [TDBIN-ENC-CANON]
     fn from_bytes(wire: &[u8]) -> Result<Self, DecodeError>; // Reader::message  [TDBIN-SAFE]
+    fn to_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError>;
+    fn to_packed_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError>;
+    fn from_framed_bytes(wire: &[u8]) -> Result<Self, DecodeError>;
+    fn from_framed_bytes_with_hash(wire: &[u8], expected: u64) -> Result<Self, DecodeError>;
 }
 ```
 
 - `Writer` and `Reader<'a>` are the public building blocks the generated impls call: `scalar` /
-  `string` / `bytes` / `child` slot accessors over a word arena, checked offsets, single-pass
-  bounds-checked reads.
+  `string` / `bytes` / `child` slot accessors over a word arena and checked offsets. Decode first
+  performs schema-independent structural verification of every reachable pointer slot, then the
+  generated typed reader validates schema-specific slot use and materializes the value.
 - `from_bytes` is **safe on arbitrary untrusted bytes** (`[TDBIN-SAFE]`): every read is
   bounds-checked, with a depth cap of 64 (`[TDBIN-SAFE-DEPTH]`), an amplification budget
   (`[TDBIN-SAFE-AMPLIFY]`), and UTF-8 validation (`[TDBIN-SAFE-UTF8]`). No panics on any input
   (`[TDBIN-RS-NOPANIC]`).
+- `from_framed_bytes_with_hash` requires the frame to carry the caller's expected
+  compatibility-major layout hash and returns `HashMismatch` for a missing or different hash.
+  Plain `from_framed_bytes` validates frame structure but does not assert schema identity.
 - `to_bytes` is deterministic/canonical (`[TDBIN-ENC-CANON]`): the same value always yields the
   same bytes, and `bytes → object → bytes` is byte-identical.
 - **The ADT types _and_ their codec are produced by typeDiagram codegen — never hand-written.**

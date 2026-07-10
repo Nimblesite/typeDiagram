@@ -14,13 +14,15 @@ import type { StructCodec, TdbinError, Writer } from "./types.js";
 import { WORD_BITS, WORD_BYTES, utf8Encode, wordsToBytes } from "./word.js";
 
 const MAX_WORDS = 1 << 26;
+const MAX_DEPTH = 64;
 
-export const createWriter = (): Writer => ({ body: [] });
+export const createWriter = (): Writer => ({ body: [], depth: MAX_DEPTH });
 
 export const message = <T>(codec: StructCodec<T>, value: T): Result<Uint8Array, TdbinError> => {
-  const writer: Writer = { body: [0n] };
+  const writer: Writer = { body: [0n], depth: MAX_DEPTH };
   const root = 0;
-  const body = reserve(writer, codec.dataWords + codec.ptrWords);
+  const words = codec.dataWords + codec.ptrWords;
+  const body = words === 0 ? ok(root) : reserve(writer, words);
   if (!body.ok) {
     return body;
   }
@@ -212,11 +214,13 @@ const writePointerList = <T>(
 };
 
 const writeChild = <T>(writer: Writer, ptrWord: number, codec: StructCodec<T>, value: T) => {
-  const start = reserve(writer, codec.dataWords + codec.ptrWords);
+  const words = codec.dataWords + codec.ptrWords;
+  const start = words === 0 ? ok(ptrWord) : reserve(writer, words);
   if (!start.ok) {
     return start;
   }
-  const written = codec.write(writer, start.value, value);
+  const nested = descendWriter(writer);
+  const written = nested.ok ? codec.write(nested.value, start.value, value) : nested;
   if (!written.ok) {
     return written;
   }
@@ -229,9 +233,19 @@ const writeChildList = <T>(writer: Writer, ptrWord: number, codec: StructCodec<T
   const elemWords = stride * values.length;
   const start =
     stride === 0 && values.length !== 0 ? tdbinErr<number>("LimitExceeded") : reserve(writer, elemWords + 1);
-  const tag = start.ok ? writeCompositeTag(writer, start.value, values.length, codec.dataWords, codec.ptrWords) : start;
-  const items = start.ok && tag.ok ? writeCompositeItems(writer, start.value, stride, codec, values) : tag;
-  return start.ok && items.ok ? setListPtr(writer, ptrWord, start.value, ELEM_COMPOSITE, elemWords) : items;
+  if (!start.ok) {
+    return start;
+  }
+  const tag = writeCompositeTag(writer, start.value, values.length, codec.dataWords, codec.ptrWords);
+  if (!tag.ok) {
+    return tag;
+  }
+  const nested = descendWriter(writer);
+  if (!nested.ok) {
+    return nested;
+  }
+  const items = writeCompositeItems(nested.value, start.value, stride, codec, values);
+  return items.ok ? setListPtr(writer, ptrWord, start.value, ELEM_COMPOSITE, elemWords) : items;
 };
 
 const writeBytes16List = (writer: Writer, ptrWord: number, values: readonly (readonly [bigint, bigint])[]) => {
@@ -307,3 +321,8 @@ const writeStringPointer = (writer: Writer, ptrWord: number, value: string) =>
   writeByteList(writer, ptrWord, utf8Encode(value));
 
 const writeBytesPointer = (writer: Writer, ptrWord: number, value: Uint8Array) => writeByteList(writer, ptrWord, value);
+
+const descendWriter = (writer: Writer): Result<Writer, TdbinError> => {
+  const depth = writer.depth ?? MAX_DEPTH;
+  return depth > 0 ? ok({ body: writer.body, depth: depth - 1 }) : tdbinErr("LimitExceeded");
+};

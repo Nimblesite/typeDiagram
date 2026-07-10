@@ -90,16 +90,16 @@ The target object is `data_words` words of scalar data followed by `ptr_words` p
 | 32–34 | elem   | element kind, table below                                                                        |
 | 35–63 | count  | u29: element count, EXCEPT composite (`elem=7`): total words excluding the tag word              |
 
-| elem | Element       | Used by                                                                       |
-| ---- | ------------- | ----------------------------------------------------------------------------- |
-| 0    | void (0 bits) | `List<Unit>`                                                                  |
-| 1    | 1 bit         | `List<Bool>` (bit-packed, `[TDBIN-WIRE-WORD]` bit order)                      |
-| 2    | 1 byte        | `String`, `Bytes`, `List<enum>` (`[TDBIN-LIST-ELEM]`)                         |
-| 3    | 2 bytes       | reserved for width-refined ints (`[TDBIN-FUTURE-WIDTH-TYPES]`)                |
-| 4    | 4 bytes       | reserved for width-refined ints/floats                                        |
-| 5    | 8 bytes       | `List<Int>`, `List<Float>`, `List<DateTime>`                                  |
-| 6    | pointer       | `List<String>`, `List<Bytes>`, `List<List<T>>`, `List<record>`, `List<union>` |
-| 7    | composite     | inline struct elements (`[TDBIN-LIST-COMPOSITE]`)                             |
+| elem | Element       | Used by                                                        |
+| ---- | ------------- | -------------------------------------------------------------- |
+| 0    | void (0 bits) | `List<Unit>`                                                   |
+| 1    | 1 bit         | `List<Bool>` (bit-packed, `[TDBIN-WIRE-WORD]` bit order)       |
+| 2    | 1 byte        | `String`, `Bytes`, `List<enum>` (`[TDBIN-LIST-ELEM]`)          |
+| 3    | 2 bytes       | reserved for width-refined ints (`[TDBIN-FUTURE-WIDTH-TYPES]`) |
+| 4    | 4 bytes       | reserved for width-refined ints/floats                         |
+| 5    | 8 bytes       | `List<Int>`, `List<Float>`, `List<DateTime>`                   |
+| 6    | pointer       | `List<String>`, `List<Bytes>`, `List<List<T>>`                 |
+| 7    | composite     | inline struct elements (`[TDBIN-LIST-COMPOSITE]`)              |
 
 List bodies MUST be zero-padded to a word boundary.
 
@@ -276,15 +276,13 @@ Generic types (`Pair<A,B>`, `Option<T>`, `List<T>`, `Result<T,E>`) are **monomor
 
 ### [TDBIN-SCHEMA-HASH]
 
-The framed `schema_hash` field carries a **layout hash**: FNV-1a 64-bit (offset basis `0xcbf29ce484222325`, prime `0x100000001b3`) over the canonical layout text `[TDBIN-SCHEMA-CANON]` for the declared schema major. The layout hash includes only wire-compatibility facts: encoding class, scalar widths and bit offsets, pointer slots, section word counts, union discriminant capacity, list element kinds, and semantic-scalar byte layouts. It excludes names, comments, source formatting, and tooling metadata. Append-compatible releases that keep the same schema major and preserve all previously assigned layout facts keep the same layout hash; breaking changes MUST bump the schema major and therefore change the layout hash.
+The framed `schema_hash` field carries a **compatibility-major layout hash**: FNV-1a 64-bit (offset basis `0xcbf29ce484222325`, prime `0x100000001b3`) over the frozen canonical layout manifest `[TDBIN-SCHEMA-CANON]` for the declared schema major. The manifest records the wire facts present when that major is published: encoding class, scalar widths and bit offsets, pointer slots, section word counts, union discriminant capacity, list element kinds, and semantic-scalar byte layouts. It excludes names, comments, source formatting, and tooling metadata. Append-compatible releases MUST retain that frozen manifest and hash; newly appended fields or variants are not added to it. Any change to a frozen fact MUST publish a new schema major and hash.
 
 Tooling MAY additionally compute an **exact schema text hash** over the full canonical typeDiagram source (names included). That exact hash is for diagnostics, codegen drift checks, and registry lookups; it MUST NOT be used as the framed rejection hash because it would reject append-compatible messages.
 
 ### [TDBIN-SCHEMA-CANON]
 
-Canonical layout text: all reachable monomorphized types, aliases expanded, sorted by stable layout identity, each rendered with no whitespace as
-`type Name{field:Type,…}` / `union Name{Variant{field:Type,…},Bare,…}`
-with fields and variants in ordinal order, plus their computed layout facts (`class`, widths, bit offsets, pointer slots, section sizes, and union capacity). Names are retained only as local readability labels before hashing; the layout hash input uses stable ordinal/type identities so a rename does not change the framed compatibility hash. The exact schema text hash, when needed by tooling, uses the full name-preserving canonical typeDiagram text instead.
+At publication of a schema major, tooling freezes a canonical layout manifest containing every reachable monomorphized type, aliases expanded and sorted by stable ordinal/type identity. Each entry records only encoding class, field/variant ordinal, wire type, widths, bit offsets, pointer slots, section sizes, union capacity, list kind, and semantic-scalar layout, rendered without whitespace. Source names are not hash input. Later append-compatible releases reuse the frozen manifest byte-for-byte even when their current structs have longer sections. The exact schema text hash, when needed by tooling, uses the full name-preserving canonical typeDiagram text instead.
 
 ---
 

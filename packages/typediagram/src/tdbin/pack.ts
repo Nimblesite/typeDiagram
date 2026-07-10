@@ -90,9 +90,12 @@ const decodeDenseRun = (packed: Uint8Array, cursor: number, out: number[]): Resu
   const rawStart = wordEnd + 1;
   const rawEnd = rawStart + extra * WORD_BYTES;
   const raw = packed.slice(rawStart, rawEnd);
-  return raw.length === extra * WORD_BYTES && appendBytes(out, word).ok && appendBytes(out, raw).ok
-    ? ok(rawEnd)
-    : tdbinErr("PackedTruncated");
+  if (raw.length !== extra * WORD_BYTES) {
+    return tdbinErr("PackedTruncated");
+  }
+  const wordResult = appendBytes(out, word);
+  const rawResult = wordResult.ok ? appendBytes(out, raw) : wordResult;
+  return rawResult.ok ? ok(rawEnd) : rawResult;
 };
 
 const decodeSparseWord = (

@@ -133,12 +133,12 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
     );
     // Bare variant inside a mixed union: discriminant only, no payload.
     expect(code).toContain("Self::Empty => {");
-    expect(code).toContain("2 => Ok(Self::Empty),");
+    expect(code).toContain("r.require_null_pointer(at, 0)?;");
     // An all-bare union needs no pointer section.
     expect(code).toMatch(
       /impl tdbin::Struct for Color \{\n[ ]{4}const DATA_WORDS: u16 = 1;\n[ ]{4}const PTR_WORDS: u16 = 0;/
     );
-    expect(code).toContain("0 => Ok(Self::Red),");
+    expect(code).toContain("Ok(Self::Red)");
   });
 });
 
@@ -299,27 +299,23 @@ describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)
     expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type 'Any'");
   });
 
-  it("rejects Option<empty-record> before it can alias null", () => {
-    const r = emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  maybe: Option<Empty>\n}`));
-    expect(r.ok).toBe(false);
-    const message = r.ok ? "" : r.error[0]?.message;
-    expect(message).toContain("Option<empty-record> 'Option<Empty>'");
-    expect(message).toContain("Holder.maybe");
+  it("emits Option<empty-record> with null reserved for None", () => {
+    const code = unwrap(emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  maybe: Option<Empty>\n}`)));
+    expect(code).toContain("w.child(at, Self::DATA_WORDS, 0, self.maybe.as_ref())?;");
+    expect(code).toContain("let maybe = r.child::<Empty>(at, Self::DATA_WORDS, 0)?;");
   });
 
-  it("rejects empty-record child pointers until v0 has a non-null marker", () => {
-    const r = emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  value: Empty\n}`));
-    expect(r.ok).toBe(false);
-    const message = r.ok ? "" : r.error[0]?.message;
-    expect(message).toContain("empty-record pointer 'Empty' has no non-null v0 marker");
-    expect(message).toContain("Holder.value");
+  it("emits required empty-record child pointers with the non-null marker", () => {
+    const code = unwrap(emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  value: Empty\n}`)));
+    expect(code).toContain("w.child(at, Self::DATA_WORDS, 0, Some(&self.value))?;");
+    expect(code).toContain("let value = r.child::<Empty>(at, Self::DATA_WORDS, 0)?.ok_or");
   });
 
   it("rejects List<empty-record> before composite count would lose element identity", () => {
     const r = emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  values: List<Empty>\n}`));
     expect(r.ok).toBe(false);
     const message = r.ok ? "" : r.error[0]?.message;
-    expect(message).toContain("empty-record pointer 'Empty' has no non-null v0 marker");
+    expect(message).toContain("List<empty-record> 'Empty' has a zero-word composite stride");
     expect(message).toContain("Holder.values");
   });
 

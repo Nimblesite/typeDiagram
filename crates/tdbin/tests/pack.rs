@@ -43,6 +43,25 @@ fn tdbin_pack_word_encodes_sparse_word_byte_exactly() -> TestResult {
     Ok(())
 }
 
+/// [TDBIN-PACK-WORD] Every sparse tag scatters payload bytes to the same slots.
+#[test]
+fn tdbin_pack_word_round_trips_every_sparse_tag() -> TestResult {
+    for tag in 1_u8..u8::MAX {
+        let body: [u8; 8] = core::array::from_fn(|offset| {
+            let mask = 1_u8
+                .checked_shl(u32::try_from(offset).unwrap_or(0))
+                .unwrap_or(0);
+            if tag & mask == 0 {
+                0
+            } else {
+                u8::try_from(offset).unwrap_or(0).saturating_add(1)
+            }
+        });
+        assert_eq!(pack::decode(&pack::encode(&body)?)?, body);
+    }
+    Ok(())
+}
+
 /// [TDBIN-PACK-RUNS] Zero-word runs encode as tag zero plus additional count.
 #[test]
 fn tdbin_pack_runs_encode_zero_words_byte_exactly() -> TestResult {

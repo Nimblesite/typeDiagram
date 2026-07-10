@@ -1,6 +1,6 @@
 # TDBIN TypeScript Codec Specification
 
-> Status: implemented initial runtime + codegen for `[TDBIN-FUTURE-TS]`.
+> Status: partial implementation of `[TDBIN-FUTURE-TS]`; not release-conformant.
 > Depends on: [tdbin-wire-format.md](tdbin-wire-format.md).
 
 ## Scope
@@ -33,3 +33,25 @@ The implementation lives in:
 - Cross-language fixtures prove Rust encode -> TypeScript decode -> Rust encode
   byte identity and the reverse.
 - Bundle-size impact is measured and kept under the package budget.
+
+## Implementation Status
+
+- [x] Bare, framed, and packed-framed runtime paths use `DataView` and
+      `Uint8Array`.
+- [x] Structural verification, depth limits, amplification limits, inactive
+      union slot checks, and explicit expected-hash checks return typed errors.
+- [x] Focused runtime and hand-authored Rust golden-vector tests pass in Node.
+- [ ] Preserve the full signed 64-bit `Int` domain. The current public value
+      model is limited to JavaScript safe integers instead of using `bigint` or an
+      equivalent lossless representation.
+- [ ] Emit enum-unions as inline discriminant scalars, including
+      `List<enum-union>`, rather than pointer child structs.
+- [ ] Complete generated support for lists, semantic scalars, scalar options,
+      generics, and every Rust codegen schema form.
+- [ ] Apply required-pointer null/default semantics consistently with the wire
+      specification.
+- [ ] Generate the compatibility-major layout hash and require it during normal
+      framed decode; the current API only checks a caller-supplied expected hash.
+- [ ] Compile and execute generated codecs, run Rust-to-TypeScript-to-Rust byte
+      identity in both directions, and cover browser as well as Node execution.
+- [ ] Measure and record bundle-size impact.

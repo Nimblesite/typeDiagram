@@ -24,10 +24,10 @@ const offsetBits = (offset: number): Result<bigint, TdbinError> =>
     ? ok(BigInt.asUintN(64, BigInt(offset)) & OFFSET_MASK)
     : tdbinErr("OffsetOutOfRange");
 
-const signExtend = (shifted: bigint): Result<number, TdbinError> => {
+const signExtend = (shifted: bigint): number => {
   const masked = shifted & OFFSET_MASK;
   const signed = (masked & OFFSET_SIGN) === 0n ? masked : masked - OFFSET_SPAN;
-  return ok(Number(signed));
+  return Number(signed);
 };
 
 export const encodeStruct = (offset: number, dataWords: number, ptrWords: number): Result<bigint, TdbinError> => {
@@ -52,8 +52,7 @@ export const decodePointer = (word: bigint): Result<Pointer, TdbinError> => {
   if (word === 0n) {
     return ok({ kind: "null" });
   }
-  const offset = signExtend(word >> 2n);
-  return offset.ok ? decodeNonNull(word, offset.value) : offset;
+  return decodeNonNull(word, signExtend(word >> 2n));
 };
 
 const decodeNonNull = (word: bigint, offset: number): Result<Pointer, TdbinError> => {
