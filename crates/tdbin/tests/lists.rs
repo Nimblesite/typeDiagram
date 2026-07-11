@@ -1,4 +1,4 @@
-//! [TDBIN-LIST-ELEM] / [TDBIN-LIST-RAW] / [TDBIN-LIST-COMPOSITE] runtime
+//! [TDBIN-PTR-LIST] [TDBIN-UNION-ENUM] [TDBIN-LIST-ELEM] / [TDBIN-LIST-RAW] / [TDBIN-LIST-COMPOSITE] runtime
 //! coverage for generated-style list codecs.
 
 use tdbin::{DecodeError, EncodeError, Reader, Struct, TdBin, Writer};

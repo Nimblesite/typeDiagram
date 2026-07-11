@@ -1,6 +1,6 @@
 //! [TDBIN-PACK] black-box tests for Cap'n Proto word packing.
 
-use tdbin::{frame, pack, DecodeError, TdBin};
+use tdbin::{frame, pack, DecodeError, Struct, TdBin};
 
 /// The codegen-emitted ADT types and their TDBIN codec, under test.
 mod generated;
@@ -92,7 +92,7 @@ fn tdbin_pack_runs_encode_dense_words_byte_exactly() -> TestResult {
 #[test]
 fn tdbin_pack_frame_round_trips_generated_typed_value() -> TestResult {
     let person = packed_person();
-    let packed = person.to_packed_framed_bytes(Some(0xAABB_CCDD_EEFF_0011))?;
+    let packed = person.to_packed_framed_bytes(Some(Person::LAYOUT_HASH))?;
     let decoded_frame = frame::decode(&packed)?;
 
     assert!(
@@ -101,7 +101,7 @@ fn tdbin_pack_frame_round_trips_generated_typed_value() -> TestResult {
     );
     assert_eq!(
         decoded_frame.schema_hash(),
-        Some(0xAABB_CCDD_EEFF_0011),
+        Some(Person::LAYOUT_HASH),
         "schema hash must survive packed framing"
     );
     assert_eq!(

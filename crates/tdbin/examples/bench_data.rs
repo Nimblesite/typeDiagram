@@ -12,7 +12,17 @@ use tdbin::{Struct, TdBin};
 type BoxError = Box<dyn std::error::Error>;
 
 /// Compute one fixture's exact encoded sizes and return a JSON object.
-fn fixture<T, P>(name: &str, shape: &str, items: usize, td: &T, pb: &P) -> Result<String, BoxError>
+///
+/// `corpus` marks the committed [TDBIN-BENCH-CORPUS] schema workloads that the
+/// release gate is computed over; other rows are stress rows.
+fn fixture<T, P>(
+    name: &str,
+    shape: &str,
+    corpus: bool,
+    items: usize,
+    td: &T,
+    pb: &P,
+) -> Result<String, BoxError>
 where
     T: Struct + TdBin,
     P: Message,
@@ -21,7 +31,7 @@ where
     let framed = td.to_framed_bytes(None)?;
     let packed = td.to_packed_framed_bytes(None)?;
     Ok(format!(
-        "{{\"name\":\"{name}\",\"shape\":\"{shape}\",\"logical_items\":{items},\"tdbin_bare\":{},\"tdbin_framed\":{},\"tdbin_packed_framed\":{},\"protobuf\":{}}}",
+        "{{\"name\":\"{name}\",\"shape\":\"{shape}\",\"corpus\":{corpus},\"logical_items\":{items},\"tdbin_bare\":{},\"tdbin_framed\":{},\"tdbin_packed_framed\":{},\"protobuf\":{}}}",
         bare.len(),
         framed.len(),
         packed.len(),
@@ -35,6 +45,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "with_address",
             "tiny nested record and union",
+            false,
             1,
             &corpus::td_with_address(),
             &corpus::pb_with_address(),
@@ -42,6 +53,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "without_address",
             "tiny sparse record and union",
+            false,
             1,
             &corpus::td_without_address(),
             &corpus::pb_without_address(),
@@ -49,6 +61,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "metric_batch",
             "list-heavy telemetry",
+            true,
             corpus::METRIC_SAMPLE_COUNT,
             &corpus::td_metric_batch(),
             &corpus::pb_metric_batch(),
@@ -56,6 +69,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "person_batch",
             "repeated records",
+            false,
             batches::PERSON_COUNT,
             &batches::td_person_batch(),
             &batches::pb_person_batch(),
@@ -63,6 +77,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "contact_batch",
             "repeated unions",
+            false,
             batches::CONTACT_COUNT,
             &batches::td_contact_batch(),
             &batches::pb_contact_batch(),
@@ -70,6 +85,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "diagram_document",
             "record-heavy diagram document",
+            true,
             documents::NODE_COUNT + documents::EDGE_COUNT,
             &documents::td_document(),
             &documents::pb_document(),
@@ -77,6 +93,7 @@ fn main() -> Result<(), BoxError> {
         fixture(
             "event_batch",
             "union-heavy event stream",
+            true,
             events::EVENT_COUNT,
             &events::td_event_batch(),
             &events::pb_event_batch(),

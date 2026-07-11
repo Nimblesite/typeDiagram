@@ -1,4 +1,5 @@
-//! [TDBIN-TEST-ROUNDTRIP] Bidirectional round-trip tests over the public API:
+//! [TDBIN-TEST-ROUNDTRIP] [TDBIN-RS-API] [TDBIN-RS-ERROR] [TDBIN-MSG-BARE]
+//! [TDBIN-PTR-RESERVED] [TDBIN-WIRE-LIMITS] Bidirectional round-trip tests over the public API:
 //! typed object -> binary -> typed object, AND binary -> object -> binary
 //! (byte-identical). The `Person`/`Contact`/`Address`/... types AND their
 //! `impl tdbin::Struct` codecs are NOT hand-written here — they are emitted by

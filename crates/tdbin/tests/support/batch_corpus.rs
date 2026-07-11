@@ -1,61 +1,16 @@
 //! Additional record-heavy and union-heavy benchmark fixtures.
 
 use prost::Message;
-use tdbin::{DecodeError, EncodeError, Reader, Struct, Writer};
 
 use super::corpus;
-use super::generated::{Contact, EmailContact, Person, PhoneContact};
+use super::generated_batches::{
+    Contact, ContactBatch, EmailContact, Person, PersonBatch, PhoneContact,
+};
 
 /// Number of records in the record-heavy batch.
 pub const PERSON_COUNT: usize = 512;
 /// Number of union values in the union-heavy batch.
 pub const CONTACT_COUNT: usize = 2_048;
-
-/// TDBIN record-heavy batch.
-#[derive(Debug, Clone, PartialEq)]
-pub struct PersonBatch {
-    /// Repeated generated records.
-    pub people: Vec<Person>,
-}
-
-impl Struct for PersonBatch {
-    const DATA_WORDS: u16 = 0;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, writer: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        writer.child_list(at, Self::DATA_WORDS, 0, Some(&self.people))
-    }
-
-    fn read_struct(reader: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let people = reader
-            .child_list::<Person>(at, Self::DATA_WORDS, 0)?
-            .unwrap_or_default();
-        Ok(Self { people })
-    }
-}
-
-/// TDBIN union-heavy batch.
-#[derive(Debug, Clone, PartialEq)]
-pub struct ContactBatch {
-    /// Repeated generated union values.
-    pub contacts: Vec<Contact>,
-}
-
-impl Struct for ContactBatch {
-    const DATA_WORDS: u16 = 0;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, writer: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        writer.child_list(at, Self::DATA_WORDS, 0, Some(&self.contacts))
-    }
-
-    fn read_struct(reader: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let contacts = reader
-            .child_list::<Contact>(at, Self::DATA_WORDS, 0)?
-            .unwrap_or_default();
-        Ok(Self { contacts })
-    }
-}
 
 /// Protobuf record-heavy batch.
 #[derive(Clone, PartialEq, Message)]

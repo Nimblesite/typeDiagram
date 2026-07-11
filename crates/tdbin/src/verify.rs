@@ -1,9 +1,18 @@
-//! Schema-independent structural verification for untrusted TDBIN bodies.
+//! Schema-independent structural verification for untrusted TDBIN pointers.
+//!
+//! The typed decoder is itself a verifying single pass ([TDBIN-SAFE]): every
+//! pointer it follows is bounds-, depth-, and budget-checked. This module
+//! supplies the walker for the pointer slots the schema does NOT visit —
+//! extension slots appended by newer writers ([TDBIN-REC-SHORT]) and the
+//! slots of a union struct whose discriminant is unknown
+//! ([TDBIN-UNION-UNKNOWN], [TDBIN-SAFE-ZEROSLOT]) — so a successful decode
+//! still proves every reachable pointer slot structurally sound.
+
+use core::cell::Cell;
 
 use crate::error::DecodeError;
 use crate::layout::{self, WORD_BYTES};
 use crate::pointer::{self, Pointer};
-use crate::MAX_DEPTH;
 
 /// Bits in one TDBIN word.
 const WORD_BITS: usize = WORD_BYTES * 8;
@@ -21,19 +30,12 @@ struct CompositeTag {
     body_words: usize,
 }
 
-/// Verify every reachable pointer and enforce traversal limits.
-pub(crate) fn message(bytes: &[u8]) -> Result<(), DecodeError> {
-    let words = bytes.len() / WORD_BYTES;
-    let mut budget = words.checked_sub(1).ok_or(DecodeError::BadLength)?;
-    verify_pointer_word(bytes, 0, MAX_DEPTH.saturating_add(1), &mut budget)
-}
-
-/// Decode and verify one pointer word.
-fn verify_pointer_word(
+/// Decode and verify one pointer word against the shared traversal budget.
+pub(crate) fn pointer_word(
     bytes: &[u8],
     at: usize,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let word = layout::read_word(bytes, at)?;
     verify_pointer(bytes, at, pointer::decode(word)?, depth, budget)
@@ -45,7 +47,7 @@ fn verify_pointer(
     at: usize,
     pointer: Pointer,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     match pointer {
         Pointer::Null => Ok(()),
@@ -70,7 +72,7 @@ fn verify_struct(
     data_words: u16,
     ptr_words: u16,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let next_depth = descend(depth)?;
     let target = target(at, offset)?;
@@ -87,14 +89,14 @@ fn verify_struct_pointers(
     data_words: u16,
     ptr_words: u16,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let start = target
         .checked_add(usize::from(data_words))
         .ok_or(DecodeError::LimitExceeded)?;
     for slot in 0..usize::from(ptr_words) {
         let at = start.checked_add(slot).ok_or(DecodeError::LimitExceeded)?;
-        verify_pointer_word(bytes, at, depth, budget)?;
+        pointer_word(bytes, at, depth, budget)?;
     }
     Ok(())
 }
@@ -107,7 +109,7 @@ fn verify_list(
     elem: u8,
     count: u32,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let next_depth = descend(depth)?;
     let target = target(at, offset)?;
@@ -129,7 +131,7 @@ fn verify_flat_list(
     bytes: &[u8],
     target: usize,
     words: usize,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     require_words(bytes, target, words)?;
     consume(budget, words)
@@ -141,14 +143,14 @@ fn verify_pointer_list(
     target: usize,
     count: u32,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let words = count_usize(count)?;
     require_words(bytes, target, words)?;
     consume(budget, words)?;
     for slot in 0..words {
         let at = target.checked_add(slot).ok_or(DecodeError::LimitExceeded)?;
-        verify_pointer_word(bytes, at, depth, budget)?;
+        pointer_word(bytes, at, depth, budget)?;
     }
     Ok(())
 }
@@ -159,7 +161,7 @@ fn verify_composite_list(
     tag_at: usize,
     elem_words: u32,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let body_words = count_usize(elem_words)?;
     let total_words = body_words
@@ -178,7 +180,7 @@ fn verify_composite_tag(
     body_words: usize,
     tag: Pointer,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let Pointer::Struct {
         offset,
@@ -204,7 +206,7 @@ fn verify_composite_items(
     tag_at: usize,
     tag: CompositeTag,
     depth: u32,
-    budget: &mut usize,
+    budget: &Cell<u64>,
 ) -> Result<(), DecodeError> {
     let stride = section_words(tag.data_words, tag.ptr_words)?;
     let expected = stride
@@ -260,10 +262,13 @@ fn require_words(bytes: &[u8], at: usize, words: usize) -> Result<(), DecodeErro
 }
 
 /// Charge traversed words to the shared amplification budget.
-fn consume(budget: &mut usize, words: usize) -> Result<(), DecodeError> {
-    *budget = budget
-        .checked_sub(words)
+fn consume(budget: &Cell<u64>, words: usize) -> Result<(), DecodeError> {
+    let cost = u64::try_from(words).map_err(|_| DecodeError::LimitExceeded)?;
+    let left = budget
+        .get()
+        .checked_sub(cost)
         .ok_or(DecodeError::AmplificationExceeded)?;
+    budget.set(left);
     Ok(())
 }
 

@@ -163,3 +163,58 @@ Do not release with a general Protobuf superiority claim. A defensible preview
 claim is limited to the exact unpacked-framed telemetry workload in the
 generated report. Treat the TypeScript codec as experimental until the
 cross-language blockers above are closed.
+
+---
+
+## Addendum — 2026-07-12 remediation and rework
+
+Everything below supersedes the corresponding 2026-07-10 findings; the
+regenerated [benchmark report](tdbin-bench-report.md) remains the sole
+numeric authority.
+
+### What changed
+
+- **Columnar layout major 2 shipped end to end** ([tdbin-columnar.md](../specs/tdbin-columnar.md)):
+  column groups, adaptive-width var columns, validity bitmaps, dense union
+  tag columns with derived offsets, nested-list concatenation, and
+  frame-of-reference delta integer blocks (`[TDBIN-COL-INTBLOCK]`, the scalar
+  member of the SIMD-BP128 family the research mandated). The benchmark
+  corpus is now entirely codegen-produced at layout 2; all hand-written
+  corpus codecs were deleted.
+- **Runtime hot paths rebuilt on measurement**: byte-arena writer with
+  single-touch bulk appends; fused single-pass verifying decode (no
+  structural pre-pass, no per-message allocation, extension slots and
+  unknown-variant unions still fully verified); SWAR/cursor word packer with
+  a branchless sparse expander; whole-payload UTF-8 validation with
+  char-boundary row cuts; an absolute per-message materialization budget.
+- **Every 2026-07-10 release blocker closed except the TypeScript roadmap
+  items**: null-as-default decode (both generators, with executing TS codec
+  tests that also flushed out and fixed a latent generated-encode bug),
+  1-bit `Option<scalar>` presence via one shared cross-language allocator,
+  automatic layout-hash emission and enforcement, normative-ID traceability
+  (84/84 via `scripts/tdbin-spec-trace.mjs`).
+
+### Measured outcome (see the generated report for numbers)
+
+Every corpus and batch fixture is now BOTH smaller than Protobuf and faster
+on every measured operation in its qualifying production mode. Against the
+stretch 1.5x-headroom bar: `metric_batch`, `diagram_document`,
+`person_batch`, and `contact_batch` pass; `event_batch` passes encode at
+~2x and misses only its decode pin, repeatedly measuring 1.48-1.50x — the
+materializing decode is now allocation-bound at the same object-graph shape
+as prost, which is precisely the ceiling the verify-once borrowed reader
+([tdbin-future-reader.md](../specs/tdbin-future-reader.md)) is specified to
+break. The tiny single-message stress rows remain Protobuf-favored on size,
+as the research predicts for any fixed-layout format at sub-100-byte
+payloads.
+
+### Still open
+
+- TypeScript cross-language roadmap ([tdbin-future-typescript.md](../specs/tdbin-future-typescript.md)):
+  lossless i64, list/columnar generation, browser matrix. The TS generator's
+  supported subset now executes real round-trips in its suite.
+- `List<empty-record>` zero-stride composites (loud diagnostics both layouts).
+- Deslop repo duplication measures 18.6% against the 15% budget (breached
+  before this work began; the generated fixture modules add to it), and the
+  scan is not yet in the enforced CI path.
+- The 1.5x decode headroom on `event_batch` via `[TDBIN-FUTURE-READER]`.

@@ -14,22 +14,23 @@
 #[path = "support/bench_corpus.rs"]
 pub mod bench_corpus;
 
-pub use bench_corpus::{corpus, generated};
+pub use bench_corpus::corpus;
 
 #[cfg(test)]
 mod size_gate {
     use super::bench_corpus::batches;
+    use super::bench_corpus::generated_batches::Person;
     use super::bench_corpus::{documents, events};
     use super::corpus;
     use super::corpus::BenchMetricBatch;
-    use super::generated::Person;
     use prost::Message;
     use tdbin::{Struct, TdBin};
 
     /// Boxed-error alias so the gate uses `?` without `unwrap`/`expect`.
     type TestResult = Result<(), Box<dyn std::error::Error>>;
 
-    /// Pin one expanded-corpus row and prove packed framed round-trip identity.
+    /// Pin one expanded-corpus row, prove packed framed round-trip identity,
+    /// and assert the columnar packed frame beats Protobuf ([TDBIN-BENCH-GATE]).
     fn assert_batch_sizes<T, P>(td: &T, pb: &P, expected: [usize; 4]) -> TestResult
     where
         T: Struct + TdBin + PartialEq + std::fmt::Debug,
@@ -42,6 +43,12 @@ mod size_gate {
         assert_eq!(
             [bare.len(), framed.len(), packed.len(), pb.encoded_len()],
             expected
+        );
+        assert!(
+            packed.len() < pb.encoded_len(),
+            "packed framed TDBIN {} must be smaller than Protobuf {}",
+            packed.len(),
+            pb.encoded_len()
         );
         Ok(())
     }
@@ -111,15 +118,15 @@ mod size_gate {
         let packed = td.to_packed_framed_bytes(None)?;
         let restored = BenchMetricBatch::from_framed_bytes(&packed)?;
         assert_eq!(restored, td, "metric_batch: packed framed round-trip");
-        assert_eq!(bare.len(), 76_752, "metric_batch: bare regression guard");
+        assert_eq!(bare.len(), 43_776, "metric_batch: bare regression guard");
         assert_eq!(
             framed.len(),
-            76_764,
+            43_788,
             "metric_batch: framed regression guard"
         );
         assert_eq!(
             packed.len(),
-            39_284,
+            23_045,
             "metric_batch: packed framed regression guard"
         );
         assert_eq!(
@@ -143,29 +150,29 @@ mod size_gate {
         Ok(())
     }
 
-    /// [TDBIN-BENCH-GATE] Pin the record- and union-heavy rows. These guards
-    /// deliberately record the current losses instead of claiming the gate passes.
+    /// [TDBIN-BENCH-GATE] Pin the record- and union-heavy rows. Under columnar
+    /// layout 2 every packed frame must be smaller than its Protobuf mirror.
     #[test]
     fn expanded_corpus_size_regressions() -> TestResult {
         assert_batch_sizes(
             &batches::td_person_batch(),
             &batches::pb_person_batch(),
-            [65_560, 65_572, 35_062, 29_184],
+            [22_976, 22_988, 20_071, 29_184],
         )?;
         assert_batch_sizes(
             &batches::td_contact_batch(),
             &batches::pb_contact_batch(),
-            [81_944, 81_956, 43_307, 35_221],
+            [23_144, 23_156, 22_317, 35_221],
         )?;
         assert_batch_sizes(
             &documents::td_document(),
             &documents::pb_document(),
-            [90_440, 90_452, 55_929, 50_788],
+            [45_160, 45_172, 37_868, 50_788],
         )?;
         assert_batch_sizes(
             &events::td_event_batch(),
             &events::pb_event_batch(),
-            [236_296, 236_308, 148_815, 131_744],
+            [116_360, 116_372, 102_861, 131_744],
         )
     }
 }

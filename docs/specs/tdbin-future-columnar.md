@@ -1,6 +1,6 @@
 # TDBIN Future Columnar Specification
 
-> **Status:** NOT IMPLEMENTED; required research track for repeated-record and repeated-union size/throughput. Row-wise v1 composite lists remain the current encoding.
+> **Status:** SUPERSEDED — the columnar layout is now specified normatively in [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`) and implemented by the Rust runtime (`crates/tdbin/src/column.rs`, `column_read.rs`) and generated codecs at layout major 2. This file remains as the research roadmap that led to it; the SIMD integer-block stage is still future work.
 > Depends on: [tdbin-wire-format.md](tdbin-wire-format.md), [tdbin-future-reader.md](tdbin-future-reader.md), and the [implementation audit](../reports/tdbin-implementation-audit.md).
 
 ## Scope

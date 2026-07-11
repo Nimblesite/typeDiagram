@@ -33,7 +33,7 @@ type BenchStyle {
   selector: String
   fill: String
   stroke: String
-  strokeWidth: Float
+  stroke_width: Float
   rounded: Bool
 }
 
@@ -56,41 +56,41 @@ type BenchEventBatch {
 }
 
 type BenchNodeCreated {
-  documentId: String
+  document_id: String
   node: BenchNode
 }
 
 type BenchNodeMoved {
-  documentId: String
-  nodeId: String
+  document_id: String
+  node_id: String
   x: Float
   y: Float
 }
 
 type BenchEdgeAdded {
-  documentId: String
+  document_id: String
   edge: BenchEdge
 }
 
 type BenchSelectionChanged {
-  documentId: String
-  nodeIds: List<String>
-  edgeIds: List<String>
+  document_id: String
+  node_ids: List<String>
+  edge_ids: List<String>
 }
 
 type BenchViewChanged {
-  documentId: String
+  document_id: String
   zoom: Float
-  offsetX: Float
-  offsetY: Float
+  offset_x: Float
+  offset_y: Float
 }
 
 type BenchMetricBatch {
-  batchId: String
-  startedAtEpochMs: Int
-  sampleIds: List<Int>
+  batch_id: String
+  started_at_epoch_ms: Int
+  sample_ids: List<Int>
   valid: List<Bool>
-  latencyMs: List<Float>
+  latency_ms: List<Float>
   payloads: List<Bytes>
   columns: List<BenchMetricColumn>
 }

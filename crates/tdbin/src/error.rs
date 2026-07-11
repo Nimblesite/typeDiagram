@@ -70,6 +70,9 @@ pub enum DecodeError {
     PointerKindMismatch,
     /// A composite-list tag disagreed with the list pointer's word count.
     MalformedCompositeTag,
+    /// A columnar list column disagreed with its group's row count or
+    /// payload length ([TDBIN-COL-VAR], [TDBIN-COL-UNION]).
+    MalformedColumn,
     /// Struct nesting exceeded the depth cap ([TDBIN-SAFE-DEPTH]).
     DepthExceeded,
     /// Traversal exceeded the amplification budget ([TDBIN-SAFE-AMPLIFY]).
@@ -111,6 +114,7 @@ impl fmt::Display for DecodeError {
             Self::ReservedPointerKind => f.write_str("pointer used a reserved kind"),
             Self::PointerKindMismatch => f.write_str("pointer kind does not match the field type"),
             Self::MalformedCompositeTag => f.write_str("composite-list tag is malformed"),
+            Self::MalformedColumn => f.write_str("columnar list column disagrees with its group"),
             Self::DepthExceeded => f.write_str("struct nesting exceeded the depth cap"),
             Self::AmplificationExceeded => {
                 f.write_str("traversal exceeded the amplification budget")

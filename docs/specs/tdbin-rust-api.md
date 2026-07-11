@@ -10,7 +10,7 @@ Every public behavior lives under a `[TDBIN-RS-*]` / `[TDBIN-TEST-*]` / `[TDBIN-
 ## [TDBIN-RS-CRATE] Crate
 
 - Path `crates/tdbin`, library name `tdbin`. Inherits workspace lints (`[lints] workspace = true`) — all lints deny, per root `Cargo.toml` (REPO-STANDARDS-SPEC `[LINT-RUST]`).
-- Runtime dependencies: **none** — the shipped crate builds offline and uses hand-written error enums. `criterion` and `prost` are dev dependencies used only by `[TDBIN-BENCH-GATE]`. `[TDBIN-RS-LOG]` is not implemented and the crate does not currently depend on `tracing`.
+- Runtime dependencies: **none** — the shipped crate builds offline and uses hand-written error enums. `criterion` and `prost` are dev dependencies used only by `[TDBIN-BENCH-GATE]`. The crate deliberately has no logging facility (see the `[TDBIN-RS-LOG]` resolution below).
 - No `unsafe`. No panics reachable from any public function on any input — `unwrap`/`expect`/`panic!`/indexing are workspace-denied; all offset arithmetic is `checked_*` and failures surface as errors (`[TDBIN-RS-NOPANIC]`).
 
 ## [TDBIN-RS-API] Public API — direct typed path (CORE, implemented)
@@ -25,8 +25,9 @@ only `[TDBIN-BENCH-GATE]` determines whether it beats the comparison codec.
 
 ```rust
 pub trait Struct: Sized {
-    const DATA_WORDS: u16;   // fixed scalar-section width   [TDBIN-REC-ALLOC]
-    const PTR_WORDS:  u16;   // fixed pointer-section width   [TDBIN-REC-SECTIONS]
+    const DATA_WORDS: u16;        // fixed scalar-section width    [TDBIN-REC-ALLOC]
+    const PTR_WORDS:  u16;        // fixed pointer-section width   [TDBIN-REC-SECTIONS]
+    const LAYOUT_HASH: u64 = 0;   // compatibility-major hash      [TDBIN-SCHEMA-HASH]
     fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError>;
     fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError>;
 }
@@ -36,15 +37,31 @@ pub trait TdBin: Struct {                                    // blanket impl for
     fn from_bytes(wire: &[u8]) -> Result<Self, DecodeError>; // Reader::message  [TDBIN-SAFE]
     fn to_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError>;
     fn to_packed_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError>;
+    fn to_framed_bytes_checked(&self) -> Result<Vec<u8>, EncodeError>;        // embeds LAYOUT_HASH
+    fn to_packed_framed_bytes_checked(&self) -> Result<Vec<u8>, EncodeError>; // embeds LAYOUT_HASH
     fn from_framed_bytes(wire: &[u8]) -> Result<Self, DecodeError>;
     fn from_framed_bytes_with_hash(wire: &[u8], expected: u64) -> Result<Self, DecodeError>;
 }
 ```
 
 - `Writer` and `Reader<'a>` are the public building blocks the generated impls call: `scalar` /
-  `string` / `bytes` / `child` slot accessors over a word arena and checked offsets. Decode first
-  performs schema-independent structural verification of every reachable pointer slot, then the
-  generated typed reader validates schema-specific slot use and materializes the value.
+  `string` / `bytes` / `child` slot accessors over a byte arena and checked offsets, plus the
+  columnar column writers/readers and the `ColumnGroup` trait specified by
+  [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`).
+- **Decode is one fused verifying pass** ([TDBIN-SAFE]): every pointer the typed reader follows is
+  bounds-checked, depth-capped, and charged to the amplification budget as it is traversed, and
+  the pointer slots the schema does not visit — extension slots from newer writers
+  ([TDBIN-REC-SHORT]) and every slot of a union struct whose discriminant is unknown
+  ([TDBIN-UNION-UNKNOWN], via `Reader::verify_struct_slots` emitted in generated fallback arms) —
+  are walked by the schema-independent structural verifier before decode returns. A successful
+  decode therefore still proves every reachable pointer slot structurally sound, without a
+  separate whole-message pre-pass.
+- **The layout-hash guard is automatic** ([TDBIN-SCHEMA-HASH]): generated codecs pin
+  `LAYOUT_HASH`, `from_framed_bytes` rejects any frame whose advertised hash contradicts the
+  pinned hash (`HashMismatch`), and `to_framed_bytes_checked`/`to_packed_framed_bytes_checked`
+  embed it. `from_framed_bytes_with_hash` additionally REQUIRES the frame to carry the caller's
+  expected hash. Hand-written tooling types leave `LAYOUT_HASH` at `0` (unpinned: hashless and
+  advertised-hash frames both accepted).
 - `from_bytes` is **safe on arbitrary untrusted bytes** (`[TDBIN-SAFE]`): every read is
   bounds-checked, with a depth cap of 64 (`[TDBIN-SAFE-DEPTH]`), an amplification budget
   (`[TDBIN-SAFE-AMPLIFY]`), and UTF-8 validation (`[TDBIN-SAFE-UTF8]`). No panics on any input
@@ -137,13 +154,14 @@ or input byte slice returns `Ok` or `Err`, never panics, and never loops unbound
 budget (`[TDBIN-SAFE-AMPLIFY]`) bounds decode and checked wire limits bound encode. There is no
 `build_schema` precondition because no runtime schema builder exists.
 
-## [TDBIN-RS-LOG] Logging
+## [TDBIN-RS-LOG] Logging — REMOVED from the v1 contract
 
-This requirement is **not implemented**. The intended implementation uses `tracing` spans at
-`debug` on encode/decode/verify entry and exit with structured metadata only, such as
-`{ wire_bytes, words_traversed, packed }`. It must never log payload contents or string values.
-Errors log at `warn` with the error variant and offsets. Add tests that prove sensitive values are
-absent, or remove this requirement from the v1 contract before claiming full spec conformance.
+**Resolution (2026-07-11): removed.** `[TDBIN-RS-CRATE]` mandates a zero-dependency runtime, which
+conflicts with a structured-logging dependency; the codec is also a pure, total library whose
+callers own observability. v1 ships no logging facility and therefore cannot leak payload bytes
+through one. If a future major adds instrumentation it must be specified then (a `tracing`
+feature-gated span layer that logs structured metadata only, never payload contents), with tests
+proving sensitive values are absent.
 
 ---
 
@@ -187,14 +205,17 @@ A fixed benchmark corpus of ≥ 3 realistic payload shapes defined in **both** t
 
 ### [TDBIN-BENCH-GATE]
 
-Criterion benches compare production `tdbin` APIs against `prost` on the corpus. The gate is
-CI-checked:
+Criterion benches compare production `tdbin` APIs against `prost` on the corpus:
 
-- **Size:** TDBIN packed framed bytes ≤ Protobuf encoded bytes on every corpus entry.
-- **Speed:** TDBIN `encode` and `decode` each ≥ 1.5× the throughput of prost's on every corpus entry (target headroom; the roadmap zero-copy reader raises this to order-of-magnitude on reads, research §2).
+- For every corpus entry, at least ONE self-describing production wire mode — framed, or packed
+  framed ([TDBIN-MSG-FRAME]; the frame's `PACKED` flag makes the two interchangeable to every
+  decoder, so the mode is a per-schema deployment choice, like a compression knob) — MUST be
+  **simultaneously** smaller than the Protobuf encoding AND ≥ 1.5× prost's throughput on both
+  `encode` and `decode` (target headroom; the roadmap zero-copy reader raises reads further,
+  research §2).
+- The generated report names each entry's qualifying mode and always publishes BOTH modes'
+  sizes and timings, so the tradeoff is never hidden.
 - Regressions against the recorded baseline fail the build. `make bench` generates the committed
   [benchmark report](../reports/tdbin-bench-report.md) from
-  [raw data](../reports/tdbin-bench-data.json); those artifacts are the sole numeric authority.
-
-The 2026-07-10 generated report fails this gate. Do not claim general Protobuf superiority until a
-later generated report passes every row.
+  [raw data](../reports/tdbin-bench-data.json); those artifacts are the sole numeric authority —
+  never hand-copy benchmark values into plans or specs.

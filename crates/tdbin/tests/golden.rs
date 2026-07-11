@@ -1,4 +1,5 @@
-//! [TDBIN-TEST-GOLDEN] Byte-exact golden vectors for the FROZEN v0 Person/Contact
+//! [TDBIN-TEST-GOLDEN] [TDBIN-ENC-ORDER] [TDBIN-ENC-CANON] [TDBIN-MSG-BARE]
+//! [TDBIN-UNION-STRUCT] [TDBIN-UNION-DISC] [TDBIN-REC-SECTIONS] Byte-exact golden vectors for the FROZEN v0 Person/Contact
 //! wire layout. Each test pins the encoder to a hex constant AND decodes that
 //! frozen hex straight back to the fixture — so an accidental wire-format change
 //! (in either direction) is caught deterministically under `make test`.

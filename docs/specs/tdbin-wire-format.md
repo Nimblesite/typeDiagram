@@ -334,19 +334,20 @@ For ordinary records, the verifier validates every non-null pointer slot in the 
 
 ## Implementation conformance note (non-normative)
 
-The specification remains the source of truth when current code disagrees with it. As of the 2026-07-10 audit, the following runtime/codegen deviations remain open:
+The specification remains the source of truth when current code disagrees with it. Status as of 2026-07-11:
 
-- Generated Rust and TypeScript readers reject null for required pointer fields instead of applying the schema default required by `[TDBIN-PTR-NULL]` and `[TDBIN-REC-SHORT]`.
-- Scalar `Option<T>` presence consumes a whole word instead of the one-bit first-fit allocation required by `[TDBIN-PRIM-OPTION]` and `[TDBIN-REC-ALLOC]`.
-- Framed checked-decode APIs exist, but codegen does not yet freeze, emit, and require the compatibility-major manifest hash from `[TDBIN-SCHEMA-CANON]`.
-- Non-empty zero-stride composite lists, including `List<empty-record>`, are not implemented even though the composite equation permits an element count with zero body words.
-- TypeScript has additional cross-language gaps tracked in [tdbin-future-typescript.md](tdbin-future-typescript.md).
+- CLOSED: generated Rust and TypeScript readers decode null required pointer fields as schema defaults (`[TDBIN-PTR-NULL]`, `[TDBIN-REC-SHORT]`), with generated default factories/derives and executing tests in both languages.
+- CLOSED: scalar `Option<T>` presence is a first-fit single bit followed by the natural-width value slot in both generators (`[TDBIN-PRIM-OPTION]`, `[TDBIN-REC-ALLOC]`), driven by one shared allocator with a cross-language slot-parity test.
+- CLOSED: codegen freezes a canonical layout manifest (`[TDBIN-SCHEMA-CANON]`), emits its FNV-1a hash as `Struct::LAYOUT_HASH`, and normal framed decode automatically rejects contradicting advertised hashes (`[TDBIN-SCHEMA-HASH]`); `to_framed_bytes_checked` embeds the pinned hash, and a `frozenManifest` generator input covers append-compatible republishing.
+- CLOSED: union discriminants occupy their spec width; the v1 generators reserve the remainder of the discriminant word as always-zero padding and reject nonzero remainders as unknown ordinals on read (a strictly stronger check; wire bytes identical to the pinned goldens).
+- OPEN: non-empty zero-stride composite lists (`List<empty-record>`) remain unimplemented at layout 1, and empty-record column groups are a loud generation-time diagnostic at layout 2.
+- OPEN: TypeScript cross-language gaps (lossless i64, list/columnar generation) are tracked in [tdbin-future-typescript.md](tdbin-future-typescript.md); the TS generator's supported subset now executes real round-trips in its test suite.
 
-Do not weaken these wire rules to match the current implementation. Close the implementation and golden-vector gaps in the order recorded by the handoff plan. Benchmark results are not wire requirements; their sole numeric source is the generated [benchmark report](../reports/tdbin-bench-report.md).
+Columnar layout major 2 (`[TDBIN-COL-*]`, [tdbin-columnar.md](tdbin-columnar.md)) is implemented end to end in Rust: runtime, generated codecs, golden vectors, and the benchmark corpus. Do not weaken wire rules to match code. Benchmark results are not wire requirements; their sole numeric source is the generated [benchmark report](../reports/tdbin-bench-report.md).
 
 ## [TDBIN-FUTURE] Reserved forward paths (not in v1)
 
-- **[TDBIN-FUTURE-COLUMNAR]** — struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps, SIMD-BP128 bit-packed integer columns; research §3.3/§3.5). The roadmap uses a compatibility-major column-group struct built from existing pointer primitives; it MUST NOT silently reinterpret v1 composite elem kind 7. A future dedicated list kind would require an explicitly versioned wire extension.
+- **[TDBIN-FUTURE-COLUMNAR]** — DELIVERED as layout major 2: struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps) is now normative in [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`), built from existing pointer primitives without reinterpreting v1 composite elem kind 7. SIMD-BP128 bit-packed integer columns remain future work.
 - **[TDBIN-FUTURE-READER]** — zero-copy verify-once/access-lazily reader (nanosecond field access; research §2.4).
 - **[TDBIN-FUTURE-RPC]** — the `[TDRPC-*]` spec: typeDiagram **function definitions as the service contract** (research §6.0), streaming modes from signature shape, numeric method ids (no method-name strings on the wire), capability pointers (kind `11`), promise pipelining. Fed by the dedicated RPC research pass.
 - **[TDBIN-FUTURE-TS]** — TypeScript codec in `packages/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).

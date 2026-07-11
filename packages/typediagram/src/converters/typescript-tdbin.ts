@@ -15,39 +15,19 @@ import {
 } from "../model/types.js";
 import { type Result, err, ok } from "../result.js";
 import { printTypeRef } from "./parse-typeref.js";
+import { allocateBit, allocatePtr, allocateWord, type LayoutCursor, newLayoutCursor } from "./tdbin-alloc.js";
+import {
+  type DeclPlan,
+  diag,
+  emitDefaultFactories,
+  type FieldPlan,
+  pointerDefault,
+  type RecordPlan,
+  type UnionPlan,
+  variantPayloadDefault,
+  type VariantPlan,
+} from "./typescript-tdbin-defaults.js";
 import { typescript } from "./typescript.js";
-
-type FieldPlan =
-  | { kind: "int"; slot: number }
-  | { kind: "float"; slot: number }
-  | { kind: "bool"; slot: number; bit: number }
-  | { kind: "string"; slot: number; optional: boolean }
-  | { kind: "bytes"; slot: number; optional: boolean }
-  | { kind: "child"; slot: number; optional: boolean; typeName: string };
-
-interface RecordPlan {
-  readonly dataWords: number;
-  readonly ptrWords: number;
-  readonly fields: readonly { readonly name: string; readonly plan: FieldPlan }[];
-}
-
-type VariantPlan = null | { readonly kind: "child"; readonly typeName: string } | { readonly kind: "string" };
-
-interface UnionPlan {
-  readonly ptrWords: number;
-  readonly variants: readonly { readonly name: string; readonly ordinal: number; readonly payload: VariantPlan }[];
-}
-
-interface LayoutCursor {
-  dataSlot: number;
-  ptrSlot: number;
-  boolSlot: number | null;
-  nextBoolBit: number;
-}
-
-const BOOL_BITS_PER_WORD = 64;
-
-const diag = (message: string): Diagnostic[] => [{ severity: "error", message, line: 0, col: 0, length: 0 }];
 
 const tsNum = (value: number): string => String(value);
 
@@ -71,13 +51,35 @@ const declaredUnion = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): Reso
 };
 
 const allocateBool = (cursor: LayoutCursor): FieldPlan => {
-  const slot = cursor.boolSlot ?? cursor.dataSlot;
-  cursor.boolSlot = slot;
-  cursor.dataSlot = cursor.nextBoolBit === 0 ? cursor.dataSlot + 1 : cursor.dataSlot;
-  const bit = cursor.nextBoolBit;
-  cursor.nextBoolBit = bit + 1 >= BOOL_BITS_PER_WORD ? 0 : bit + 1;
-  cursor.boolSlot = cursor.nextBoolBit === 0 ? null : cursor.boolSlot;
+  const { slot, bit } = allocateBit(cursor);
   return { kind: "bool", slot, bit };
+};
+
+/** `Option<scalar>` takes a 1-bit presence flag in the shared bool bitset plus
+ *  a natural-width value slot ([TDBIN-PRIM-OPTION]) — the SAME allocator the
+ *  Rust emitter uses, so both emitters bake identical slot/bit numbers. */
+const allocateOptScalar = (inner: ResolvedTypeRef, cursor: LayoutCursor): FieldPlan | null => {
+  if (isPrim(inner, "Bool")) {
+    const presence = allocateBit(cursor);
+    const value = allocateBit(cursor);
+    return {
+      kind: "optBool",
+      presenceSlot: presence.slot,
+      presenceBit: presence.bit,
+      valueSlot: value.slot,
+      valueBit: value.bit,
+    };
+  }
+  if (!isPrim(inner, "Int") && !isPrim(inner, "Float")) {
+    return null;
+  }
+  const presence = allocateBit(cursor);
+  return {
+    kind: isPrim(inner, "Int") ? "optInt" : "optFloat",
+    presenceSlot: presence.slot,
+    presenceBit: presence.bit,
+    valueSlot: allocateWord(cursor),
+  };
 };
 
 const pointerField = (
@@ -98,25 +100,24 @@ const classifyField = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef, curso
   if (isPrim(t, "Bool")) {
     return allocateBool(cursor);
   }
-  if (isPrim(t, "Int")) {
-    const slot = cursor.dataSlot;
-    cursor.dataSlot += 1;
-    return { kind: "int", slot };
-  }
-  if (isPrim(t, "Float")) {
-    const slot = cursor.dataSlot;
-    cursor.dataSlot += 1;
-    return { kind: "float", slot };
+  if (isPrim(t, "Int") || isPrim(t, "Float")) {
+    return { kind: isPrim(t, "Int") ? "int" : "float", slot: allocateWord(cursor) };
   }
   const optionInner = t.name === "Option" && t.args.length === 1 ? t.args[0] : undefined;
+  const optScalar = optionInner === undefined ? null : allocateOptScalar(optionInner, cursor);
+  if (optScalar !== null) {
+    return optScalar;
+  }
   const optional = optionInner === undefined ? null : pointerField(decls, optionInner, cursor.ptrSlot, true);
   const required = optionInner === undefined ? pointerField(decls, t, cursor.ptrSlot, false) : optional;
-  cursor.ptrSlot = required === null ? cursor.ptrSlot : cursor.ptrSlot + 1;
+  if (required !== null) {
+    allocatePtr(cursor);
+  }
   return required;
 };
 
 const classifyRecord = (decls: readonly ResolvedDecl[], rec: ResolvedRecord): Result<RecordPlan, Diagnostic[]> => {
-  const cursor: LayoutCursor = { dataSlot: 0, ptrSlot: 0, boolSlot: null, nextBoolBit: 0 };
+  const cursor = newLayoutCursor();
   const fields: Array<{ name: string; plan: FieldPlan }> = [];
   for (const field of rec.fields) {
     const plan = classifyField(decls, field.type, cursor);
@@ -156,6 +157,12 @@ const classifyUnion = (union: ResolvedUnion): Result<UnionPlan, Diagnostic[]> =>
   return ok({ ptrWords: variants.some((variant) => variant.payload !== null) ? 1 : 0, variants });
 };
 
+/** Write the 1-bit presence flag; absent values write zero lanes ([TDBIN-ENC-ZERO]). */
+const writePresenceLines = (field: string, plan: { presenceSlot: number; presenceBit: number }): string[] => [
+  `    const ${field}Present = tdbin.writer.boolBit(writer, at, ${tsNum(plan.presenceSlot)}, ${tsNum(plan.presenceBit)}, value.${field} !== undefined);`,
+  `    if (!${field}Present.ok) return ${field}Present;`,
+];
+
 const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[] => {
   const value = `value.${field}`;
   switch (plan.kind) {
@@ -172,6 +179,23 @@ const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[]
     case "bool":
       return [
         `    const ${field} = tdbin.writer.boolBit(writer, at, ${tsNum(plan.slot)}, ${tsNum(plan.bit)}, ${value});`,
+      ];
+    case "optInt":
+      return [
+        ...writePresenceLines(field, plan),
+        `    const ${field}Bits = tdbin.scalar.i64Bits(${value} ?? 0);`,
+        `    if (!${field}Bits.ok) return ${field}Bits;`,
+        `    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.valueSlot)}, ${field}Bits.value);`,
+      ];
+    case "optFloat":
+      return [
+        ...writePresenceLines(field, plan),
+        `    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.valueSlot)}, tdbin.scalar.f64Bits(${value} ?? 0));`,
+      ];
+    case "optBool":
+      return [
+        ...writePresenceLines(field, plan),
+        `    const ${field} = tdbin.writer.boolBit(writer, at, ${tsNum(plan.valueSlot)}, ${tsNum(plan.valueBit)}, ${value} ?? false);`,
       ];
     case "string":
       return [
@@ -196,6 +220,17 @@ const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] 
       return [`    const ${field}Word = tdbin.reader.scalar(reader, at, ${tsNum(plan.slot)});`];
     case "bool":
       return [`    const ${field} = tdbin.reader.boolBit(reader, at, ${tsNum(plan.slot)}, ${tsNum(plan.bit)});`];
+    case "optInt":
+    case "optFloat":
+      return [
+        `    const ${field}Present = tdbin.reader.boolBit(reader, at, ${tsNum(plan.presenceSlot)}, ${tsNum(plan.presenceBit)});`,
+        `    const ${field}Word = tdbin.reader.scalar(reader, at, ${tsNum(plan.valueSlot)});`,
+      ];
+    case "optBool":
+      return [
+        `    const ${field}Present = tdbin.reader.boolBit(reader, at, ${tsNum(plan.presenceSlot)}, ${tsNum(plan.presenceBit)});`,
+        `    const ${field}Value = tdbin.reader.boolBit(reader, at, ${tsNum(plan.valueSlot)}, ${tsNum(plan.valueBit)});`,
+      ];
     case "string":
       return [`    const ${field} = tdbin.reader.string(reader, at, ${codec}.dataWords, ${tsNum(plan.slot)});`];
     case "bytes":
@@ -207,34 +242,53 @@ const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] 
   }
 };
 
-const fieldResultName = (field: string, plan: FieldPlan): string =>
-  plan.kind === "int" || plan.kind === "float" ? `${field}Word` : field;
-
-const fieldValue = (field: string, plan: FieldPlan): string => {
-  const result = fieldResultName(field, plan);
+/** READ-path result bindings the ok-guards must check, in emission order. */
+const fieldResultNames = (field: string, plan: FieldPlan): string[] => {
   switch (plan.kind) {
     case "int":
-      return `tdbin.scalar.i64From(${result}.value)`;
     case "float":
-      return `tdbin.scalar.f64From(${result}.value)`;
+      return [`${field}Word`];
+    case "optInt":
+    case "optFloat":
+      return [`${field}Present`, `${field}Word`];
+    case "optBool":
+      return [`${field}Present`, `${field}Value`];
+    default:
+      return [field];
+  }
+};
+
+const fieldValue = (field: string, plan: FieldPlan): string => {
+  switch (plan.kind) {
+    case "int":
+      return `tdbin.scalar.i64From(${field}Word.value)`;
+    case "float":
+      return `tdbin.scalar.f64From(${field}Word.value)`;
+    case "optInt":
+      return `${field}Present.value ? tdbin.scalar.i64From(${field}Word.value) : undefined`;
+    case "optFloat":
+      return `${field}Present.value ? tdbin.scalar.f64From(${field}Word.value) : undefined`;
+    case "optBool":
+      return `${field}Present.value ? ${field}Value.value : undefined`;
     case "string":
     case "bytes":
     case "child":
-      return plan.optional ? `${result}.value ?? undefined` : `${result}.value`;
+      return `${field}.value ?? ${plan.optional ? "undefined" : pointerDefault(plan)}`;
     case "bool":
-      return `${result}.value`;
+      return `${field}.value`;
   }
 };
 
 const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan): string => {
   const codec = `${record.name}Codec`;
+  // Write results always bind to the plain field name; `fieldResultName` is the
+  // READ-path binding (`${field}Word` for scalars) and must not guard writes.
   const writeLines = plan.fields.flatMap(({ name, plan: fieldPlan }) => [
     ...emitWriteField(codec, name, fieldPlan),
-    `    if (!${fieldResultName(name, fieldPlan)}.ok) return ${fieldResultName(name, fieldPlan)};`,
+    `    if (!${name}.ok) return ${name};`,
   ]);
   const readLines = plan.fields.flatMap(({ name, plan: fieldPlan }) => emitReadField(codec, name, fieldPlan));
-  const resultNames = plan.fields.map(({ name, plan: fieldPlan }) => fieldResultName(name, fieldPlan));
-  const required = plan.fields.filter(({ plan: fieldPlan }) => "optional" in fieldPlan && !fieldPlan.optional);
+  const resultNames = plan.fields.flatMap(({ name, plan: fieldPlan }) => fieldResultNames(name, fieldPlan));
   return [
     `export const ${codec}: tdbin.StructCodec<${record.name}> = {`,
     `  dataWords: ${tsNum(plan.dataWords)},`,
@@ -246,7 +300,6 @@ const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan): string => {
     `  read: (reader, at) => {`,
     ...readLines,
     ...resultNames.map((name) => `    if (!${name}.ok) return ${name};`),
-    ...required.map(({ name }) => `    if (${name}.value === null) return tdbin.readerError("UnexpectedNull");`),
     `    return ok({ ${plan.fields.map(({ name, plan: fieldPlan }) => `${name}: ${fieldValue(name, fieldPlan)}`).join(", ")} });`,
     `  },`,
     `};`,
@@ -278,8 +331,7 @@ const readVariantPayload = (union: string, variant: UnionPlan["variants"][number
   return [
     `        const payload = ${payload};`,
     `        if (!payload.ok) return payload;`,
-    `        if (payload.value === null) return tdbin.readerError("UnexpectedNull");`,
-    `        return ok({ kind: "${variant.name}", _0: payload.value });`,
+    `        return ok({ kind: "${variant.name}", _0: payload.value ?? ${variantPayloadDefault(variant.payload)} });`,
   ];
 };
 
@@ -313,28 +365,46 @@ const emitUnionCodec = (union: ResolvedUnion, plan: UnionPlan): string =>
     `};`,
   ].join("\n");
 
-export const emitTypeScriptCodec = (model: Model): Result<string, Diagnostic[]> => {
-  const blocks: string[] = [];
-  for (const decl of visibleDeclsForTarget(model.decls, "typescript")) {
-    if (decl.generics.length > 0) {
-      return err(diag(`tdbin-ts: generic decl '${decl.name}' must be monomorphized before codec generation`));
-    }
-    if (decl.kind === "record") {
-      const plan = classifyRecord(model.decls, decl);
-      if (!plan.ok) {
-        return plan;
-      }
-      blocks.push(emitRecordCodec(decl, plan.value));
-    }
-    if (decl.kind === "union") {
-      const plan = classifyUnion(decl);
-      if (!plan.ok) {
-        return plan;
-      }
-      blocks.push(emitUnionCodec(decl, plan.value));
-    }
+const planDecl = (decls: readonly ResolvedDecl[], decl: ResolvedDecl): Result<DeclPlan | null, Diagnostic[]> => {
+  if (decl.generics.length > 0) {
+    return err(diag(`tdbin-ts: generic decl '${decl.name}' must be monomorphized before codec generation`));
   }
-  return ok(blocks.join("\n\n"));
+  if (decl.kind === "record") {
+    const plan = classifyRecord(decls, decl);
+    return plan.ok ? ok({ kind: "record", decl, plan: plan.value }) : plan;
+  }
+  if (decl.kind === "union") {
+    const plan = classifyUnion(decl);
+    return plan.ok ? ok({ kind: "union", decl, plan: plan.value }) : plan;
+  }
+  return ok(null);
+};
+
+const planDecls = (model: Model): Result<DeclPlan[], Diagnostic[]> => {
+  const plans: DeclPlan[] = [];
+  for (const decl of visibleDeclsForTarget(model.decls, "typescript")) {
+    const planned = planDecl(model.decls, decl);
+    if (!planned.ok) {
+      return planned;
+    }
+    plans.push(...(planned.value === null ? [] : [planned.value]));
+  }
+  return ok(plans);
+};
+
+export const emitTypeScriptCodec = (model: Model): Result<string, Diagnostic[]> => {
+  const plans = planDecls(model);
+  if (!plans.ok) {
+    return plans;
+  }
+  const defaults = emitDefaultFactories(plans.value);
+  if (!defaults.ok) {
+    return defaults;
+  }
+  const codecs = plans.value.map((plan) =>
+    plan.kind === "record" ? emitRecordCodec(plan.decl, plan.plan) : emitUnionCodec(plan.decl, plan.plan)
+  );
+  return ok([...defaults.value, ...codecs].join("\n\n"));
 };
 
 export const generateTypeScriptModule = (model: Model): Result<string, Diagnostic[]> => {
