@@ -7,53 +7,37 @@
 //! these assertions prove the *generated* code round-trips: the end-to-end
 //! typeDiagram ADT -> binary -> typeDiagram ADT proof runs under `cargo test`.
 
-/// The codegen-emitted ADT types and their TDBIN codec, under test.
-mod generated;
 /// The codegen-emitted `Option<scalar>` fixture (separate module so the framing
 /// and golden test binaries do not carry an unused type under `-D dead-code`).
 mod generated_opt;
+/// Shared Person/Contact fixtures, ADT wiring, and `TestResult` alias
+/// (reused by `golden.rs`).
+#[path = "support/persons.rs"]
+mod persons;
 
-use generated::{Address, Contact, EmailContact, Person, PhoneContact};
 use generated_opt::Measurement;
+use persons::generated::Person;
+use persons::{person_with_email, person_with_phone, TestResult};
 use tdbin::{DecodeError, TdBin};
 
-/// A boxed error alias so tests can use `?` without `unwrap`.
-type TestResult = Result<(), Box<dyn std::error::Error>>;
-
-// ── Fixtures ──
+// ── Round-trip fixtures: distinct VALUES over the shared builders ──
 
 /// A person exercising Some(address), Some(nickname), and the Email variant.
 fn person_with_address() -> Person {
-    Person {
-        name: "Ada Lovelace".to_owned(),
-        age: 36,
-        active: true,
-        score: 9.75,
-        address: Some(Address {
-            street: "1 Analytical Way".to_owned(),
-            zip: 1815,
-        }),
-        nickname: Some("Countess".to_owned()),
-        contact: Contact::Email(EmailContact {
-            addr: "ada@example.com".to_owned(),
-        }),
-    }
+    person_with_email(
+        "Ada Lovelace",
+        36,
+        9.75,
+        "1 Analytical Way",
+        1815,
+        "Countess",
+        "ada@example.com",
+    )
 }
 
 /// A person exercising None fields, a negative float, and the Phone variant.
 fn person_without_address() -> Person {
-    Person {
-        name: "Alan Turing".to_owned(),
-        age: 41,
-        active: false,
-        score: -1.5,
-        address: None,
-        nickname: None,
-        contact: Contact::Phone(PhoneContact {
-            number: 1912,
-            country: 44,
-        }),
-    }
+    person_with_phone("Alan Turing", 41, -1.5, 1912, 44)
 }
 
 /// A measurement with every `Option<scalar>` present.

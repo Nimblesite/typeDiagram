@@ -1,9 +1,15 @@
 // [CONV-PROTO-TEST] Protobuf converter integration tests.
 import { describe, expect, it } from "vitest";
 import { protobuf } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-PROTO-FROM] proto3 -> typeDiagram", () => {
   it("parses messages, enums, oneofs, and alias directives", () => {
@@ -46,35 +52,31 @@ message ContentItem {
 
 // @td-alias: Email = String
 `;
-    const model = unwrap(protobuf.fromSource(src));
+    const model = modelFromSource(protobuf, src);
 
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(4);
     expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
     expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("List");
     expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("ToolResult");
     expect(chatFields.find((f) => f.name === "nickname")?.type.name).toBe("Option");
 
-    const uk = model.decls.find((d) => d.name === "UriKind");
-    expect(uk?.kind).toBe("union");
-    const ukVariants = uk?.kind === "union" ? uk.variants : [];
+    expect(findDecl(model, "UriKind")?.kind).toBe("union");
+    const ukVariants = unionVariants(model, "UriKind");
     // The UNSPECIFIED sentinel is stripped on parse-back.
     expect(ukVariants.map((v) => v.name)).toEqual(["Image", "Audio", "Video"]);
 
-    const ci = model.decls.find((d) => d.name === "ContentItem");
-    expect(ci?.kind).toBe("union");
-    const ciVariants = ci?.kind === "union" ? ci.variants : [];
+    expect(findDecl(model, "ContentItem")?.kind).toBe("union");
+    const ciVariants = unionVariants(model, "ContentItem");
     expect(ciVariants).toHaveLength(3);
     expect(ciVariants[0]?.name).toBe("Text");
     expect(ciVariants[0]?.fields[0]?.name).toBe("value");
     expect(ciVariants[2]?.name).toBe("None");
     expect(ciVariants[2]?.fields).toHaveLength(0);
 
-    const email = model.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(findDecl(model, "Email")?.kind).toBe("alias");
+    expect(aliasTargetName(model, "Email")).toBe("String");
   });
 
   it("honours @td-type directives for types proto can't express natively", () => {
@@ -86,10 +88,9 @@ message Req {
   repeated bytes tags = 1;
 }
 `;
-    const model = unwrap(protobuf.fromSource(src));
-    const req = model.decls.find((d) => d.name === "Req");
-    expect(req?.kind).toBe("record");
-    const f = req?.kind === "record" ? req.fields[0] : undefined;
+    const model = modelFromSource(protobuf, src);
+    expect(findDecl(model, "Req")?.kind).toBe("record");
+    const f = recordFields(model, "Req")[0];
     expect(f?.name).toBe("tags");
     expect(f?.type.name).toBe("Option");
     expect(f?.type.args[0]?.name).toBe("List");
@@ -123,8 +124,7 @@ union ContentItem {
 
 alias Email = String
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = protobuf.toSource(model);
+    const out = toSourceFromTd(protobuf, td);
 
     expect(out).toContain('syntax = "proto3";');
     expect(out).toContain("message ChatRequest {");
@@ -144,7 +144,7 @@ alias Email = String
 
   it("emits @td-type directive for Option<List<T>> fields", () => {
     const td = `type Req { tags: Option<List<String>> }`;
-    const out = protobuf.toSource(unwrap(buildModel(unwrap(parse(td)))));
+    const out = toSourceFromTd(protobuf, td);
     expect(out).toContain("// @td-type: Option<List<String>>");
   });
 });
@@ -170,18 +170,16 @@ message Foo {
   bool ok = 1;
 }
 `;
-    const model = unwrap(protobuf.fromSource(src));
-    const foo = model.decls.find((d) => d.name === "Foo");
-    expect(foo?.kind).toBe("record");
-    const fields = foo?.kind === "record" ? foo.fields : [];
+    const model = modelFromSource(protobuf, src);
+    expect(findDecl(model, "Foo")?.kind).toBe("record");
+    const fields = recordFields(model, "Foo");
     expect(fields).toHaveLength(1);
     expect(fields[0]?.name).toBe("ok");
   });
 
   it("emits @td-type directive for nested Option<Option<T>>", () => {
     const td = `type X { v: Option<Option<String>> }`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = protobuf.toSource(model);
+    const out = toSourceFromTd(protobuf, td);
     expect(out).toContain("// @td-type: Option<Option<String>>");
   });
 });
@@ -189,13 +187,11 @@ message Foo {
 describe("[CONV-PROTO-EDGE] edge cases", () => {
   it("emits map<K, V> for Map types and parses them back", () => {
     const td = `type Metrics { counts: Map<String, Int> }`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = protobuf.toSource(model);
+    const out = toSourceFromTd(protobuf, td);
     expect(out).toContain("map<string, int64> counts = 1;");
-    const back = unwrap(protobuf.fromSource(out));
-    const m = back.decls.find((d) => d.name === "Metrics");
-    expect(m?.kind).toBe("record");
-    const f = m?.kind === "record" ? m.fields[0] : undefined;
+    const back = modelFromSource(protobuf, out);
+    expect(findDecl(back, "Metrics")?.kind).toBe("record");
+    const f = recordFields(back, "Metrics")[0];
     expect(f?.type.name).toBe("Map");
     expect(f?.type.args[0]?.name).toBe("String");
     expect(f?.type.args[1]?.name).toBe("Int");
@@ -203,14 +199,12 @@ describe("[CONV-PROTO-EDGE] edge cases", () => {
 
   it("falls back to @td-type directive for List<List<T>> and Option<Map<K,V>>", () => {
     const td = `type Deep { matrix: List<List<String>>\n maybe: Option<Map<String, Int>> }`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = protobuf.toSource(model);
+    const out = toSourceFromTd(protobuf, td);
     expect(out).toContain("// @td-type: List<List<String>>");
     expect(out).toContain("// @td-type: Option<Map<String, Int>>");
     // Round-trip preserves the types despite proto not supporting them.
-    const back = unwrap(protobuf.fromSource(out));
-    const deep = back.decls.find((decl) => decl.name === "Deep");
-    const fields = deep?.kind === "record" ? deep.fields : [];
+    const back = modelFromSource(protobuf, out);
+    const fields = recordFields(back, "Deep");
     expect(fields.find((f) => f.name === "matrix")?.type.name).toBe("List");
     expect(fields.find((f) => f.name === "matrix")?.type.args[0]?.name).toBe("List");
     expect(fields.find((f) => f.name === "maybe")?.type.name).toBe("Option");
@@ -219,11 +213,10 @@ describe("[CONV-PROTO-EDGE] edge cases", () => {
 
   it("preserves generics on messages via @td-generics directive", () => {
     const td = `type Box<T> { value: T }`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = protobuf.toSource(model);
+    const out = toSourceFromTd(protobuf, td);
     expect(out).toContain("// @td-generics: T");
-    const back = unwrap(protobuf.fromSource(out));
-    const box = back.decls.find((d) => d.name === "Box");
+    const back = modelFromSource(protobuf, out);
+    const box = findDecl(back, "Box");
     expect(box?.generics).toEqual(["T"]);
   });
 });

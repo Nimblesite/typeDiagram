@@ -7,13 +7,7 @@ import { layoutSync, warmupLayout } from "../src/layout/index.js";
 import { buildModel } from "../src/model/index.js";
 import { parse } from "../src/parser/index.js";
 import { SMALL_EXAMPLE, CHAT_EXAMPLE } from "./fixtures.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { unwrap } from "./helpers.js";
 
 describe("[RENDER-SYNC] renderToStringSync", () => {
   beforeAll(async () => {

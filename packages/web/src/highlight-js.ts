@@ -1,9 +1,10 @@
 // [WEB-HIGHLIGHT-JS] Minimal regex-based JS highlighter for the hooks editor.
 // Mirrors the pattern used by the typediagram highlighter: earlier rules win
 // on overlapping matches. Returns HTML wrapped in <span class="hl-*">.
-const escHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-const RULES: ReadonlyArray<{ re: RegExp; cls: string; group?: number }> = [
+import { type Rule, runHighlight, initHighlightOverlay } from "./highlight-engine.js";
+
+const RULES: readonly Rule[] = [
   // block comments first (multi-line)
   { re: /\/\*[\s\S]*?\*\//g, cls: "hl-comment" },
   // line comments
@@ -31,56 +32,9 @@ const RULES: ReadonlyArray<{ re: RegExp; cls: string; group?: number }> = [
   { re: /[{}()[\];,.:?=<>+\-*/!&|^~%]/g, cls: "hl-punct" },
 ];
 
-type Span = { start: number; end: number; cls: string };
+// At equal start, longer span wins — comments/strings fully swallow any
+// single-char punctuation rules that would otherwise sort first and leak.
+export const highlightJs = (source: string): string => runHighlight(source, RULES, true);
 
-export const highlightJs = (source: string): string => {
-  const spans: Span[] = [];
-  for (const rule of RULES) {
-    rule.re.lastIndex = 0;
-    let m: RegExpExecArray | null;
-    while ((m = rule.re.exec(source)) !== null) {
-      const groupText = rule.group !== undefined ? m[rule.group] : undefined;
-      const matchText = groupText ?? m[0];
-      const offset = groupText !== undefined ? m.index + m[0].indexOf(matchText) : m.index;
-      spans.push({ start: offset, end: offset + matchText.length, cls: rule.cls });
-    }
-  }
-  // At equal start, longer span wins — comments/strings fully swallow any
-  // single-char punctuation rules that would otherwise sort first and leak.
-  spans.sort((a, b) => a.start - b.start || b.end - a.end);
-  const kept: Span[] = [];
-  let cursor = 0;
-  for (const s of spans) {
-    if (s.start >= cursor) {
-      kept.push(s);
-      cursor = s.end;
-    }
-  }
-  let out = "";
-  let pos = 0;
-  for (const s of kept) {
-    out += s.start > pos ? escHtml(source.slice(pos, s.start)) : "";
-    out += `<span class="${s.cls}">${escHtml(source.slice(s.start, s.end))}</span>`;
-    pos = s.end;
-  }
-  out += pos < source.length ? escHtml(source.slice(pos)) : "";
-  return out.endsWith("\n") ? `${out} ` : `${out}\n `;
-};
-
-export const initJsHighlight = (textarea: HTMLTextAreaElement, backdrop: HTMLElement) => {
-  const code = backdrop.querySelector("code");
-  if (code === null) {
-    return;
-  }
-  const sync = () => {
-    code.innerHTML = highlightJs(textarea.value);
-    backdrop.scrollTop = textarea.scrollTop;
-    backdrop.scrollLeft = textarea.scrollLeft;
-  };
-  textarea.addEventListener("input", sync);
-  textarea.addEventListener("scroll", () => {
-    backdrop.scrollTop = textarea.scrollTop;
-    backdrop.scrollLeft = textarea.scrollLeft;
-  });
-  sync();
-};
+export const initJsHighlight = (textarea: HTMLTextAreaElement, backdrop: HTMLElement) =>
+  initHighlightOverlay(textarea, backdrop, () => highlightJs(textarea.value), true);

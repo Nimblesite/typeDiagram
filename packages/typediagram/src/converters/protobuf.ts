@@ -22,6 +22,8 @@ import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { isList, isMap, isOption, mapBuiltinName, parseTypeRef, printTypeRef } from "./parse-typeref.js";
 import { extractBalancedBlock } from "./brace-lang.js";
+import { emitDecls } from "./emit-decls.js";
+import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./scan-decls.js";
 
 // ── Type mapping ──
 
@@ -155,9 +157,7 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
     | { kind: "message"; name: string; body: string; generics: string[]; offset: number }
     | { kind: "enum"; name: string; body: string; generics: string[]; offset: number }
     | { kind: "alias"; name: string; target: string; offset: number };
-  const pending: PendingDecl[] = [];
-  const consumedRanges: Array<[number, number]> = [];
-  const isInsideConsumed = (idx: number): boolean => consumedRanges.some(([start, end]) => idx >= start && idx < end);
+  const consumed = makeConsumedTracker();
 
   // Look back up to ~128 chars for a generics directive that applies to the
   // decl starting at `offset`.
@@ -174,62 +174,25 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
       .filter((g) => g.length > 0);
   };
 
-  MESSAGE_HEAD_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = MESSAGE_HEAD_RE.exec(source)) !== null) {
-    if (isInsideConsumed(m.index)) {
-      continue;
-    }
-    const [full, name] = m;
+  const toBlockDecl = (kind: "message" | "enum") => (b: { groups: ReadonlyArray<string | undefined>; body: string; offset: number }): PendingDecl[] => {
+    const [name] = b.groups;
     /* v8 ignore next 3 — regex guarantees name is captured */
-    if (name === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBlock(source, openIdx, "{", "}");
-    /* v8 ignore next 3 — regex ends on `{` so balanced `}` is expected */
-    if (body === null) {
-      continue;
-    }
-    const endIdx = openIdx + body.length + 2;
-    consumedRanges.push([m.index, endIdx]);
-    pending.push({ kind: "message", name, body, generics: genericsBefore(m.index), offset: m.index });
-  }
+    return name === undefined ? [] : [{ kind, name, body: b.body, generics: genericsBefore(b.offset), offset: b.offset }];
+  };
 
-  ENUM_HEAD_RE.lastIndex = 0;
-  while ((m = ENUM_HEAD_RE.exec(source)) !== null) {
-    if (isInsideConsumed(m.index)) {
-      continue;
-    }
-    const [full, name] = m;
-    /* v8 ignore next 3 — regex guarantees name is captured */
-    if (name === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBlock(source, openIdx, "{", "}");
-    /* v8 ignore next 3 — regex ends on `{` so balanced `}` is expected */
-    if (body === null) {
-      continue;
-    }
-    const endIdx = openIdx + body.length + 2;
-    consumedRanges.push([m.index, endIdx]);
-    pending.push({ kind: "enum", name, body, generics: genericsBefore(m.index), offset: m.index });
-  }
+  const pending: PendingDecl[] = [
+    ...scanBraceBlocks(source, MESSAGE_HEAD_RE, { skip: consumed, mark: consumed }).flatMap(toBlockDecl("message")),
+    ...scanBraceBlocks(source, ENUM_HEAD_RE, { skip: consumed, mark: consumed }).flatMap(toBlockDecl("enum")),
+    ...scanAll(ALIAS_DIRECTIVE_RE, source, (m): PendingDecl | null => {
+      const [, name, target] = m;
+      /* v8 ignore next 3 — regex guarantees both captures */
+      return name === undefined || target === undefined
+        ? null
+        : { kind: "alias", name, target: target.trim(), offset: m.index };
+    }),
+  ];
 
-  ALIAS_DIRECTIVE_RE.lastIndex = 0;
-  while ((m = ALIAS_DIRECTIVE_RE.exec(source)) !== null) {
-    const [, name, target] = m;
-    /* v8 ignore next 3 — regex guarantees both captures */
-    if (name === undefined || target === undefined) {
-      continue;
-    }
-    pending.push({ kind: "alias", name, target: target.trim(), offset: m.index });
-  }
-
-  pending.sort((a, b) => a.offset - b.offset);
-
-  for (const p of pending) {
+  for (const p of orderBySource(pending)) {
     found = true;
     if (p.kind === "message") {
       // A message with a `oneof variant { ... }` is a union with struct
@@ -432,29 +395,31 @@ const emitUnion = (
   return lines;
 };
 
-const toProto = (model: Model): string => {
-  const visible = visibleDeclsForTarget(model.decls, "protobuf");
-  const lines: string[] = ['syntax = "proto3";', ""];
-  if (modelReferencesType(visible, "DateTime")) {
-    lines.push('import "google/protobuf/timestamp.proto";', "");
-  }
-  for (const d of visible) {
-    if (d.kind === "record") {
-      lines.push(...emitGenericsDirective(d.generics, ""));
-      lines.push(`message ${d.name} {`);
-      lines.push(...emitMessageBody(d.fields, "  "));
-      lines.push("}", "");
-      continue;
-    }
-    if (d.kind === "union") {
-      lines.push(...emitUnion(d.name, d.variants, d.generics), "");
-      continue;
-    }
-    // alias — express as a directive since proto has no alias syntax.
-    lines.push(`// @td-alias: ${d.name} = ${printTypeRef(d.target)}`, "");
-  }
-  return lines.join("\n").replace(/\n+$/, "\n");
+const emitMessage = (
+  name: string,
+  fields: readonly { name: string; type: ResolvedTypeRef }[],
+  generics: readonly string[]
+): string[] => [...emitGenericsDirective(generics, ""), `message ${name} {`, ...emitMessageBody(fields, "  "), "}"];
+
+const protoPrelude = (model: Model): string[] => {
+  const lines = ['syntax = "proto3";', ""];
+  return modelReferencesType(visibleDeclsForTarget(model.decls, "protobuf"), "DateTime")
+    ? [...lines, 'import "google/protobuf/timestamp.proto";', ""]
+    : lines;
 };
+
+const toProto = (model: Model): string =>
+  emitDecls(
+    model,
+    "protobuf",
+    {
+      record: (d) => emitMessage(d.name, d.fields, d.generics),
+      union: (d) => emitUnion(d.name, d.variants, d.generics),
+      // alias — express as a directive since proto has no alias syntax.
+      alias: (d) => [`// @td-alias: ${d.name} = ${printTypeRef(d.target)}`],
+    },
+    { prelude: protoPrelude(model), trimTrailing: true }
+  );
 
 export const protobuf: Converter = {
   language: "protobuf",

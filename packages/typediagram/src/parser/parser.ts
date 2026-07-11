@@ -133,19 +133,7 @@ class Parser {
       if (this.expect("LParen", "'('") === null) {
         return targeting;
       }
-      const values: string[] = [];
-      while (this.cur.peek().kind !== "RParen" && this.cur.peek().kind !== "EOF") {
-        const valueTok = this.expect("Ident", "target name");
-        if (valueTok === null) {
-          break;
-        }
-        values.push(valueTok.value);
-        if (this.cur.peek().kind === "Comma") {
-          this.cur.next();
-        } else {
-          break;
-        }
-      }
+      const values = this.parseCommaSeparated("RParen", () => this.expect("Ident", "target name")?.value ?? null);
       this.expect("RParen", "')'");
 
       targeting ??= {};
@@ -238,43 +226,55 @@ class Parser {
     };
   }
 
-  private parseGenericParams(): string[] {
-    if (this.cur.peek().kind !== "LAngle") {
-      return [];
-    }
-    this.cur.next();
-    const names: string[] = [];
-    while (this.cur.peek().kind !== "RAngle" && this.cur.peek().kind !== "EOF") {
-      const t = this.expect("Ident", "generic parameter name");
-      if (t === null) {
+  private parseCommaSeparated<T>(closer: TokenKind, parseItem: () => T | null): T[] {
+    const items: T[] = [];
+    while (this.cur.peek().kind !== closer && this.cur.peek().kind !== "EOF") {
+      const item = parseItem();
+      if (item === null) {
         break;
       }
-      names.push(t.value);
+      items.push(item);
       if (this.cur.peek().kind === "Comma") {
         this.cur.next();
       } else {
         break;
       }
     }
+    return items;
+  }
+
+  private parseGenericParams(): string[] {
+    if (this.cur.peek().kind !== "LAngle") {
+      return [];
+    }
+    this.cur.next();
+    const names = this.parseCommaSeparated(
+      "RAngle",
+      () => this.expect("Ident", "generic parameter name")?.value ?? null
+    );
     this.expect("RAngle", "'>'");
     return names;
   }
 
-  private parseFieldList(): Field[] {
-    const fields: Field[] = [];
+  private parseBraceList<T>(parseItem: () => T | null): T[] {
+    const items: T[] = [];
     for (;;) {
       this.cur.eatNewlines();
       const t = this.cur.peek();
       if (t.kind === "RBrace" || t.kind === "EOF") {
         break;
       }
-      const field = this.parseField();
-      if (field !== null) {
-        fields.push(field);
+      const item = parseItem();
+      if (item !== null) {
+        items.push(item);
       }
       this.eatSeparator();
     }
-    return fields;
+    return items;
+  }
+
+  private parseFieldList(): Field[] {
+    return this.parseBraceList(() => this.parseField());
   }
 
   private parseField(): Field | null {
@@ -300,20 +300,7 @@ class Parser {
   }
 
   private parseVariantList(): Variant[] {
-    const variants: Variant[] = [];
-    for (;;) {
-      this.cur.eatNewlines();
-      const t = this.cur.peek();
-      if (t.kind === "RBrace" || t.kind === "EOF") {
-        break;
-      }
-      const v = this.parseVariant();
-      if (v !== null) {
-        variants.push(v);
-      }
-      this.eatSeparator();
-    }
-    return variants;
+    return this.parseBraceList(() => this.parseVariant());
   }
 
   private parseVariant(): Variant | null {
@@ -382,21 +369,10 @@ class Parser {
     if (nameTok === null) {
       return null;
     }
-    const args: TypeRef[] = [];
+    let args: TypeRef[] = [];
     if (this.cur.peek().kind === "LAngle") {
       this.cur.next();
-      while (this.cur.peek().kind !== "RAngle" && this.cur.peek().kind !== "EOF") {
-        const arg = this.parseTypeRef();
-        if (arg === null) {
-          break;
-        }
-        args.push(arg);
-        if (this.cur.peek().kind === "Comma") {
-          this.cur.next();
-        } else {
-          break;
-        }
-      }
+      args = this.parseCommaSeparated("RAngle", () => this.parseTypeRef());
       this.expect("RAngle", "'>'");
     }
     return {

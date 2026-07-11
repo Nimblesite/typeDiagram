@@ -118,16 +118,6 @@ const MaybeCodec: StructCodec<Maybe> = {
   },
 };
 
-const writeNumberList = (
-  writer: Writer,
-  at: number,
-  slot: number,
-  values: readonly number[] | null
-): Result<void, TdbinError> =>
-  values === null
-    ? tdbin.writer.wordList(writer, at, ListsCodec.dataWords, slot, null)
-    : tdbin.writer.wordList(writer, at, ListsCodec.dataWords, slot, values.map(intBits));
-
 const writeNumberListFor = (
   codec: StructCodec<unknown>,
   writer: Writer,
@@ -139,15 +129,12 @@ const writeNumberListFor = (
     ? tdbin.writer.wordList(writer, at, codec.dataWords, slot, null)
     : tdbin.writer.wordList(writer, at, codec.dataWords, slot, values.map(intBits));
 
-const readNumberList = (
-  reader: Reader,
+const writeNumberList = (
+  writer: Writer,
   at: number,
   slot: number,
-  optional: boolean
-): Result<readonly number[] | null, TdbinError> => {
-  const words = tdbin.reader.wordList(reader, at, ListsCodec.dataWords, slot);
-  return words.ok ? ok(words.value === null && optional ? null : (words.value ?? []).map(tdbin.scalar.i64From)) : words;
-};
+  values: readonly number[] | null
+): Result<void, TdbinError> => writeNumberListFor(ListsCodec, writer, at, slot, values);
 
 const readNumberListFor = (
   codec: StructCodec<unknown>,
@@ -159,6 +146,13 @@ const readNumberListFor = (
   const words = tdbin.reader.wordList(reader, at, codec.dataWords, slot);
   return words.ok ? ok(words.value === null && optional ? null : (words.value ?? []).map(tdbin.scalar.i64From)) : words;
 };
+
+const readNumberList = (
+  reader: Reader,
+  at: number,
+  slot: number,
+  optional: boolean
+): Result<readonly number[] | null, TdbinError> => readNumberListFor(ListsCodec, reader, at, slot, optional);
 
 const words16 = (bytes: Uint8Array): readonly [bigint, bigint] => expectOk(tdbin.scalar.bytes16Words(bytes));
 
@@ -199,33 +193,21 @@ const rootWithOneDataWord = (): Uint8Array => {
   return out;
 };
 
-const SlotBytesCodec: StructCodec<Uint8Array | null> = {
+// A one-pointer struct that only exercises its single field's reader; the write
+// side is a no-op because these codecs decode hand-built pointer messages.
+const slotReadCodec = <T>(
+  read: (reader: Reader, at: number) => Result<T | null, TdbinError>
+): StructCodec<T | null> => ({
   dataWords: 0,
   ptrWords: 1,
   write: () => ok(undefined),
-  read: (reader, at) => tdbin.reader.bytes(reader, at, 0, 0),
-};
+  read,
+});
 
-const SlotChildCodec: StructCodec<Child | null> = {
-  dataWords: 0,
-  ptrWords: 1,
-  write: () => ok(undefined),
-  read: (reader, at) => tdbin.reader.child(reader, at, 0, 0, ChildCodec),
-};
-
-const SlotBoolListCodec: StructCodec<readonly boolean[] | null> = {
-  dataWords: 0,
-  ptrWords: 1,
-  write: () => ok(undefined),
-  read: (reader, at) => tdbin.reader.boolList(reader, at, 0, 0),
-};
-
-const SlotChildListCodec: StructCodec<readonly Child[] | null> = {
-  dataWords: 0,
-  ptrWords: 1,
-  write: () => ok(undefined),
-  read: (reader, at) => tdbin.reader.childList(reader, at, 0, 0, ChildCodec),
-};
+const SlotBytesCodec = slotReadCodec((reader, at) => tdbin.reader.bytes(reader, at, 0, 0));
+const SlotChildCodec = slotReadCodec((reader, at) => tdbin.reader.child(reader, at, 0, 0, ChildCodec));
+const SlotBoolListCodec = slotReadCodec((reader, at) => tdbin.reader.boolList(reader, at, 0, 0));
+const SlotChildListCodec = slotReadCodec((reader, at) => tdbin.reader.childList(reader, at, 0, 0, ChildCodec));
 
 const EmptyCodec: StructCodec<undefined> = {
   dataWords: 0,

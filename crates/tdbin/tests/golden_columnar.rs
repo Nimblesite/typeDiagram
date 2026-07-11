@@ -19,10 +19,15 @@ pub mod generated_batches;
 /// Codegen-emitted benchmark-corpus columnar types.
 pub mod generated_corpus;
 
+/// Shared lowercase-hex codec helpers (identical across the golden lanes).
+#[path = "support/hexvectors.rs"]
+mod hexvectors;
+
 use generated_batches::{Address, Contact, EmailContact, Person, PersonBatch, PhoneContact};
 use generated_corpus::{
     BenchEvent, BenchEventBatch, BenchNode, BenchNodeCreated, BenchSelectionChanged,
 };
+use hexvectors::{from_hex, to_hex};
 use tdbin::TdBin;
 
 /// Boxed-error alias so tests use `?` without `unwrap`/`expect`.
@@ -94,56 +99,6 @@ fn event_batch() -> BenchEventBatch {
             BenchEvent::Heartbeat,
         ],
     }
-}
-
-// ── Hex helpers (no external deps: this crate is offline-safe) ──
-
-/// Lowercase hex encoding of `bytes`.
-fn to_hex(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::new();
-    for &byte in bytes {
-        if let (Some(&hi), Some(&lo)) = (
-            HEX.get(usize::from(byte >> 4)),
-            HEX.get(usize::from(byte & 0x0F)),
-        ) {
-            out.push(char::from(hi));
-            out.push(char::from(lo));
-        }
-    }
-    out
-}
-
-/// Decode one lowercase hex nibble, or `None` if it is not `[0-9a-f]`.
-fn hex_nibble(c: u8) -> Option<u8> {
-    match c {
-        b'0'..=b'9' => Some(c.wrapping_sub(b'0')),
-        b'a'..=b'f' => Some(c.wrapping_sub(b'a').wrapping_add(10)),
-        _ => None,
-    }
-}
-
-/// Decode a lowercase hex string to bytes.
-fn from_hex(s: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let raw = s.as_bytes();
-    if !raw.len().is_multiple_of(2) {
-        return Err("hex string has odd length".into());
-    }
-    let mut out = Vec::new();
-    for pair in raw.chunks(2) {
-        let hi = pair
-            .first()
-            .copied()
-            .and_then(hex_nibble)
-            .ok_or("bad hex digit")?;
-        let lo = pair
-            .get(1)
-            .copied()
-            .and_then(hex_nibble)
-            .ok_or("bad hex digit")?;
-        out.push((hi << 4) | lo);
-    }
-    Ok(out)
 }
 
 /// Assert `value` encodes to exactly `hex`, that decoding `hex` reproduces it,

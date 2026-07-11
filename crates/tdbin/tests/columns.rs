@@ -7,6 +7,30 @@
 
 use tdbin::{ColumnGroup, DecodeError, EncodeError, Reader, Struct, TdBin, Writer};
 
+/// Emit the identical single-`rows` columnar-list root `impl Struct` for a batch
+/// wrapper type over a [`ColumnGroup`] row: an empty list is the null pointer,
+/// decode fills defaults ([TDBIN-COL-GROUP]). Every columnar root here shares
+/// this body, so it is generated rather than copied per type.
+macro_rules! column_batch_root {
+    ($batch:ty, $row:ty) => {
+        impl Struct for $batch {
+            const DATA_WORDS: u16 = 0;
+            const PTR_WORDS: u16 = 1;
+
+            fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
+                w.column_list(at, Self::DATA_WORDS, 0, Some(&self.rows))
+            }
+
+            fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
+                let rows = r
+                    .column_list::<$row>(at, Self::DATA_WORDS, 0)?
+                    .unwrap_or_default();
+                Ok(Self { rows })
+            }
+        }
+    };
+}
+
 /// A nested record reached through a dense group.
 #[derive(Debug, Clone, PartialEq, Default)]
 struct Home {
@@ -318,21 +342,7 @@ impl RowColumns {
     }
 }
 
-impl Struct for Batch {
-    const DATA_WORDS: u16 = 0;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.column_list(at, Self::DATA_WORDS, 0, Some(&self.rows))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let rows = r
-            .column_list::<Row>(at, Self::DATA_WORDS, 0)?
-            .unwrap_or_default();
-        Ok(Self { rows })
-    }
-}
+column_batch_root!(Batch, Row);
 
 /// An older Row schema knowing only the first two columns ([TDBIN-COL-EVOLVE]).
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -385,21 +395,7 @@ struct BatchV0 {
     rows: Vec<RowV0>,
 }
 
-impl Struct for BatchV0 {
-    const DATA_WORDS: u16 = 0;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.column_list(at, Self::DATA_WORDS, 0, Some(&self.rows))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let rows = r
-            .column_list::<RowV0>(at, Self::DATA_WORDS, 0)?
-            .unwrap_or_default();
-        Ok(Self { rows })
-    }
-}
+column_batch_root!(BatchV0, RowV0);
 
 /// A writer that lies about its lengths column ([TDBIN-COL-VAR] violation).
 #[derive(Debug, Clone, PartialEq, Default)]
@@ -445,21 +441,7 @@ struct LyingBatch {
     rows: Vec<LyingRow>,
 }
 
-impl Struct for LyingBatch {
-    const DATA_WORDS: u16 = 0;
-    const PTR_WORDS: u16 = 1;
-
-    fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-        w.column_list(at, Self::DATA_WORDS, 0, Some(&self.rows))
-    }
-
-    fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-        let rows = r
-            .column_list::<LyingRow>(at, Self::DATA_WORDS, 0)?
-            .unwrap_or_default();
-        Ok(Self { rows })
-    }
-}
+column_batch_root!(LyingBatch, LyingRow);
 
 /// Build a value-dense fixture batch covering presence, unicode, and empties.
 fn fixture_batch() -> Batch {

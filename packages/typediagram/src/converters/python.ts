@@ -20,6 +20,7 @@ import {
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter, PythonOpts } from "./types.js";
 import { isList, isMap, isOption, mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
+import { orderBySource, parseFields, scanAll } from "./scan-decls.js";
 
 // ── Type mapping ──
 
@@ -107,22 +108,12 @@ const mapPyType = (t: string): string => {
 };
 
 const parsePyFields = (body: string) =>
-  body
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith("#"))
-    .map((l) => {
-      const m = PY_FIELD_RE.exec(l);
-      if (m === null) {
-        return null;
-      }
-      const [, name, type] = m;
-      if (name === undefined || type === undefined) {
-        return null;
-      }
-      return { name, type: mapPyType(type.replace(/\s*=.*$/, "").trim()) };
-    })
-    .filter((f): f is { name: string; type: string } => f !== null);
+  parseFields(body, {
+    separator: "\n",
+    commentPrefix: "#",
+    fieldRe: PY_FIELD_RE,
+    mapType: (type) => mapPyType(type.replace(/\s*=.*$/, "").trim()),
+  });
 
 const extractGenericsFromBases = (bases: string | undefined): string[] => {
   if (bases === undefined) {
@@ -150,35 +141,20 @@ type PendingDecl =
 const fromPython = (source: string): Result<Model, Diagnostic[]> => {
   const builder = new ModelBuilder();
   let found = false;
-  const pending: PendingDecl[] = [];
-
-  CLASS_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = CLASS_RE.exec(source)) !== null) {
-    const [, name, bases, body] = m;
-    if (name === undefined || body === undefined) {
-      continue;
-    }
-    pending.push({ kind: "class", name, bases, body, offset: m.index });
-  }
-
-  TYPED_DICT_RE.lastIndex = 0;
-  while ((m = TYPED_DICT_RE.exec(source)) !== null) {
-    const [, name, body] = m;
-    if (name === undefined || body === undefined) {
-      continue;
-    }
-    pending.push({ kind: "typed-dict", name, body, offset: m.index });
-  }
-
-  ENUM_RE.lastIndex = 0;
-  while ((m = ENUM_RE.exec(source)) !== null) {
-    const [, name, body] = m;
-    if (name === undefined || body === undefined) {
-      continue;
-    }
-    pending.push({ kind: "enum", name, body, offset: m.index });
-  }
+  const pending: PendingDecl[] = [
+    ...scanAll(CLASS_RE, source, (m): PendingDecl | null => {
+      const [, name, bases, body] = m;
+      return name === undefined || body === undefined ? null : { kind: "class", name, bases, body, offset: m.index };
+    }),
+    ...scanAll(TYPED_DICT_RE, source, (m): PendingDecl | null => {
+      const [, name, body] = m;
+      return name === undefined || body === undefined ? null : { kind: "typed-dict", name, body, offset: m.index };
+    }),
+    ...scanAll(ENUM_RE, source, (m): PendingDecl | null => {
+      const [, name, body] = m;
+      return name === undefined || body === undefined ? null : { kind: "enum", name, body, offset: m.index };
+    }),
+  ];
 
   const classNames = new Set(pending.filter((p) => p.kind === "class" || p.kind === "typed-dict").map((p) => p.name));
   const enumNames = new Set(pending.filter((p) => p.kind === "enum").map((p) => p.name));
@@ -189,40 +165,35 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
   //     class/enum we've captured (to avoid re-capturing something like
   //     `ExampleValue = "x"` inside an enum body — enum bodies are multi-line
   //     but the regex is anchored to line start so we still need to filter).
-  UNION_ALIAS_RE.lastIndex = 0;
-  while ((m = UNION_ALIAS_RE.exec(source)) !== null) {
-    const [, name, rhs] = m;
-    if (name === undefined || rhs === undefined) {
-      continue;
-    }
-    if (!rhs.includes("|")) {
-      continue;
-    }
-    if (classNames.has(name) || enumNames.has(name)) {
-      continue;
-    }
-    pending.push({ kind: "union-alias", name, rhs, offset: m.index });
-  }
+  pending.push(
+    ...scanAll(UNION_ALIAS_RE, source, (m): PendingDecl | null => {
+      const [, name, rhs] = m;
+      return name === undefined || rhs === undefined || !rhs.includes("|") || classNames.has(name) || enumNames.has(name)
+        ? null
+        : { kind: "union-alias", name, rhs, offset: m.index };
+    })
+  );
 
   const unionAliasNames = new Set(pending.filter((p) => p.kind === "union-alias").map((p) => p.name));
 
-  PLAIN_ALIAS_RE.lastIndex = 0;
-  while ((m = PLAIN_ALIAS_RE.exec(source)) !== null) {
-    const [, name, rhs] = m;
-    if (name === undefined || rhs === undefined) {
-      continue;
-    }
-    if (classNames.has(name) || enumNames.has(name) || unionAliasNames.has(name)) {
-      continue;
-    }
-    // Skip import lines, assignments like `x = 42`, TypeVar declarations,
-    // etc. — keep only things that look like a type alias.
-    const trimmed = rhs.trim();
-    if (trimmed.length === 0 || /^[0-9"']/.test(trimmed) || trimmed.startsWith("TypeVar(")) {
-      continue;
-    }
-    pending.push({ kind: "plain-alias", name, rhs: trimmed, offset: m.index });
-  }
+  pending.push(
+    ...scanAll(PLAIN_ALIAS_RE, source, (m): PendingDecl | null => {
+      const [, name, rhs] = m;
+      if (name === undefined || rhs === undefined) {
+        return null;
+      }
+      if (classNames.has(name) || enumNames.has(name) || unionAliasNames.has(name)) {
+        return null;
+      }
+      // Skip import lines, assignments like `x = 42`, TypeVar declarations,
+      // etc. — keep only things that look like a type alias.
+      const trimmed = rhs.trim();
+      if (trimmed.length === 0 || /^[0-9"']/.test(trimmed) || trimmed.startsWith("TypeVar(")) {
+        return null;
+      }
+      return { kind: "plain-alias", name, rhs: trimmed, offset: m.index };
+    })
+  );
 
   pending.sort((a, b) => a.offset - b.offset);
 

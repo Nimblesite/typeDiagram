@@ -1,24 +1,21 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "../src/markdown.js";
 import { SMALL_EXAMPLE } from "./fixtures.js";
+import { unwrap } from "./helpers.js";
 
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+/** Render markdown and unwrap the ok Result to its spliced output string. */
+const renderMd = async (md: string): Promise<string> => unwrap(await renderMarkdown(md));
 
 describe("markdown — renderMarkdown", () => {
   it("returns input unchanged when no fences", async () => {
     const md = "# hello\n\nsome text";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toBe(md);
   });
 
   it("replaces a typeDiagram fence with rendered SVG", async () => {
     const md = "before\n\n```typeDiagram\n" + SMALL_EXAMPLE.trim() + "\n```\n\nafter";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toContain("before");
     expect(out).toContain("after");
     expect(out).toContain("<svg");
@@ -27,14 +24,14 @@ describe("markdown — renderMarkdown", () => {
 
   it("leaves other fences untouched", async () => {
     const md = "```js\nconsole.log(1)\n```\n\n```typeDiagram\ntype X { a: Int }\n```";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toContain("```js\nconsole.log(1)\n```");
     expect(out).toContain("<svg");
   });
 
   it("handles multiple typeDiagram fences in one doc", async () => {
     const md = "```typeDiagram\ntype A { x: Int }\n```\n\n```typeDiagram\ntype B { y: Int }\n```";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect((out.match(/<svg/g) ?? []).length).toBe(2);
   });
 
@@ -73,7 +70,7 @@ describe("markdown — renderMarkdown", () => {
       "",
       "Trailing paragraph.",
     ].join("\n");
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     // Every non-diagram section survives verbatim.
     expect(out).toContain("# Title");
     expect(out).toContain("Intro paragraph with `inline code` and **bold**.");
@@ -110,7 +107,7 @@ describe("markdown — renderMarkdown", () => {
   it("does not merge two adjacent typeDiagram fences into one regex match", async () => {
     // Non-greedy regex must still stop at the FIRST closing fence, not span the second.
     const md = "```typeDiagram\ntype A { x: Int }\n```\n\n```typeDiagram\ntype B { y: Int }\n```";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect((out.match(/<svg/g) ?? []).length).toBe(2);
     expect(out).not.toContain("type A");
     expect(out).not.toContain("type B");
@@ -131,7 +128,7 @@ describe("markdown — renderMarkdown", () => {
       "x = 1",
       "```",
     ].join("\n");
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toContain("```js\nconst x = 1;\n```");
     expect(out).toContain("```python\nx = 1\n```");
     expect(out).toContain("<svg");
@@ -158,7 +155,7 @@ describe("markdown — renderMarkdown", () => {
       "type B { y: Int }",
       "```",
     ].join("\n");
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect((out.match(/<svg/g) ?? []).length).toBe(2);
     expect(out).toContain("console.log('untouched')");
     expect(out).toContain("```js");
@@ -171,7 +168,7 @@ describe("markdown — renderMarkdown", () => {
 
   it("returns raw SVG, not HTML-escaped, so markdown-it passes it through as HTML", async () => {
     const md = "before\n\n```typeDiagram\ntype A { x: Int }\n```\n\nafter";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     // If the SVG were escaped, it would contain &lt;svg and zero <svg.
     expect(out).toContain("<svg");
     expect(out).not.toContain("&lt;svg");
@@ -182,14 +179,14 @@ describe("markdown — renderMarkdown", () => {
     // Four-space-indented content is a code block in commonmark; our regex uses ^``` so an
     // indented "```typediagram" should NOT be treated as a real fence.
     const md = ["paragraph", "", "    ```typeDiagram", "    type Fake { x: Int }", "    ```", "", "end"].join("\n");
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toBe(md);
     expect(out).not.toContain("<svg");
   });
 
   it("supports tilde-less ``` fences of length > 3 (four or more backticks)", async () => {
     const md = "````typeDiagram\ntype A { x: Int }\n````\n\ntrailing";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toContain("<svg");
     expect(out).toContain("trailing");
     expect(out).not.toContain("````typeDiagram");
@@ -197,14 +194,14 @@ describe("markdown — renderMarkdown", () => {
 
   it("renders even when the very first character of the document starts a fence", async () => {
     const md = "```typeDiagram\ntype A { x: Int }\n```\n\ntail";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out.startsWith("<svg")).toBe(true);
     expect(out).toContain("tail");
   });
 
   it("renders even when a fence is the last thing in the document with no trailing newline", async () => {
     const md = "head\n\n```typeDiagram\ntype A { x: Int }\n```";
-    const out = unwrap(await renderMarkdown(md));
+    const out = await renderMd(md);
     expect(out).toContain("head");
     expect(out).toContain("<svg");
     expect(out).not.toContain("```");

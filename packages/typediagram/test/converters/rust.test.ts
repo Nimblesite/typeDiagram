@@ -1,9 +1,17 @@
 // [CONV-RUST-TEST] Rust converter integration tests.
 import { describe, expect, it } from "vitest";
 import { rust } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel, printSource } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import { printSource } from "../../src/model/index.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+  unwrap,
+} from "./helpers.js";
 
 describe("[CONV-RUST-FROM-COMPLEX] complex Rust -> typeDiagram", () => {
   it("parses a messy Rust file with structs, enums, aliases, and noise", () => {
@@ -88,12 +96,11 @@ impl Processor for ChatRequest {
     fn validate(&self) -> bool { true }
 }
 `;
-    const model = unwrap(rust.fromSource(src));
+    const model = modelFromSource(rust, src);
 
     // ChatRequest — record with 9 fields, type mappings
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(9);
     expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
     expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("Option");
@@ -108,9 +115,8 @@ impl Processor for ChatRequest {
     expect(chatFields.find((f) => f.name === "medium")?.type.name).toBe("Int");
 
     // ToolResult — 5 fields, f32 maps to Float
-    const tool = model.decls.find((d) => d.name === "ToolResult");
-    expect(tool?.kind).toBe("record");
-    const toolFields = tool?.kind === "record" ? tool.fields : [];
+    expect(findDecl(model, "ToolResult")?.kind).toBe("record");
+    const toolFields = recordFields(model, "ToolResult");
     expect(toolFields).toHaveLength(5);
     expect(toolFields.find((f) => f.name === "score")?.type.name).toBe("Float");
 
@@ -128,14 +134,12 @@ impl Processor for ChatRequest {
 
     // ContentItem — ENUM_RE uses [^}]* which stops at first }, so struct variants
     // with braces inside the enum body only partially parse
-    const ci = model.decls.find((d) => d.name === "ContentItem");
-    expect(ci?.kind).toBe("union");
+    expect(findDecl(model, "ContentItem")?.kind).toBe("union");
 
     // Wrapper — tuple variants with multiple args get split on commas incorrectly
     // (the comma splitter doesn't respect parens), so only single-arg tuples parse correctly
-    const wrapper = model.decls.find((d) => d.name === "Wrapper");
-    expect(wrapper?.kind).toBe("union");
-    const wVariants = wrapper?.kind === "union" ? wrapper.variants : [];
+    expect(findDecl(model, "Wrapper")?.kind).toBe("union");
+    const wVariants = unionVariants(model, "Wrapper");
     expect(wVariants.length).toBeGreaterThanOrEqual(1);
     expect(wVariants[0]?.name).toBe("Single");
     expect(wVariants[0]?.fields).toHaveLength(1);
@@ -143,12 +147,10 @@ impl Processor for ChatRequest {
     expect(wVariants[0]?.fields[0]?.type.name).toBe("String");
 
     // Aliases
-    const email = model.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(findDecl(model, "Email")?.kind).toBe("alias");
+    expect(aliasTargetName(model, "Email")).toBe("String");
 
-    const idMap = model.decls.find((d) => d.name === "IdMap");
-    expect(idMap?.kind).toBe("alias");
+    expect(findDecl(model, "IdMap")?.kind).toBe("alias");
 
     const scores = model.decls.find((d) => d.name === "Scores");
     expect(scores?.kind).toBe("alias");
@@ -194,8 +196,7 @@ union ContentItem {
 alias Email = String
 alias Lookup<K, V> = Map<K, V>
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = rust.toSource(model);
+    const output = toSourceFromTd(rust, td);
 
     // ChatRequest — all type mappings
     expect(output).toContain("pub struct ChatRequest");
@@ -232,8 +233,7 @@ union ErrorCode {
   MethodNotFound = -32601
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = rust.toSource(model);
+    const output = toSourceFromTd(rust, td);
 
     expect(output).toContain("ParseError = -32700,");
     expect(output).toContain("InvalidRequest = -32600,");
@@ -252,8 +252,7 @@ union RequestId {
   String(String)
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = rust.toSource(model);
+    const output = toSourceFromTd(rust, td);
 
     expect(output).toContain("pub enum RequestId");
     expect(output).toContain("Number(i64)");
@@ -267,8 +266,7 @@ untagged union RequestId {
   String(String)
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = rust.toSource(model);
+    const output = toSourceFromTd(rust, td);
 
     expect(output).toContain("#[serde(untagged)]");
     expect(output).toContain("pub enum RequestId");

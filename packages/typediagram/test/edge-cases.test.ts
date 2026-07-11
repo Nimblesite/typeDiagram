@@ -3,13 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderToString } from "../src/index.js";
 import { parse } from "../src/parser/index.js";
 import { buildModel } from "../src/model/index.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { unwrap } from "./helpers.js";
 
 // [EDGE-EMPTY] Empty diagram — parse("") and parse("typeDiagram\n")
 describe("[EDGE-EMPTY] empty diagram", () => {

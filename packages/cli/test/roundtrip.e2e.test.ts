@@ -3,58 +3,8 @@
 // then convert to another language, produce .td again, chain through all languages.
 //
 // Chain: C# → .td → Rust → .td → Python → .td → TypeScript → .td → C#
-import { Readable, Writable } from "node:stream";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { main } from "../src/cli.js";
-
-const fixturePath = (name: string) => fileURLToPath(new URL(`./fixtures/${name}`, import.meta.url));
-
-const makeStream = () => {
-  const chunks: string[] = [];
-  const stream = new Writable({
-    write(chunk, _enc, cb) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk));
-      cb();
-    },
-  });
-  return { stream, text: () => chunks.join("") };
-};
-
-const run = async (args: string[]) => {
-  const out = makeStream();
-  const err = makeStream();
-  const code = await main(args, out.stream, err.stream);
-  return { code, stdout: out.text(), stderr: err.text() };
-};
-
-/** Feed source string via stdin (no file arg). */
-const runStdin = async (args: string[], source: string) => {
-  const out = makeStream();
-  const errS = makeStream();
-  const fakeStdin = new Readable({
-    read() {
-      this.push(source);
-      this.push(null);
-    },
-  });
-  const original = process.stdin;
-  Object.defineProperty(process, "stdin", {
-    value: fakeStdin,
-    writable: true,
-    configurable: true,
-  });
-  try {
-    const code = await main(args, out.stream, errS.stream);
-    return { code, stdout: out.text(), stderr: errS.text() };
-  } finally {
-    Object.defineProperty(process, "stdin", {
-      value: original,
-      writable: true,
-      configurable: true,
-    });
-  }
-};
+import { fixturePath, run, runStdin } from "./helpers.js";
 
 // ── [CLI-ROUNDTRIP-FROM] Each language source file → SVG diagram ──
 

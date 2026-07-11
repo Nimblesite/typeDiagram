@@ -4,5 +4,6 @@
     "titleBar.activeForeground": "#0b1326",
     "titleBar.inactiveBackground": "#6ab3dd",
     "titleBar.inactiveForeground": "#0b1326cc"
-  }
+  },
+  "deslop.topOffenders.groupBy": "type"
 }

@@ -1,9 +1,15 @@
 // [CONV-DART-TEST] Dart converter integration tests.
 import { describe, expect, it } from "vitest";
 import { dart } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-DART-FROM] Dart -> typeDiagram", () => {
   it("parses sealed-class DUs, regular classes, enums, and typedefs", () => {
@@ -31,11 +37,10 @@ enum UriKind { image, audio, video }
 
 typedef Email = String;
 `;
-    const model = unwrap(dart.fromSource(src));
+    const model = modelFromSource(dart, src);
 
-    const ci = model.decls.find((d) => d.name === "ContentItem");
-    expect(ci?.kind).toBe("union");
-    const ciVariants = ci?.kind === "union" ? ci.variants : [];
+    expect(findDecl(model, "ContentItem")?.kind).toBe("union");
+    const ciVariants = unionVariants(model, "ContentItem");
     expect(ciVariants).toHaveLength(2);
     expect(ciVariants[0]?.name).toBe("Text");
     expect(ciVariants[0]?.fields[0]?.name).toBe("value");
@@ -43,17 +48,14 @@ typedef Email = String;
     expect(ciVariants[1]?.name).toBe("Url");
     expect(ciVariants[1]?.fields[0]?.type.name).toBe("String");
 
-    const tp = model.decls.find((d) => d.name === "TextPart");
-    expect(tp?.kind).toBe("record");
+    expect(findDecl(model, "TextPart")?.kind).toBe("record");
 
-    const uk = model.decls.find((d) => d.name === "UriKind");
-    expect(uk?.kind).toBe("union");
-    const ukVariants = uk?.kind === "union" ? uk.variants : [];
+    expect(findDecl(model, "UriKind")?.kind).toBe("union");
+    const ukVariants = unionVariants(model, "UriKind");
     expect(ukVariants.map((v) => v.name)).toEqual(["image", "audio", "video"]);
 
-    const email = model.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(findDecl(model, "Email")?.kind).toBe("alias");
+    expect(aliasTargetName(model, "Email")).toBe("String");
   });
 
   it("maps nullable T? back to Option<T>", () => {
@@ -64,10 +66,9 @@ class UriPart {
   const UriPart(this.url, this.mediaType);
 }
 `;
-    const model = unwrap(dart.fromSource(src));
-    const up = model.decls.find((d) => d.name === "UriPart");
-    expect(up?.kind).toBe("record");
-    const fields = up?.kind === "record" ? up.fields : [];
+    const model = modelFromSource(dart, src);
+    expect(findDecl(model, "UriPart")?.kind).toBe("record");
+    const fields = recordFields(model, "UriPart");
     expect(fields.find((f) => f.name === "url")?.type.name).toBe("String");
     expect(fields.find((f) => f.name === "mediaType")?.type.name).toBe("Option");
     expect(fields.find((f) => f.name === "mediaType")?.type.args[0]?.name).toBe("String");
@@ -94,8 +95,7 @@ type TextPart {
 
 alias Email = String
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = dart.toSource(model);
+    const out = toSourceFromTd(dart, td);
 
     expect(out).toContain("sealed class ContentItem {");
     expect(out).toContain("final class Text extends ContentItem {");
@@ -108,14 +108,14 @@ alias Email = String
 
   it("emits bare enum for unit-only unions", () => {
     const td = `union UriKind { Image\n Audio\n Video }`;
-    const out = dart.toSource(unwrap(buildModel(unwrap(parse(td)))));
+    const out = toSourceFromTd(dart, td);
     expect(out).toContain("enum UriKind {");
     expect(out).toContain("Image, Audio, Video");
   });
 
   it("emits T? for Option<T> field types", () => {
     const td = `type UriPart { url: String\n media_type: Option<String> }`;
-    const out = dart.toSource(unwrap(buildModel(unwrap(parse(td)))));
+    const out = toSourceFromTd(dart, td);
     expect(out).toContain("final String url;");
     expect(out).toContain("final String? media_type;");
   });
@@ -133,7 +133,7 @@ describe("[CONV-DART-ERR] error + misc paths", () => {
   });
 
   it("parses an empty enum body as a union with no variants", () => {
-    const model = unwrap(dart.fromSource("enum Empty { }"));
+    const model = modelFromSource(dart, "enum Empty { }");
     const empty = model.decls.find((d) => d.name === "Empty");
     expect(empty?.kind).toBe("union");
   });
@@ -147,9 +147,7 @@ class Foo {
   const Foo(this.ok);
 }
 `;
-    const model = unwrap(dart.fromSource(src));
-    const foo = model.decls.find((d) => d.name === "Foo");
-    const fields = foo?.kind === "record" ? foo.fields : [];
+    const fields = recordFields(modelFromSource(dart, src), "Foo");
     expect(fields.map((f) => f.name)).toEqual(["ok"]);
   });
 });
@@ -157,8 +155,7 @@ class Foo {
 describe("[CONV-DART-EDGE] edge cases", () => {
   it("emits generics on sealed classes and extending variants", () => {
     const td = `union Box<T> { Some { value: T }\n None }`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = dart.toSource(model);
+    const out = toSourceFromTd(dart, td);
     expect(out).toContain("sealed class Box<T>");
     expect(out).toContain("final class Some<T> extends Box<T>");
     expect(out).toContain("final class None<T> extends Box<T>");
@@ -166,10 +163,9 @@ describe("[CONV-DART-EDGE] edge cases", () => {
 
   it("preserves generics on records via (Generic<T>)-free first-class params", () => {
     const td = `type Box<T> { value: T }`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = dart.toSource(model);
+    const out = toSourceFromTd(dart, td);
     expect(out).toContain("class Box<T> {");
-    const back = unwrap(dart.fromSource(out));
+    const back = modelFromSource(dart, out);
     const box = back.decls.find((d) => d.name === "Box");
     expect(box?.generics).toEqual(["T"]);
   });
@@ -183,10 +179,9 @@ final class Circle implements Shape {
   const Circle(this.radius);
 }
 `;
-    const model = unwrap(dart.fromSource(src));
-    const shape = model.decls.find((d) => d.name === "Shape");
-    expect(shape?.kind).toBe("union");
-    const variants = shape?.kind === "union" ? shape.variants : [];
+    const model = modelFromSource(dart, src);
+    expect(findDecl(model, "Shape")?.kind).toBe("union");
+    const variants = unionVariants(model, "Shape");
     expect(variants).toHaveLength(1);
     expect(variants[0]?.name).toBe("Circle");
   });

@@ -10,13 +10,7 @@ import {
 } from "../src/parser/index.js";
 import type { RecordDecl, UnionDecl, AliasDecl } from "../src/parser/index.js";
 import { CHAT_EXAMPLE, SMALL_EXAMPLE } from "./fixtures.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok, got error: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { declCounts, hasError, unwrap } from "./helpers.js";
 
 describe("parser — small example", () => {
   const ast = unwrap(parse(SMALL_EXAMPLE));
@@ -26,11 +20,7 @@ describe("parser — small example", () => {
   });
 
   it("classifies decls correctly: 2 records, 2 unions, 1 alias", () => {
-    const counts = ast.decls.reduce<Record<string, number>>((acc, d) => {
-      acc[d.kind] = (acc[d.kind] ?? 0) + 1;
-      return acc;
-    }, {});
-    expect(counts).toEqual({ record: 2, union: 2, alias: 1 });
+    expect(declCounts(ast.decls)).toEqual({ record: 2, union: 2, alias: 1 });
   });
 
   it("captures generic params on Option<T>", () => {
@@ -94,10 +84,7 @@ describe("parser — chat example", () => {
   const ast = unwrap(parse(CHAT_EXAMPLE));
 
   it("parses 9 declarations: 5 records, 4 unions", () => {
-    const counts = ast.decls.reduce<Record<string, number>>((acc, d) => {
-      acc[d.kind] = (acc[d.kind] ?? 0) + 1;
-      return acc;
-    }, {});
+    const counts = declCounts(ast.decls);
     // records: ChatRequest, ChatTurnInput, ToolResult, TextPart, UriPart
     // unions:  ToolResultContent, ContentItem, UriKind, Option
     expect(counts.record).toBe(5);
@@ -146,7 +133,7 @@ describe("parser — error handling", () => {
   it("parsePartial returns AST + diagnostics on partial failure", () => {
     const { ast, diagnostics } = parsePartial("type User { id: UUID }\ntype @bad");
     expect(ast.decls.length).toBeGreaterThanOrEqual(1);
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery skips nested braces before returning to top level", () => {
@@ -157,22 +144,22 @@ describe("parser — error handling", () => {
 
   it("recovery on union missing name", () => {
     const { diagnostics } = parsePartial("union { A\n B }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery on alias missing name", () => {
     const { diagnostics } = parsePartial("alias { }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery on alias missing equals", () => {
     const { diagnostics } = parsePartial("alias Foo String");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery on alias missing target type", () => {
     const { diagnostics } = parsePartial("alias Foo = @bad");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("reports unknown annotations and still parses the following declaration", () => {
@@ -203,12 +190,12 @@ type Foo { x: Int }
 
   it("recovery on record missing LBrace", () => {
     const { diagnostics } = parsePartial("type Foo x: Int }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery on union missing LBrace", () => {
     const { diagnostics } = parsePartial("union Foo A\n B }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery on field with bad colon", () => {
@@ -220,12 +207,12 @@ type Foo { x: Int }
 
   it("recovery on field with bad type", () => {
     const { diagnostics } = parsePartial("type Foo { x: @bad }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("recovery on variant with bad name", () => {
     const { diagnostics } = parsePartial("union Foo { @bad }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("skipToFieldBoundary stops on comma", () => {
@@ -237,31 +224,31 @@ type Foo { x: Int }
 
   it("recoverToTopLevel handles EOF", () => {
     const { diagnostics } = parsePartial("type");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("alias recovery when parseTypeRef returns null after =", () => {
     // alias Foo = <EOF> -> parseTypeRef gets EOF, returns null, triggers recovery
     const { diagnostics } = parsePartial("alias Foo =");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("field recovery when type is missing (parseTypeRef null)", () => {
     // After the colon, the next token is } which is not an Ident, so parseTypeRef returns null
     const { diagnostics } = parsePartial("type Foo { x: }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("field recovery when name is not an ident", () => {
     // { followed by : triggers "expected field name" then skipToFieldBoundary
     const { diagnostics } = parsePartial("type Foo { : Int }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 
   it("variant recovery when name is not an ident", () => {
     // Inside a union body, a non-ident token triggers variant recovery
     const { diagnostics } = parsePartial("union Foo { : }");
-    expect(diagnostics.some((d) => d.severity === "error")).toBe(true);
+    expect(hasError(diagnostics)).toBe(true);
   });
 });
 

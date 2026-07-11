@@ -1,9 +1,15 @@
 // [CONV-CS-TEST] C# converter integration tests.
 import { describe, expect, it } from "vitest";
 import { csharp } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-CS-FROM-COMPLEX] complex C# -> typeDiagram", () => {
   it("parses a messy C# file with records, classes, enums, and noise", () => {
@@ -91,12 +97,11 @@ enum InternalStatus { Active, Inactive }
 // Static helper — noise
 public static int ComputeHash(string input) => input.GetHashCode();
 `;
-    const model = unwrap(csharp.fromSource(src));
+    const model = modelFromSource(csharp, src);
 
     // ChatRequest — record with 6 params
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(6);
     expect(chatFields.find((f) => f.name === "Message")?.type.name).toBe("String");
     expect(chatFields.find((f) => f.name === "SessionId")?.type.name).toBe("String");
@@ -106,15 +111,14 @@ public static int ComputeHash(string input) => input.GetHashCode();
     expect(chatFields.find((f) => f.name === "Count")?.type.name).toBe("Int");
 
     // ToolResult — 4 fields
-    const tool = model.decls.find((d) => d.name === "ToolResult");
-    expect(tool?.kind).toBe("record");
-    expect(tool?.kind === "record" ? tool.fields.length : 0).toBe(4);
+    expect(findDecl(model, "ToolResult")?.kind).toBe("record");
+    expect(recordFields(model, "ToolResult")).toHaveLength(4);
 
     // GenericBox<T>
     const box = model.decls.find((d) => d.name === "GenericBox");
     expect(box?.kind).toBe("record");
     expect(box?.generics).toContain("T");
-    const boxFields = box?.kind === "record" ? box.fields : [];
+    const boxFields = recordFields(model, "GenericBox");
     expect(boxFields).toHaveLength(2);
     expect(boxFields[0]?.name).toBe("Value");
 
@@ -124,43 +128,39 @@ public static int ComputeHash(string input) => input.GetHashCode();
     expect(pair?.generics).toContain("B");
 
     // NullableFields — nullable types stripped
-    const nullable = model.decls.find((d) => d.name === "NullableFields");
-    expect(nullable?.kind).toBe("record");
-    expect(nullable?.kind === "record" ? nullable.fields.length : 0).toBe(3);
+    expect(findDecl(model, "NullableFields")?.kind).toBe("record");
+    expect(recordFields(model, "NullableFields")).toHaveLength(3);
 
     // Config / GenericContainer — property-bag `class` style is no longer
     // parsed (we only recognise primary-constructor records, abstract DU
     // records, and enums). This is deliberate: the new converter emits
     // everything as primary-constructor records for lossless round-trip,
     // so the parser doesn't need to understand legacy property-bag classes.
-    expect(model.decls.find((d) => d.name === "Config")).toBeUndefined();
-    expect(model.decls.find((d) => d.name === "GenericContainer")).toBeUndefined();
+    expect(findDecl(model, "Config")).toBeUndefined();
+    expect(findDecl(model, "GenericContainer")).toBeUndefined();
 
     // ContentType — enum with 4 variants (comment line ignored)
-    const ct = model.decls.find((d) => d.name === "ContentType");
-    expect(ct?.kind).toBe("union");
-    const ctVariants = ct?.kind === "union" ? ct.variants : [];
+    expect(findDecl(model, "ContentType")?.kind).toBe("union");
+    const ctVariants = unionVariants(model, "ContentType");
     expect(ctVariants).toHaveLength(4);
     expect(ctVariants[0]?.name).toBe("Text");
     expect(ctVariants[3]?.name).toBe("Divider");
 
     // HttpStatus — enum with assigned values, values stripped
-    const hs = model.decls.find((d) => d.name === "HttpStatus");
-    expect(hs?.kind).toBe("union");
-    const hsVariants = hs?.kind === "union" ? hs.variants : [];
+    expect(findDecl(model, "HttpStatus")?.kind).toBe("union");
+    const hsVariants = unionVariants(model, "HttpStatus");
     expect(hsVariants).toHaveLength(3);
     expect(hsVariants[0]?.name).toBe("Ok");
     expect(hsVariants[1]?.name).toBe("NotFound");
     expect(hsVariants[2]?.name).toBe("ServerError");
 
     // InternalStatus — enum without public modifier
-    const is_ = model.decls.find((d) => d.name === "InternalStatus");
-    expect(is_?.kind).toBe("union");
-    expect(is_?.kind === "union" ? is_.variants.length : 0).toBe(2);
+    expect(findDecl(model, "InternalStatus")?.kind).toBe("union");
+    expect(unionVariants(model, "InternalStatus")).toHaveLength(2);
 
     // Property-bag classes and static helpers are ignored entirely.
-    expect(model.decls.find((d) => d.name === "RequestMiddleware")).toBeUndefined();
-    expect(model.decls.find((d) => d.name === "Extensions")).toBeUndefined();
+    expect(findDecl(model, "RequestMiddleware")).toBeUndefined();
+    expect(findDecl(model, "Extensions")).toBeUndefined();
   });
 
   it("returns error on C# with no type definitions at all", () => {
@@ -197,8 +197,7 @@ union ContentType { Text\n Image\n Code\n Divider }
 alias Email = String
 alias Wrapper<T> = List<T>
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = csharp.toSource(model);
+    const output = toSourceFromTd(csharp, td);
 
     // ChatRequest — primary-constructor record preserving original field
     // names (lowercase) for lossless round-trip.
@@ -245,32 +244,27 @@ union Status { Active\n Inactive\n Pending }
 
 alias Email = String
 `;
-    const model1 = unwrap(buildModel(unwrap(parse(td))));
-    const csCode = csharp.toSource(model1);
-    const model2 = unwrap(csharp.fromSource(csCode));
+    const csCode = toSourceFromTd(csharp, td);
+    const model2 = modelFromSource(csharp, csCode);
 
     // Now includes the alias since it's preserved as `using Email = ...;`.
     expect(model2.decls).toHaveLength(4);
 
-    const user = model2.decls.find((d) => d.name === "User");
-    expect(user?.kind).toBe("record");
-    expect(user?.kind === "record" ? user.fields.length : 0).toBe(3);
+    expect(findDecl(model2, "User")?.kind).toBe("record");
+    expect(recordFields(model2, "User")).toHaveLength(3);
 
-    const order = model2.decls.find((d) => d.name === "Order");
-    expect(order?.kind).toBe("record");
-    expect(order?.kind === "record" ? order.fields.length : 0).toBe(2);
+    expect(findDecl(model2, "Order")?.kind).toBe("record");
+    expect(recordFields(model2, "Order")).toHaveLength(2);
 
-    const status = model2.decls.find((d) => d.name === "Status");
-    expect(status?.kind).toBe("union");
-    const variants = status?.kind === "union" ? status.variants : [];
+    expect(findDecl(model2, "Status")?.kind).toBe("union");
+    const variants = unionVariants(model2, "Status");
     expect(variants).toHaveLength(3);
     expect(variants[0]?.name).toBe("Active");
     expect(variants[1]?.name).toBe("Inactive");
     expect(variants[2]?.name).toBe("Pending");
 
-    const email = model2.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(findDecl(model2, "Email")?.kind).toBe("alias");
+    expect(aliasTargetName(model2, "Email")).toBe("String");
   });
 });
 
@@ -283,8 +277,7 @@ type UrlPart {
   maybe_count: Option<Int>
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = csharp.toSource(model);
+    const out = toSourceFromTd(csharp, td);
 
     expect(out).toContain("#nullable enable");
     expect(out).not.toContain("Nullable<");
@@ -304,8 +297,7 @@ type ToolResultIn {
   payload: Json
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = csharp.toSource(model);
+    const out = toSourceFromTd(csharp, td);
 
     expect(out).toContain("using Uuid = string;");
     expect(out).toContain("using Json = Dictionary<string, object>;");
@@ -325,8 +317,7 @@ type ChatResponse {
   tool_calls: List<String>
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = csharp.toSource(model);
+    const out = toSourceFromTd(csharp, td);
 
     // Primary-constructor form: `record Foo(Type name, ...);`
     expect(out).toContain("public sealed record ChatResponse(");
@@ -354,8 +345,7 @@ union ContentItem {
   Num   { value: Float }
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = csharp.toSource(model);
+    const out = toSourceFromTd(csharp, td);
 
     // Abstract parent record with a private constructor = closed hierarchy.
     expect(out).toContain("public abstract record ContentItem");
@@ -375,8 +365,7 @@ union ContentItem {
     const td = `
 union Color { Red\n Green\n Blue }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = csharp.toSource(model);
+    const out = toSourceFromTd(csharp, td);
 
     expect(out).toContain("public enum Color");
     expect(out).toContain("Red");

@@ -1,9 +1,15 @@
 // [CONV-GO-TEST] Go converter integration tests.
 import { describe, expect, it } from "vitest";
 import { go } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-GO-FROM-COMPLEX] complex Go -> typeDiagram", () => {
   it("parses a messy Go file with structs, interfaces, aliases, and noise", () => {
@@ -109,12 +115,11 @@ func (t ToolResult) Validate() bool {
 	return t.Ok
 }
 `;
-    const model = unwrap(go.fromSource(src));
+    const model = modelFromSource(go, src);
 
     // ChatRequest — 15 fields, all type mappings
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(15);
     expect(chatFields.find((f) => f.name === "Message")?.type.name).toBe("String");
     expect(chatFields.find((f) => f.name === "SessionID")?.type.name).toBe("String");
@@ -138,20 +143,17 @@ func (t ToolResult) Validate() bool {
     expect(chatFields.find((f) => f.name === "Raw")?.type.name).toBe("Int");
 
     // ToolResult — 4 fields, struct tags stripped
-    const tool = model.decls.find((d) => d.name === "ToolResult");
-    expect(tool?.kind).toBe("record");
-    const toolFields = tool?.kind === "record" ? tool.fields : [];
+    expect(findDecl(model, "ToolResult")?.kind).toBe("record");
+    const toolFields = recordFields(model, "ToolResult");
     expect(toolFields).toHaveLength(4);
     expect(toolFields.find((f) => f.name === "Ok")?.type.name).toBe("Bool");
 
     // Shape — interface with method → union
-    const shape = model.decls.find((d) => d.name === "Shape");
-    expect(shape?.kind).toBe("union");
+    expect(findDecl(model, "Shape")?.kind).toBe("union");
 
     // ContentItem — interface with embedded types → union variants
-    const ci = model.decls.find((d) => d.name === "ContentItem");
-    expect(ci?.kind).toBe("union");
-    const ciVariants = ci?.kind === "union" ? ci.variants : [];
+    expect(findDecl(model, "ContentItem")?.kind).toBe("union");
+    const ciVariants = unionVariants(model, "ContentItem");
     expect(ciVariants).toHaveLength(4);
     expect(ciVariants[0]?.name).toBe("Text");
     expect(ciVariants[1]?.name).toBe("Image");
@@ -159,17 +161,15 @@ func (t ToolResult) Validate() bool {
     expect(ciVariants[3]?.name).toBe("Divider");
 
     // Empty — empty interface → union with Unknown fallback
-    const empty = model.decls.find((d) => d.name === "Empty");
-    expect(empty?.kind).toBe("union");
-    expect(empty?.kind === "union" ? empty.variants[0]?.name : "").toBe("Unknown");
+    expect(findDecl(model, "Empty")?.kind).toBe("union");
+    expect(unionVariants(model, "Empty")[0]?.name).toBe("Unknown");
 
     // Aliases
-    const email = model.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(findDecl(model, "Email")?.kind).toBe("alias");
+    expect(aliasTargetName(model, "Email")).toBe("String");
 
     // IdMap — map alias (the regex picks up 'map' as a target, not perfectly)
-    expect(model.decls.find((d) => d.name === "IdMap")?.kind).toBe("alias");
+    expect(findDecl(model, "IdMap")?.kind).toBe("alias");
   });
 
   it("skips aliases that collide with already-parsed struct/interface names", () => {
@@ -177,7 +177,7 @@ func (t ToolResult) Validate() bool {
 type Foo struct { Name string }
 type Foo = string
 `;
-    const model = unwrap(go.fromSource(src));
+    const model = modelFromSource(go, src);
     expect(model.decls.filter((d) => d.name === "Foo")).toHaveLength(1);
     expect(model.decls[0]?.kind).toBe("record");
   });
@@ -224,11 +224,11 @@ type Bad = struct
 type AlsoBad = interface
 type Missing struct {
 `;
-    const model = unwrap(go.fromSource(src));
+    const model = modelFromSource(go, src);
     const box = model.decls.find((d) => d.name === "Box");
     expect(box?.kind).toBe("record");
     expect(box?.generics).toEqual(["T", "U"]);
-    const fields = box?.kind === "record" ? box.fields : [];
+    const fields = recordFields(model, "Box");
     expect(fields.find((f) => f.name === "Items")?.type.name).toBe("List");
     expect(fields.find((f) => f.name === "Items")?.type.args[0]?.name).toBe("Map");
     expect(fields.find((f) => f.name === "Maybe")?.type.name).toBe("Option");
@@ -236,16 +236,14 @@ type Missing struct {
     expect(fields.find((f) => f.name === "NestedMap")?.type.args[0]?.name).toBe("Foo");
     expect(fields.find((f) => f.name === "Broken")?.type.name).toBe("map[string");
 
-    const event = model.decls.find((d) => d.name === "Event");
-    expect(event?.kind).toBe("union");
-    const eventVariants = event?.kind === "union" ? event.variants : [];
+    expect(findDecl(model, "Event")?.kind).toBe("union");
+    const eventVariants = unionVariants(model, "Event");
     expect(eventVariants.map((v) => v.name)).toEqual(["Created", "Empty"]);
     expect(eventVariants[0]?.fields[1]?.type.args[1]?.name).toBe("Map");
     expect(eventVariants[1]?.fields).toEqual([]);
 
-    const embedded = model.decls.find((d) => d.name === "Embedded");
-    expect(embedded?.kind).toBe("union");
-    expect(embedded?.kind === "union" ? embedded.variants.map((v) => v.name) : []).toEqual(["Text", "Image"]);
+    expect(findDecl(model, "Embedded")?.kind).toBe("union");
+    expect(unionVariants(model, "Embedded").map((v) => v.name)).toEqual(["Text", "Image"]);
 
     const aliasDecl = model.decls.find((d) => d.name === "Alias");
     expect(aliasDecl?.kind).toBe("alias");
@@ -297,8 +295,7 @@ union Direction { North\n South\n East\n West }
 
 alias Email = String
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = go.toSource(model);
+    const output = toSourceFromTd(go, td);
 
     // Package declaration
     expect(output).toContain("package types");
@@ -365,38 +362,33 @@ union Shape {
 
 alias Tag = String
 `;
-    const model1 = unwrap(buildModel(unwrap(parse(td))));
-    const goCode = go.toSource(model1);
-    const model2 = unwrap(go.fromSource(goCode));
+    const goCode = toSourceFromTd(go, td);
+    const model2 = modelFromSource(go, goCode);
 
     // Go emits union variants as separate structs + an interface,
     // so re-parsing picks up: User, Config, Shape (union), Circle, Rect, Point, Tag
     expect(model2.decls.length).toBeGreaterThanOrEqual(4);
 
-    const user = model2.decls.find((d) => d.name === "User");
-    expect(user?.kind).toBe("record");
-    const userFields = user?.kind === "record" ? user.fields : [];
+    expect(findDecl(model2, "User")?.kind).toBe("record");
+    const userFields = recordFields(model2, "User");
     expect(userFields).toHaveLength(4);
     expect(userFields[0]?.type.name).toBe("String");
     expect(userFields[1]?.type.name).toBe("Int");
     expect(userFields[2]?.type.name).toBe("Bool");
     expect(userFields[3]?.type.name).toBe("Float");
 
-    const cfg = model2.decls.find((d) => d.name === "Config");
-    expect(cfg?.kind).toBe("record");
-    const cfgFields = cfg?.kind === "record" ? cfg.fields : [];
+    expect(findDecl(model2, "Config")?.kind).toBe("record");
+    const cfgFields = recordFields(model2, "Config");
     expect(cfgFields).toHaveLength(3);
     // Field names are preserved verbatim (lowercase) for lossless round-trip.
     expect(cfgFields.find((f) => f.name === "tags")?.type.name).toBe("List");
     expect(cfgFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
     expect(cfgFields.find((f) => f.name === "maybe")?.type.name).toBe("Option");
 
-    const shape = model2.decls.find((d) => d.name === "Shape");
-    expect(shape?.kind).toBe("union");
+    expect(findDecl(model2, "Shape")?.kind).toBe("union");
 
-    const tag = model2.decls.find((d) => d.name === "Tag");
-    expect(tag?.kind).toBe("alias");
-    expect(tag?.kind === "alias" ? tag.target.name : "").toBe("String");
+    expect(findDecl(model2, "Tag")?.kind).toBe("alias");
+    expect(aliasTargetName(model2, "Tag")).toBe("String");
   });
 });
 

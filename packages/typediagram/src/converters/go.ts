@@ -13,6 +13,7 @@ import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForT
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { orderBySource, parseFields, scanAll, scanBraceBlocks } from "./scan-decls.js";
 
 // ── Type mapping ──
 
@@ -57,25 +58,6 @@ const FIELD_RE = /(\w+)\s+(.+)/;
 
 // Marker-method pattern: `func (<Variant>[T]) is<Union>() {}`
 const MARKER_METHOD_RE = /func\s+\((\w+)(?:\[[^\]]+\])?\)\s+is(\w+)\(\)\s*\{\s*\}/g;
-
-const extractBalancedBody = (source: string, startIdx: number, open: string, close: string): string | null => {
-  if (source.charAt(startIdx) !== open) {
-    return null;
-  }
-  let depth = 1;
-  for (let i = startIdx + 1; i < source.length; i++) {
-    const c = source.charAt(i);
-    if (c === open) {
-      depth += 1;
-    } else if (c === close) {
-      depth -= 1;
-      if (depth === 0) {
-        return source.slice(startIdx + 1, i);
-      }
-    }
-  }
-  return null;
-};
 
 const mapGoType = (t: string): string => {
   const cleaned = t.trim().replace(/\s*`[^`]*`$/, "");
@@ -139,22 +121,12 @@ const splitGoArgs = (s: string): string[] => {
 };
 
 const parseGoFields = (body: string) =>
-  body
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith("//"))
-    .map((l) => {
-      const m = FIELD_RE.exec(l);
-      if (m === null) {
-        return null;
-      }
-      const [, name, type] = m;
-      if (name === undefined || type === undefined) {
-        return null;
-      }
-      return { name, type: mapGoType(type.replace(/\s*`[^`]*`$/, "").trim()) };
-    })
-    .filter((f): f is { name: string; type: string } => f !== null);
+  parseFields(body, {
+    separator: "\n",
+    commentPrefix: "//",
+    fieldRe: FIELD_RE,
+    mapType: (type) => mapGoType(type.replace(/\s*`[^`]*`$/, "").trim()),
+  });
 
 // Parse generic parameters like `T any, U comparable` -> ["T", "U"].
 const parseGenericParams = (s: string | undefined): string[] =>
@@ -176,37 +148,12 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
   // First pass: collect all structs, interfaces, aliases, and marker-methods.
   type Struct = { name: string; generics: string[]; body: string; offset: number };
   type Iface = { name: string; generics: string[]; body: string; offset: number };
-  const structs: Struct[] = [];
-  const ifaces: Iface[] = [];
-
-  STRUCT_HEAD_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = STRUCT_HEAD_RE.exec(source)) !== null) {
-    const [full, name, gens] = m;
-    if (name === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBody(source, openIdx, "{", "}");
-    if (body === null) {
-      continue;
-    }
-    structs.push({ name, generics: parseGenericParams(gens), body, offset: m.index });
-  }
-
-  IFACE_HEAD_RE.lastIndex = 0;
-  while ((m = IFACE_HEAD_RE.exec(source)) !== null) {
-    const [full, name, gens] = m;
-    if (name === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBody(source, openIdx, "{", "}");
-    if (body === null) {
-      continue;
-    }
-    ifaces.push({ name, generics: parseGenericParams(gens), body, offset: m.index });
-  }
+  const toHeadDecl = (b: { groups: ReadonlyArray<string | undefined>; body: string; offset: number }): Struct | null => {
+    const [name, gens] = b.groups;
+    return name === undefined ? null : { name, generics: parseGenericParams(gens), body: b.body, offset: b.offset };
+  };
+  const structs: Struct[] = scanBraceBlocks(source, STRUCT_HEAD_RE).flatMap((b) => toHeadDecl(b) ?? []);
+  const ifaces: Iface[] = scanBraceBlocks(source, IFACE_HEAD_RE).flatMap((b) => toHeadDecl(b) ?? []);
 
   // Second pass: find marker methods `func (X[...]) is<Union>() {}` to link
   // variant structs to their unions.
@@ -214,16 +161,14 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
   const variantToUnion = new Map<string, string>();
   // unionToVariants: unionName -> [{structName, offset}] (offset = method offset)
   const unionToVariants = new Map<string, Array<{ structName: string; offset: number }>>();
-  MARKER_METHOD_RE.lastIndex = 0;
-  while ((m = MARKER_METHOD_RE.exec(source)) !== null) {
+  for (const marker of scanAll(MARKER_METHOD_RE, source, (m) => {
     const [, variantStruct, unionName] = m;
-    if (variantStruct === undefined || unionName === undefined) {
-      continue;
-    }
-    variantToUnion.set(variantStruct, unionName);
-    const list = unionToVariants.get(unionName) ?? [];
-    list.push({ structName: variantStruct, offset: m.index });
-    unionToVariants.set(unionName, list);
+    return variantStruct === undefined || unionName === undefined ? null : { variantStruct, unionName, offset: m.index };
+  })) {
+    variantToUnion.set(marker.variantStruct, marker.unionName);
+    const list = unionToVariants.get(marker.unionName) ?? [];
+    list.push({ structName: marker.variantStruct, offset: marker.offset });
+    unionToVariants.set(marker.unionName, list);
   }
 
   type PendingDecl =
@@ -247,30 +192,28 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
     pending.push({ kind: "union", name: i.name, generics: i.generics, offset: i.offset });
   }
 
-  TYPE_ALIAS_RE.lastIndex = 0;
-  while ((m = TYPE_ALIAS_RE.exec(source)) !== null) {
+  for (const a of scanAll(TYPE_ALIAS_RE, source, (m) => {
     const [, name, gens, rawTarget] = m;
     if (name === undefined || rawTarget === undefined) {
-      continue;
+      return null;
     }
     const target = rawTarget.trim();
     if (structsByName.has(name) || ifaceNames.has(name)) {
-      continue;
+      return null;
     }
     if (target === "struct" || target === "interface" || target.length === 0) {
-      continue;
+      return null;
     }
     // Ignore `type alias = Generic[foo]` form (no `=`) mistaken matches.
     // Skip if the generics clause looks like a constraint list (contains
     // ` any` etc.) — the regex already handles header detection but be
     // defensive.
-    const generics = parseGenericParams(gens);
-    pending.push({ kind: "alias", name, target: mapGoTypeWithGenerics(target, generics), offset: m.index });
+    return { name, target: mapGoTypeWithGenerics(target, parseGenericParams(gens)), offset: m.index };
+  })) {
+    pending.push({ kind: "alias", name: a.name, target: a.target, offset: a.offset });
   }
 
-  pending.sort((a, b) => a.offset - b.offset);
-
-  for (const p of pending) {
+  for (const p of orderBySource(pending)) {
     found = true;
     if (p.kind === "record") {
       const fields = parseGoFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
@@ -278,7 +221,7 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     if (p.kind === "union") {
-      const variantEntries = (unionToVariants.get(p.name) ?? []).slice().sort((a, b) => a.offset - b.offset);
+      const variantEntries = orderBySource(unionToVariants.get(p.name) ?? []);
       let variants: Array<{ name: string; fields: Array<{ name: string; type: ReturnType<typeof parseTypeRef> }> }>;
       if (variantEntries.length > 0) {
         // Marker-method pattern.

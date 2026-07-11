@@ -1,9 +1,15 @@
 // [CONV-FS-TEST] F# converter integration tests.
 import { describe, expect, it } from "vitest";
 import { fsharp } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-FS-FROM-COMPLEX] complex F# -> typeDiagram", () => {
   it("parses a messy F# file with records, DUs, abbreviations, and noise", () => {
@@ -62,12 +68,11 @@ type Direction =
 
 type Email = string
 `;
-    const model = unwrap(fsharp.fromSource(src));
+    const model = modelFromSource(fsharp, src);
 
     // ChatRequest — record with 7 fields, type mappings
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(7);
     expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
     expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("Option");
@@ -79,9 +84,8 @@ type Email = string
     expect(chatFields.find((f) => f.name === "score")?.type.name).toBe("Float");
 
     // ToolResult — record with 5 fields
-    const tool = model.decls.find((d) => d.name === "ToolResult");
-    expect(tool?.kind).toBe("record");
-    expect(tool?.kind === "record" ? tool.fields.length : 0).toBe(5);
+    expect(findDecl(model, "ToolResult")?.kind).toBe("record");
+    expect(recordFields(model, "ToolResult")).toHaveLength(5);
 
     // GenericBox<T> — generics with tick stripped
     const box = model.decls.find((d) => d.name === "GenericBox");
@@ -95,9 +99,8 @@ type Email = string
     expect(pair?.generics).toContain("B");
 
     // ContentItem — DU with mixed variants
-    const ci = model.decls.find((d) => d.name === "ContentItem");
-    expect(ci?.kind).toBe("union");
-    const ciVariants = ci?.kind === "union" ? ci.variants : [];
+    expect(findDecl(model, "ContentItem")?.kind).toBe("union");
+    const ciVariants = unionVariants(model, "ContentItem");
     expect(ciVariants).toHaveLength(4);
     expect(ciVariants[0]?.name).toBe("Text");
     expect(ciVariants[0]?.fields).toHaveLength(2);
@@ -111,14 +114,12 @@ type Email = string
     expect(ciVariants[3]?.fields).toHaveLength(0);
 
     // Direction — all unit variants
-    const dir = model.decls.find((d) => d.name === "Direction");
-    expect(dir?.kind).toBe("union");
-    expect(dir?.kind === "union" ? dir.variants.length : 0).toBe(4);
+    expect(findDecl(model, "Direction")?.kind).toBe("union");
+    expect(unionVariants(model, "Direction")).toHaveLength(4);
 
     // Email — type abbreviation
-    const email = model.decls.find((d) => d.name === "Email");
-    expect(email?.kind).toBe("alias");
-    expect(email?.kind === "alias" ? email.target.name : "").toBe("String");
+    expect(findDecl(model, "Email")?.kind).toBe("alias");
+    expect(aliasTargetName(model, "Email")).toBe("String");
   });
 
   it("returns error on F# with only let bindings and functions", () => {
@@ -162,8 +163,7 @@ union Direction { North\n South\n East\n West }
 
 alias Email = String
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = fsharp.toSource(model);
+    const output = toSourceFromTd(fsharp, td);
 
     // ChatRequest — all type mappings, postfix list/option
     expect(output).toContain("type ChatRequest = {");
