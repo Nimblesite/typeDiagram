@@ -1,6 +1,6 @@
 # TDBIN Wire Format Specification
 
-> **Status:** DRAFT v1 — normative spec derived from [docs/research/binary-format-research.md](../research/binary-format-research.md).
+> **Status:** DRAFT v1 normative design; current Rust and TypeScript implementations are only partially conformant. See the [implementation audit](../reports/tdbin-implementation-audit.md) and [handoff plan](../plans/tdbin-implementation-plan.md#next-agent-handoff).
 > **Scope:** the language-neutral binary wire format for typeDiagram ADTs (records + tagged unions). The Rust codec API is specified in [tdbin-rust-api.md](tdbin-rust-api.md); the implementation plan is [docs/plans/tdbin-implementation-plan.md](../plans/tdbin-implementation-plan.md).
 > **Goal (non-negotiable):** smaller AND faster than Protobuf, measured by the bench gate `[TDBIN-BENCH-GATE]` (Rust API spec).
 > **Design thesis (research §0):** schema-known fixed layout (no field tags → smaller) + zero-parse/verify-on-access (no decode materialization → faster) + XOR-default word-packing (reclaims zero-copy padding → smaller again).
@@ -332,9 +332,21 @@ For ordinary records, the verifier validates every non-null pointer slot in the 
 
 ---
 
+## Implementation conformance note (non-normative)
+
+The specification remains the source of truth when current code disagrees with it. As of the 2026-07-10 audit, the following runtime/codegen deviations remain open:
+
+- Generated Rust and TypeScript readers reject null for required pointer fields instead of applying the schema default required by `[TDBIN-PTR-NULL]` and `[TDBIN-REC-SHORT]`.
+- Scalar `Option<T>` presence consumes a whole word instead of the one-bit first-fit allocation required by `[TDBIN-PRIM-OPTION]` and `[TDBIN-REC-ALLOC]`.
+- Framed checked-decode APIs exist, but codegen does not yet freeze, emit, and require the compatibility-major manifest hash from `[TDBIN-SCHEMA-CANON]`.
+- Non-empty zero-stride composite lists, including `List<empty-record>`, are not implemented even though the composite equation permits an element count with zero body words.
+- TypeScript has additional cross-language gaps tracked in [tdbin-future-typescript.md](tdbin-future-typescript.md).
+
+Do not weaken these wire rules to match the current implementation. Close the implementation and golden-vector gaps in the order recorded by the handoff plan. Benchmark results are not wire requirements; their sole numeric source is the generated [benchmark report](../reports/tdbin-bench-report.md).
+
 ## [TDBIN-FUTURE] Reserved forward paths (not in v1)
 
-- **[TDBIN-FUTURE-COLUMNAR]** — struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps, SIMD-BP128 bit-packed integer columns; research §3.3/§3.5, the 13%-smaller + SIMD-scannable regime). Will occupy a new list element kind or flag.
+- **[TDBIN-FUTURE-COLUMNAR]** — struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps, SIMD-BP128 bit-packed integer columns; research §3.3/§3.5). The roadmap uses a compatibility-major column-group struct built from existing pointer primitives; it MUST NOT silently reinterpret v1 composite elem kind 7. A future dedicated list kind would require an explicitly versioned wire extension.
 - **[TDBIN-FUTURE-READER]** — zero-copy verify-once/access-lazily reader (nanosecond field access; research §2.4).
 - **[TDBIN-FUTURE-RPC]** — the `[TDRPC-*]` spec: typeDiagram **function definitions as the service contract** (research §6.0), streaming modes from signature shape, numeric method ids (no method-name strings on the wire), capability pointers (kind `11`), promise pipelining. Fed by the dedicated RPC research pass.
 - **[TDBIN-FUTURE-TS]** — TypeScript codec in `packages/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).

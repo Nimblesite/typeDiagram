@@ -110,7 +110,55 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [x] Reject non-null inactive union pointer slots in generated Rust and TypeScript codecs.
 - [x] Profile production decode; remove per-word range checks and repeated bool-word reads from the Rust hot path.
 - [x] Compare framed and packed-framed production APIs against Protobuf, with exact size guards and raw Criterion evidence.
-- [ ] Implement automatic layout-hash generation and required-pointer null/default semantics.
-- [ ] Complete TypeScript parity: full i64 values, enum-union scalar layout/lists, all list and option forms, generated-code execution, and browser conformance.
-- [ ] Implement the research performance path: verify-once borrowed accessors, columnar repeated ADTs, and SIMD-friendly integer columns.
-- [ ] Meet `[TDBIN-BENCH-GATE]` across the realistic corpus.
+- [x] Document the audit verdict, implementation deviations, dependency-ordered pickup path, file ownership, and acceptance commands across the plan and affected specs.
+
+## Next-agent handoff
+
+Start with the [implementation audit](../reports/tdbin-implementation-audit.md). It explains the correctness findings, academic alignment, profiler evidence, and release decision. For benchmark values and pass/fail verdicts, use only the generated [benchmark report](../reports/tdbin-bench-report.md) and [raw data](../reports/tdbin-bench-data.json); do not hand-copy measurements into plans or specs.
+
+### Work order
+
+Complete these in dependency order. Check an item only after its acceptance evidence is committed and the relevant exit criteria above pass.
+
+1. **Close v1 wire conformance before optimizing it.**
+   - [ ] Make required pointer fields decode null as their schema default, consistently in Rust and TypeScript (`[TDBIN-PTR-NULL]`, `[TDBIN-REC-SHORT]`). Add old-writer/new-reader and explicit-null golden coverage.
+   - [ ] Allocate scalar `Option<T>` presence as one first-fit bit followed by the value slot in both code generators (`[TDBIN-PRIM-OPTION]`, `[TDBIN-REC-ALLOC]`). Pin the layout and bytes with cross-language goldens.
+   - [ ] Support zero-stride composite lists such as `List<empty-record>`, including non-empty counts whose composite word count is zero (`[TDBIN-LIST-COMPOSITE]`).
+2. **Centralize layout identity and make the schema guard automatic.**
+   - [ ] Add one language-neutral layout planner/manifest generator consumed by Rust and TypeScript emitters. It must freeze compatibility-major facts exactly as `[TDBIN-SCHEMA-CANON]` specifies and compute `[TDBIN-SCHEMA-HASH]`.
+   - [ ] Emit the hash with generated codecs and make their normal framed decode path call the checked API. Test missing, wrong, append-compatible, and breaking-layout hashes in both runtimes.
+3. **Finish TypeScript conformance.** Follow [tdbin-future-typescript.md](../specs/tdbin-future-typescript.md): lossless i64, inline enum-unions and enum lists, every Rust-supported schema form, generated-module execution, Node/browser byte identity, and measured bundle impact.
+4. **Finish conformance evidence.**
+   - [ ] Give every normative `[TDBIN-*]` requirement both an implementation reference and a test reference.
+   - [ ] Implement and test `[TDBIN-RS-LOG]`, or explicitly remove it from the v1 API contract before release; the current crate has no `tracing` dependency.
+   - [ ] Add the deslop scan to the enforced CI path and obtain one clean `make ci` invocation.
+5. **Implement the research performance path.**
+   - [ ] Build the verify-once borrowed reader in [tdbin-future-reader.md](../specs/tdbin-future-reader.md); keep materializing decode as the compatibility API.
+   - [ ] Build the layout-major column-group representation and portable scalar fallback in [tdbin-future-columnar.md](../specs/tdbin-future-columnar.md), then add SIMD integer blocks behind equivalent canonical output.
+   - [ ] Re-profile before attempting a fused packed reader. The current profile identifies unpacking and eager materialization as the dominant costs; do not optimize unmeasured helpers.
+6. **Re-run the gate.**
+   - [ ] Run `make bench`, inspect the generated report, and meet packed-framed size plus 1.5x encode and decode throughput on every corpus row. Keep the superiority claim blocked until `[TDBIN-BENCH-GATE]` passes without workload exceptions.
+
+### Verification protocol
+
+Run focused checks while developing, then the full sequence before checking exit criteria:
+
+```bash
+cargo fmt --all -- --check
+cargo clippy --workspace --all-targets -- -D warnings
+cargo test -p tdbin
+npm exec -w typediagram-core -- vitest run test/tdbin test/converters/rust-tdbin.test.ts test/converters/typescript-tdbin.test.ts
+make bench
+make ci
+```
+
+`make bench` owns report regeneration. A benchmark change is incomplete if the report's raw-data digest does not match or if a size/timing value was transcribed manually. The previous complete web rerun was green, but one combined `make ci` attempt lost its Vite preview server near the end; treat that as a reproducible infrastructure issue only if it recurs, and do not mark the one-invocation criterion from partial reruns. The prior environment did not expose the required deslop CLI or MCP tool.
+
+### Ownership map
+
+- Wire bytes and compatibility rules: `docs/specs/tdbin-wire-format.md`.
+- Rust runtime, verifier, and materializing reader: `crates/tdbin/src/`; Rust conformance: `crates/tdbin/tests/`.
+- Shared layout planning and generated codecs: `packages/typediagram/src/converters/`.
+- TypeScript runtime and conformance: `packages/typediagram/src/tdbin/` and `packages/typediagram/test/tdbin/`.
+- Benchmark payloads and execution: `docs/benchmarks/`, `crates/tdbin/tests/support/`, `crates/tdbin/benches/gate.rs`, and `crates/tdbin/examples/bench.rs`.
+- Benchmark artifact generation: `scripts/tdbin-bench-report.mjs`; generated artifacts: `docs/reports/tdbin-bench-{data.json,report.md}`.
