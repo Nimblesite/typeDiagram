@@ -21,6 +21,20 @@ const mount = async (page: Page): Promise<void> => {
   });
 };
 
+const remountAt = async (page: Page, size: string): Promise<void> => {
+  await page.evaluate((stored) => {
+    window.__E2E.reset();
+    localStorage.setItem("typediagram-editor-zoom", stored);
+    const root = document.getElementById("e2e-mount") as HTMLElement;
+    root.innerHTML = `<div id="ez-wrap"><pre id="ez-backdrop"></pre><textarea id="ez-ta"></textarea></div>`;
+    window.__E2E.initEditorZoom(
+      document.getElementById("ez-wrap") as HTMLElement,
+      document.getElementById("ez-ta") as HTMLTextAreaElement,
+      document.getElementById("ez-backdrop") as HTMLElement
+    );
+  }, size);
+};
+
 const fontSizeOf = (page: Page, sel: string): Promise<string> =>
   page.$eval(sel, (el) => (el as HTMLElement).style.fontSize);
 
@@ -50,22 +64,12 @@ test.describe("[WEB-EDITOR-ZOOM]", () => {
   test("applies default 13px on init; restores + clamps persisted size", async ({ page }) => {
     expect(await fontSizeOf(page, "#ez-ta")).toBe("13px");
     expect(await fontSizeOf(page, "#ez-backdrop")).toBe("13px");
-    const remountWith = async (stored: string): Promise<string> =>
-      page.evaluate((s) => {
-        window.__E2E.reset();
-        localStorage.setItem("typediagram-editor-zoom", s);
-        const root = document.getElementById("e2e-mount") as HTMLElement;
-        root.innerHTML = `<div id="ez-wrap"><pre id="ez-backdrop"></pre><textarea id="ez-ta"></textarea></div>`;
-        window.__E2E.initEditorZoom(
-          document.getElementById("ez-wrap") as HTMLElement,
-          document.getElementById("ez-ta") as HTMLTextAreaElement,
-          document.getElementById("ez-backdrop") as HTMLElement
-        );
-        return (document.getElementById("ez-ta") as HTMLElement).style.fontSize;
-      }, stored);
-    expect(await remountWith("18")).toBe("18px");
-    expect(await remountWith("2")).toBe("8px");
-    expect(await remountWith("99")).toBe("32px");
+    await remountAt(page, "18");
+    expect(await fontSizeOf(page, "#ez-ta")).toBe("18px");
+    await remountAt(page, "2");
+    expect(await fontSizeOf(page, "#ez-ta")).toBe("8px");
+    await remountAt(page, "99");
+    expect(await fontSizeOf(page, "#ez-ta")).toBe("32px");
   });
 
   test("wheel zoom: Ctrl-up = in+persist, Ctrl-down = out, Meta-up = in, plain = no-op", async ({ page }) => {
@@ -83,23 +87,10 @@ test.describe("[WEB-EDITOR-ZOOM]", () => {
   });
 
   test("runtime clamps: cannot zoom below 8px or above 32px via wheel", async ({ page }) => {
-    const remountAt = async (size: string): Promise<void> => {
-      await page.evaluate((s) => {
-        window.__E2E.reset();
-        localStorage.setItem("typediagram-editor-zoom", s);
-        const root = document.getElementById("e2e-mount") as HTMLElement;
-        root.innerHTML = `<div id="ez-wrap"><pre id="ez-backdrop"></pre><textarea id="ez-ta"></textarea></div>`;
-        window.__E2E.initEditorZoom(
-          document.getElementById("ez-wrap") as HTMLElement,
-          document.getElementById("ez-ta") as HTMLTextAreaElement,
-          document.getElementById("ez-backdrop") as HTMLElement
-        );
-      }, size);
-    };
-    await remountAt("8");
+    await remountAt(page, "8");
     await dispatchWheel(page, 100);
     expect(await fontSizeOf(page, "#ez-ta")).toBe("8px");
-    await remountAt("32");
+    await remountAt(page, "32");
     await dispatchWheel(page, -100);
     expect(await fontSizeOf(page, "#ez-ta")).toBe("32px");
   });

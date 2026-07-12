@@ -19,6 +19,11 @@ const handwritten: ReadonlyArray<{ slug: string; label: string }> = [
   { slug: "multi-language-pipeline", label: "Multi-Language Pipeline" },
   { slug: "converters", label: "Converters" },
   { slug: "render-hooks", label: "Render Hooks" },
+  { slug: "tdbin", label: "TDBIN Binary Codec" },
+  { slug: "tdbin-wire-format", label: "TDBIN Wire Format" },
+  { slug: "tdbin-rust-api", label: "TDBIN Rust API" },
+  { slug: "tdbin-future-typescript", label: "TDBIN TypeScript Roadmap" },
+  { slug: "tdbin-future-reader", label: "TDBIN Reader Roadmap" },
   { slug: "api", label: "Node.js API" },
 ];
 

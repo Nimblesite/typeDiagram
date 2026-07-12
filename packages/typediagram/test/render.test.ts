@@ -1,14 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { renderToString } from "../src/index.js";
 import { escapeAttr, escapeText, svg, raw } from "../src/render-svg/svg-tag.js";
+import { renderSvg } from "../src/render-svg/index.js";
+import type { LaidOutGraph } from "../src/layout/types.js";
 import { CHAT_EXAMPLE, SMALL_EXAMPLE } from "./fixtures.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { unwrap } from "./helpers.js";
 
 describe("render — small example", () => {
   it("produces an <svg> document", async () => {
@@ -134,6 +130,20 @@ describe("render — svg-tag escaping", () => {
     expect(result.value).toContain("<g>inner</g>");
   });
 
+  it("svg tagged template skips undefined runtime values", () => {
+    // Safe: this deliberately exercises the runtime guard for malformed callers.
+    const strings = ["<g>"] as unknown as TemplateStringsArray;
+    const result = svg(strings, undefined as unknown as string);
+    expect(result.value).toBe("<g>");
+  });
+
+  it("svg tagged template tolerates missing trailing string chunks", () => {
+    // Safe: this deliberately exercises the runtime fallback for malformed callers.
+    const strings = ["<g>"] as unknown as TemplateStringsArray;
+    const result = svg(strings, 1);
+    expect(result.value).toBe("<g>1");
+  });
+
   it("raw creates a SafeSvg", () => {
     const s = raw("test");
     expect(s.value).toBe("test");
@@ -143,5 +153,48 @@ describe("render — svg-tag escaping", () => {
     // An alias creates an edge with an empty label
     const r = await renderToString("type Foo { x: String }\nalias Bar = Foo");
     expect(r.ok).toBe(true);
+  });
+
+  it("render skips edge routes with fewer than two points", () => {
+    const graph: LaidOutGraph = {
+      width: 10,
+      height: 10,
+      nodes: [],
+      edges: [
+        {
+          id: "short",
+          sourceNodeId: "a",
+          targetNodeId: "b",
+          points: [{ x: 1, y: 1 }],
+          label: "short",
+          kind: "field",
+        },
+      ],
+    };
+    const out = renderSvg(graph);
+    expect(out).toContain("<svg");
+    expect(out).not.toContain("short");
+  });
+
+  it("render throws when an edge references an unknown node", () => {
+    const graph: LaidOutGraph = {
+      width: 10,
+      height: 10,
+      nodes: [],
+      edges: [
+        {
+          id: "bad",
+          sourceNodeId: "a",
+          targetNodeId: "b",
+          points: [
+            { x: 0, y: 0 },
+            { x: 1, y: 1 },
+          ],
+          label: "bad",
+          kind: "genericArg",
+        },
+      ],
+    };
+    expect(() => renderSvg(graph)).toThrow("references unknown node");
   });
 });

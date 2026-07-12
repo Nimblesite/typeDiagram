@@ -10,6 +10,7 @@ import { warmupSyncRender } from "typediagram-core";
 import * as mock from "./vscode-mock.js";
 import { typediagramMarkdownItPlugin, setPluginLogger } from "../src/markdown-it-plugin.js";
 import type { MarkdownIt as MdShape } from "../src/markdown-it-plugin.js";
+import { makeCaptureLogger } from "./helpers.js";
 
 vi.mock("vscode", () => mock);
 
@@ -78,21 +79,8 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
   });
 
   it("logs a render event when a typediagram fence is processed", () => {
-    const entries: Array<{ level: string; msg: string; fields: Record<string, unknown> }> = [];
-    const capture = {
-      trace: () => {},
-      debug: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "debug", msg, fields: fields ?? {} }),
-      info: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "info", msg, fields: fields ?? {} }),
-      warn: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "warn", msg, fields: fields ?? {} }),
-      error: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "error", msg, fields: fields ?? {} }),
-      child: () => capture,
-    };
-
-    setPluginLogger(capture as never);
+    const { logger, entries } = makeCaptureLogger();
+    setPluginLogger(logger);
     render("```typediagram\ntype X { a: Int }\n```");
     const renderLog = entries.find((e) => e.msg === "rendered typediagram fence to SVG");
     expect(renderLog).toBeDefined();
@@ -106,16 +94,8 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
   });
 
   it("uses the overridden plugin logger after setPluginLogger", () => {
-    const entries: Array<{ msg: string }> = [];
-    const capture = {
-      trace: () => {},
-      debug: (msg: string) => entries.push({ msg }),
-      info: (msg: string) => entries.push({ msg }),
-      warn: (msg: string) => entries.push({ msg }),
-      error: (msg: string) => entries.push({ msg }),
-      child: () => capture,
-    };
-    setPluginLogger(capture as never);
+    const { logger, entries } = makeCaptureLogger();
+    setPluginLogger(logger);
     render("```typediagram\ntype Z { a: Int }\n```");
     // The overridden capture logger received logs (not the lazy channel one)
     expect(entries.some((e) => e.msg === "plugin installed on markdown-it instance")).toBe(true);
@@ -123,21 +103,8 @@ describe("[VSCODE-MD-PLUGIN] typediagramMarkdownItPlugin", () => {
   });
 
   it("logs an error event when a fence fails to render", () => {
-    const entries: Array<{ level: string; msg: string; fields: Record<string, unknown> }> = [];
-    const capture = {
-      trace: () => {},
-      debug: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "debug", msg, fields: fields ?? {} }),
-      info: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "info", msg, fields: fields ?? {} }),
-      warn: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "warn", msg, fields: fields ?? {} }),
-      error: (msg: string, fields?: Record<string, unknown>) =>
-        entries.push({ level: "error", msg, fields: fields ?? {} }),
-      child: () => capture,
-    };
-
-    setPluginLogger(capture as never);
+    const { logger, entries } = makeCaptureLogger();
+    setPluginLogger(logger);
     render("```typediagram\ntype X { @bad }\n```");
     const errLog = entries.find((e) => e.msg === "typediagram render failed");
     expect(errLog).toBeDefined();

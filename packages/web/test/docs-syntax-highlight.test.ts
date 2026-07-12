@@ -182,14 +182,9 @@ describe("[WEB-DOCS-HIGHLIGHT] Prism-powered syntax highlighting", () => {
   });
 
   describe("every handwritten doc that has code fences gets highlighted", () => {
-    const handwrittenSlugs = [
-      "getting-started",
-      "language-reference",
-      "cli",
-      "multi-language-pipeline",
-      "converters",
-      "api",
-    ];
+    const handwrittenSlugs = allDocs
+      .filter(({ slug }) => !slug.includes("/") && slug !== "introduction")
+      .map(({ slug }) => slug);
     it.each(handwrittenSlugs)("%s: fenced blocks produce Prism (or typediagram) token spans", (slug) => {
       const doc = byslug(slug);
       const srcMd = readFileSync(resolve(DOCS_DIR, `${slug}.md`), "utf-8");

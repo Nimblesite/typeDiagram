@@ -10,6 +10,10 @@ export const parseTypeRef = (raw: string): ResolvedTypeRef => {
   return { name, args: args.map(parseTypeRef), resolution: { kind: "external" } };
 };
 
+/** Convert parsed `{ name, type }` field strings into model type references. */
+export const resolveFieldTypes = (fields: readonly { name: string; type: string }[]) =>
+  fields.map((field) => ({ name: field.name, type: parseTypeRef(field.type) }));
+
 /** Split "A, B<C, D>, E" respecting nested angle brackets. */
 export const splitGenericArgs = (s: string): string[] => {
   const parts: string[] = [];
@@ -38,3 +42,12 @@ export const printTypeRef = (t: ResolvedTypeRef): string =>
  */
 export const mapBuiltinName = (t: ResolvedTypeRef, table: Record<string, string>): string =>
   t.resolution.kind === "declared" ? t.name : (table[t.name] ?? t.name);
+
+/** True when `t` is the builtin `Option<...>`. */
+export const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
+
+/** True when `t` is the builtin `List<...>`. */
+export const isList = (t: ResolvedTypeRef): boolean => t.name === "List";
+
+/** True when `t` is the builtin `Map<...>`. */
+export const isMap = (t: ResolvedTypeRef): boolean => t.name === "Map";

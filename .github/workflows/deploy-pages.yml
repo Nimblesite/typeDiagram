@@ -1,13 +1,11 @@
-# agent-pmo:b636503
+# agent-pmo:372ce7f
 name: Deploy to GitHub Pages
 
 on:
-  # Deploys automatically after a successful Release run, and can also be
-  # triggered manually. Never on push to main (website must not get ahead
-  # of the actual release). See REPO-STANDARDS-SPEC [CI-WORKFLOWS].
-  workflow_run:
-    workflows: ["Release"]
-    types: [completed]
+  # Manual only. This job has Pages write privileges, so it must not checkout a
+  # ref derived from a workflow_run payload. Trigger after a green Release when
+  # publishing the website for that release. See REPO-STANDARDS-SPEC
+  # [CI-WORKFLOWS].
   workflow_dispatch:
 
 permissions:
@@ -21,16 +19,17 @@ concurrency:
 
 jobs:
   build:
-    # Only run on successful Release, or when triggered manually.
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+      # [SWR-REL-WORKFLOW] workflow_dispatch checks out the operator-selected
+      # trusted ref. Do not reintroduce workflow_run + head_sha checkout here:
+      # Pages deployment has write privileges.
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
           persist-credentials: false
 
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:
           node-version: 22
           cache: npm
@@ -43,7 +42,7 @@ jobs:
       - name: Build web playground
         run: npm run -w @typediagram/web build
 
-      - uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: packages/web/dist
 
@@ -56,4 +55,4 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - id: deployment
-        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0

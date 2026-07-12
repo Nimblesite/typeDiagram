@@ -43,7 +43,7 @@ const waitForPreviewSvg = async (page: Page): Promise<void> => {
 const waitForHooksDiag = async (page: Page): Promise<void> => {
   await page.waitForFunction(() => {
     const d = document.querySelector<HTMLElement>("#hooks-diag");
-    return d !== null && !d.hidden && d.textContent.length > 0;
+    return d !== null && d.hidden === false && d.textContent.length > 0;
   });
 };
 

@@ -6,19 +6,7 @@ import { ModelBuilder, alias, record, union } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 
-const TD_TO_PHP_NATIVE: Record<string, string> = {
-  Bool: "bool",
-  Int: "int",
-  Float: "float",
-  String: "string",
-  Bytes: "string",
-  Unit: "null",
-  DateTime: "\\DateTimeImmutable",
-  Uuid: "string",
-  Decimal: "string",
-};
-
-const TD_TO_PHP_DOC: Record<string, string> = {
+const TD_TO_PHP_SCALAR: Record<string, string> = {
   Bool: "bool",
   Int: "int",
   Float: "float",
@@ -186,7 +174,7 @@ const mapTdToPhpDocType = (type: ResolvedTypeRef): string => {
   if (type.name === "Option" && type.args[0] !== undefined) {
     return `${mapTdToPhpDocType(type.args[0])}|null`;
   }
-  return mapBuiltinName(type, TD_TO_PHP_DOC);
+  return mapBuiltinName(type, TD_TO_PHP_SCALAR);
 };
 
 const getBasePhpTypeSpec = (type: ResolvedTypeRef, generics: ReadonlySet<string>): PhpTypeSpec => {
@@ -199,7 +187,7 @@ const getBasePhpTypeSpec = (type: ResolvedTypeRef, generics: ReadonlySet<string>
   if (type.name === "Unit") {
     return { nativeType: "null", docType: null };
   }
-  return { nativeType: mapBuiltinName(type, TD_TO_PHP_NATIVE), docType: null };
+  return { nativeType: mapBuiltinName(type, TD_TO_PHP_SCALAR), docType: null };
 };
 
 const getPhpTypeSpec = (type: ResolvedTypeRef, generics: ReadonlySet<string>): PhpTypeSpec => {

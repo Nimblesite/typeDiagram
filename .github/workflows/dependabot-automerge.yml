@@ -1,0 +1,44 @@
+# agent-pmo:372ce7f
+name: Dependabot auto-merge
+
+# Records Dependabot PRs for the long-lived `dependabot-upgrades` staging branch
+# ([GITHUB-DEPENDABOT]). Two kinds of PR land here:
+#
+#   * VERSION updates  -> Dependabot opens them against `dependabot-upgrades`
+#     directly (.github/dependabot.yml `target-branch`).
+#   * SECURITY updates -> GitHub IGNORES `target-branch` for these and ALWAYS
+#     opens them against the default branch (`main`).
+#
+# This workflow intentionally does not checkout or merge PR head refs with write
+# permissions. That pattern trips CodeQL's untrusted-checkout rule and is unsafe
+# for privileged automation. The consolidation PR into `main` is still where the
+# full build/test (ci.yml) + CodeQL (codeql.yml) gate runs.
+#
+# Lives at the repo root so it is present on `dependabot-upgrades` (cut from
+# main): for `pull_request` the workflow is read from the PR's base branch, so
+# BOTH `main` and the staging branch must carry this file.
+on:
+  pull_request:
+    branches:
+      - dependabot-upgrades
+      - main
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  sweep:
+    name: Record Dependabot PR
+    if: github.actor == 'dependabot[bot]'
+    # Deliberately the standard runner, NOT a larger/paid one: a trivial merge
+    # bot must not consume CI minutes meant for the real build matrix.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Record Dependabot PR for manual staging
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+        run: |
+          set -euo pipefail
+          echo "::notice::Dependabot PR requires staging into dependabot-upgrades: ${PR_URL}"

@@ -81,7 +81,7 @@ export const commands = {
   registerCommand: vi.fn((cmd: string, cb: (...args: unknown[]) => unknown) => {
     commands._handlers.set(cmd, cb);
     if (cmd === "typediagram.preview") {
-      commands._handler = cb as () => void;
+      commands._handler = cb;
     }
     return { dispose: vi.fn() };
   }),

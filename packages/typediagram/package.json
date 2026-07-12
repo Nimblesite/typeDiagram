@@ -1,6 +1,6 @@
 {
   "name": "typediagram-core",
-  "version": "0.9.0",
+  "version": "0.0.0-dev",
   "description": "A small DSL for diagramming algebraic data types (records + tagged unions). Language-neutral. No methods.",
   "license": "MIT",
   "repository": {
@@ -35,6 +35,18 @@
     "./render-svg": {
       "types": "./dist/render-svg/index.d.ts",
       "import": "./dist/render-svg/index.js"
+    },
+    "./converters/rust-tdbin": {
+      "types": "./dist/converters/rust-tdbin.d.ts",
+      "import": "./dist/converters/rust-tdbin.js"
+    },
+    "./converters/typescript-tdbin": {
+      "types": "./dist/converters/typescript-tdbin.d.ts",
+      "import": "./dist/converters/typescript-tdbin.js"
+    },
+    "./tdbin": {
+      "types": "./dist/tdbin/index.d.ts",
+      "import": "./dist/tdbin/index.js"
     }
   },
   "files": [
@@ -52,13 +64,13 @@
     "check": "npm run check-banned-deps && npm run typecheck && npm run test"
   },
   "dependencies": {
-    "elkjs": "^0.9.3"
+    "elkjs": "^0.11.1"
   },
   "devDependencies": {
-    "esbuild": "^0.24.0",
-    "typescript": "^5.6.0",
-    "vitest": "^2.1.0",
-    "@types/node": "^22.0.0",
-    "happy-dom": "^15.0.0"
+    "esbuild": "^0.28.1",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9",
+    "@types/node": "^26.1.0",
+    "happy-dom": "^20.10.6"
   }
 }

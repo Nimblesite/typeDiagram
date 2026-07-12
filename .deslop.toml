@@ -1,0 +1,26 @@
+# agent-pmo:372ce7f
+# Deslop duplication gate — REPO-STANDARDS-SPEC [CI-DESLOP].
+# Single source of truth for this repo's duplication budget. Committed, PR-reviewed,
+# ratcheted DOWN only (never up without written justification).
+# CI runs `deslop .`, which reads this file and exits 3 (tanks the build) when
+# duplication exceeds the ceiling below.
+# Docs: https://deslop.live/docs/for-ai/
+
+[defaults]
+# Exclude build/coverage artifacts and machine-GENERATED code — never authored
+# source, and never authored tests. node_modules/target/build are already
+# default-excluded; dist + coverage are this repo's generated-output dirs.
+# The `generated_*/mod.rs` fixtures are codegen output of
+# `packages/typediagram/src/converters/rust-tdbin.ts` (regenerated via
+# `scripts/tdbin-regen-fixtures.mjs`, pinned by rust-tdbin-corpus.test.ts). Their
+# structural repetition is emitted by the generator, not hand-written, so it is not
+# authored duplication and does not belong in the budget — the fix for any real
+# repetition there is in the generator, gated by the codegen pin test.
+exclude = [
+  "**/coverage/**",
+  "**/dist/**",
+  "**/tests/generated_*/mod.rs",
+]
+
+[threshold]
+max_duplication_percent = 15.0

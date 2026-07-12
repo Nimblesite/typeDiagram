@@ -1,18 +1,67 @@
-# [SWR-SEC-ACTION-PINNING] Keeps SHA-pinned actions and npm deps fresh.
-# Grouped so each ecosystem opens ONE combined PR per run.
+# agent-pmo:372ce7f
+# Dependabot — every bump routed to the long-lived `dependabot-upgrades` STAGING
+# branch, never straight to main ([GITHUB-DEPENDABOT]).
+#
+#   * VERSION updates  -> `target-branch: dependabot-upgrades`. The bump PR opens
+#     against staging; ci.yml / codeql.yml only trigger on `pull_request: [main]`
+#     (matched on the PR *base*), so staging PRs run NO build/test/CodeQL.
+#   * SECURITY updates -> GitHub IGNORES `target-branch` and always opens them
+#     against `main`; they must be manually staged into the same consolidation
+#     branch, because privileged auto-merging of PR heads is an unsafe workflow
+#     pattern.
+#   * groups           -> each ecosystem collapses ALL bump types (patch+minor+major)
+#     into ONE PR; a parallel `*-security` group does the same for CVE bumps.
+#
+# The whole batch reaches main via ONE `dependabot-upgrades -> main` consolidation
+# PR, where CI + CodeQL run exactly once.
+#
+# REQUIREMENT: the `dependabot-upgrades` branch must exist, cut from main AFTER
+# this file is on main.
 version: 2
+
 updates:
+  # GitHub Actions — applies to every repo with workflows. Version-only (no
+  # Dependabot advisory channel for actions). Pinned SHAs are a supply-chain target.
   - package-ecosystem: github-actions
     directory: /
+    target-branch: "dependabot-upgrades"
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
     groups:
-      actions:
+      github-actions:
         patterns: ["*"]
+
+  # npm / Node — package.json (root workspaces + packages/*)
   - package-ecosystem: npm
     directory: /
+    target-branch: "dependabot-upgrades"
     schedule:
       interval: weekly
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
     groups:
       npm:
+        applies-to: version-updates
+        patterns: ["*"]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+
+  # Cargo / Rust — the incoming Rust workspace (crates/*). Active once a crate with
+  # dependencies lands; harmless before then.
+  - package-ecosystem: cargo
+    directory: /
+    target-branch: "dependabot-upgrades"
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: ["dependencies"]
+    groups:
+      cargo:
+        applies-to: version-updates
+        patterns: ["*"]
+      cargo-security:
+        applies-to: security-updates
         patterns: ["*"]

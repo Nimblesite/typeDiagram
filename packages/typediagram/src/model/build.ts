@@ -2,9 +2,9 @@ import type { AliasDecl, Declaration, Diagram, Field, RecordDecl, TypeRef, Union
 import { DiagnosticBag, type Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err, ok } from "../result.js";
 import { withDiscriminant } from "../variant.js";
+import { collectDeclEdges } from "./edges.js";
 import {
   PRIMITIVES,
-  type Edge,
   type Model,
   type ResolvedAlias,
   type ResolvedDecl,
@@ -42,7 +42,7 @@ export function buildModelPartial(ast: Diagram): { model: Model; diagnostics: Di
     decls.push(resolveDecl(d, declMap, externals, bag));
   }
 
-  const edges = collectEdges(decls);
+  const edges = collectDeclEdges(decls);
 
   const model: Model = {
     decls,
@@ -189,83 +189,4 @@ function resolveTypeRef(
     args: t.args.map((a) => resolveTypeRef(a, ownerName, declMap, externals, generics, bag)),
     resolution,
   };
-}
-
-/** Walk a resolved typeRef and report every declared decl reached, with the first one (the head) flagged. */
-function* walkDeclaredRefs(t: ResolvedTypeRef): Generator<{ declName: string; isHead: boolean; isArg: boolean }> {
-  if (t.resolution.kind === "declared") {
-    yield { declName: t.resolution.declName, isHead: true, isArg: false };
-  }
-  for (const a of t.args) {
-    if (a.resolution.kind === "declared") {
-      yield { declName: a.resolution.declName, isHead: false, isArg: true };
-    }
-    // recurse into deeper args (e.g. List<Option<X>>)
-    for (const inner of walkDeclaredRefs(a)) {
-      // already yielded the immediate arg above; skip its own head, but yield its arg-children.
-      if (inner.isHead) {
-        continue;
-      }
-      yield inner;
-    }
-  }
-}
-
-function collectEdges(decls: ResolvedDecl[]): Edge[] {
-  const edges: Edge[] = [];
-  const seen = new Set<string>();
-
-  const push = (e: Edge): void => {
-    const key = `${e.sourceDeclName}|${String(e.sourceRowIndex)}|${String(e.sourceVariantFieldIndex ?? -1)}|${e.targetDeclName}|${e.kind}`;
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    edges.push(e);
-  };
-
-  for (const d of decls) {
-    if (d.kind === "record") {
-      d.fields.forEach((f, i) => {
-        for (const ref of walkDeclaredRefs(f.type)) {
-          push({
-            sourceDeclName: d.name,
-            sourceRowIndex: i,
-            sourceVariantFieldIndex: null,
-            targetDeclName: ref.declName,
-            label: f.name,
-            kind: ref.isHead ? "field" : "genericArg",
-          });
-        }
-      });
-    } else if (d.kind === "union") {
-      d.variants.forEach((v, vi) => {
-        v.fields.forEach((f, fi) => {
-          for (const ref of walkDeclaredRefs(f.type)) {
-            push({
-              sourceDeclName: d.name,
-              sourceRowIndex: vi,
-              sourceVariantFieldIndex: fi,
-              targetDeclName: ref.declName,
-              label: `${v.name}.${f.name}`,
-              kind: ref.isHead ? "variantPayload" : "genericArg",
-            });
-          }
-        });
-      });
-    } else {
-      // alias
-      for (const ref of walkDeclaredRefs(d.target)) {
-        push({
-          sourceDeclName: d.name,
-          sourceRowIndex: -1,
-          sourceVariantFieldIndex: null,
-          targetDeclName: ref.declName,
-          label: "",
-          kind: ref.isHead ? "field" : "genericArg",
-        });
-      }
-    }
-  }
-  return edges;
 }

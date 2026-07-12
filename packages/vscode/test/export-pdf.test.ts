@@ -93,14 +93,14 @@ function makeDeps(overrides: TestDepsOverrides = {}): {
 
   return {
     deps: {
-      readFile: readFile as unknown as ExportPdfDeps["readFile"],
-      writeFile: writeFile as unknown as ExportPdfDeps["writeFile"],
-      createWebviewPanel: createWebviewPanel as unknown as ExportPdfDeps["createWebviewPanel"],
+      readFile: readFile,
+      writeFile: writeFile,
+      createWebviewPanel: createWebviewPanel,
       uriWithPath: uriWithPath as unknown as ExportPdfDeps["uriWithPath"],
-      showInformationMessage: showInformationMessage as unknown as ExportPdfDeps["showInformationMessage"],
+      showInformationMessage: showInformationMessage,
       showErrorMessage,
-      openExternal: openExternal as unknown as ExportPdfDeps["openExternal"],
-      executeCommand: executeCommand as unknown as ExportPdfDeps["executeCommand"],
+      openExternal: openExternal,
+      executeCommand: executeCommand,
     },
     spies: {
       readFile,
@@ -496,7 +496,7 @@ describe("exportPdf composer", () => {
 
   it("Open PDF action triggers openExternal on the saved URI", async () => {
     const { deps, spies } = makeDeps();
-    spies.showInformationMessage.mockImplementationOnce(() => Promise.resolve("Open PDF"));
+    spies.showInformationMessage.mockReturnValueOnce(Promise.resolve("Open PDF"));
     await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     await new Promise((r) => setTimeout(r, 0));
     expect(spies.openExternal).toHaveBeenCalledTimes(1);
@@ -504,7 +504,7 @@ describe("exportPdf composer", () => {
 
   it("Reveal action triggers revealFileInOS command", async () => {
     const { deps, spies } = makeDeps();
-    spies.showInformationMessage.mockImplementationOnce(() => Promise.resolve("Reveal in File Explorer"));
+    spies.showInformationMessage.mockReturnValueOnce(Promise.resolve("Reveal in File Explorer"));
     await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     await new Promise((r) => setTimeout(r, 0));
     expect(spies.executeCommand).toHaveBeenCalledWith("revealFileInOS", expect.anything());
@@ -512,7 +512,7 @@ describe("exportPdf composer", () => {
 
   it("logs an error when the notification promise rejects", async () => {
     const { deps, spies } = makeDeps();
-    spies.showInformationMessage.mockImplementationOnce(() => Promise.reject(new Error("notif boom")));
+    spies.showInformationMessage.mockReturnValueOnce(Promise.reject(new Error("notif boom")));
     await exportPdf(SAMPLE_URI, { theme: "light" }, deps);
     await new Promise((r) => setTimeout(r, 10));
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);

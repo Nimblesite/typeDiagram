@@ -14,7 +14,7 @@ import { vi } from "vitest";
 
 vi.mock("vscode", () => mock);
 
-import { readFileSync, writeFileSync, statSync, mkdirSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import PDFDocument from "pdfkit";
@@ -28,7 +28,9 @@ type SVGtoPDFFn = (
   y: number,
   options?: { width?: number; height?: number; assumePt?: boolean }
 ) => void;
-const SVGtoPDF: SVGtoPDFFn = SVGtoPDFUntyped as unknown as SVGtoPDFFn;
+// Safe: svg-to-pdfkit has no types, and this test calls only the documented
+// function shape above.
+const SVGtoPDF = SVGtoPDFUntyped as unknown as SVGtoPDFFn;
 import { warmupSyncRender } from "typediagram-core";
 import { composeHtml, extractSvgs } from "../src/export-pdf.js";
 
@@ -85,10 +87,11 @@ describe("[PDF-E2E-PHYSICAL] writes a real .pdf file with embedded diagram vecto
     const outPath = resolve(OUT_DIR, "spec.pdf");
     writeFileSync(outPath, buf);
 
-    const stats = statSync(outPath);
-    expect(stats.size).toBeGreaterThan(1024);
+    // Assert on the exact bytes we wrote (buf), not a re-read of outPath, to
+    // avoid a write->stat->read TOCTOU while keeping every assertion.
+    expect(buf.length).toBeGreaterThan(1024);
 
-    const written = readFileSync(outPath);
+    const written = Buffer.from(buf);
     // PDF magic bytes
     expect(written.subarray(0, 5).toString("latin1")).toBe("%PDF-");
     // PDF EOF marker
@@ -137,7 +140,8 @@ describe("[PDF-E2E-PHYSICAL] writes a real .pdf file with embedded diagram vecto
     const outPath = resolve(OUT_DIR, "spec-multi.pdf");
     writeFileSync(outPath, buf);
 
-    const latin = readFileSync(outPath).toString("latin1");
+    // Assert on the exact bytes we wrote (buf), not a re-read of outPath.
+    const latin = Buffer.from(buf).toString("latin1");
     // Each SVG occupies its own page; count /Type /Page objects.
     const pageCount = (latin.match(/\/Type\s*\/Page\b/g) ?? []).length;
     expect(pageCount).toBeGreaterThanOrEqual(take.length);

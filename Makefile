@@ -4,7 +4,7 @@
 # Cross-platform: Linux, macOS, Windows (via GNU Make)
 # =============================================================================
 
-.PHONY: build test lint fmt clean ci setup rebuild-install-vsix dev dev-web clean-start test-playwright
+.PHONY: build test lint fmt clean ci setup rebuild-install-vsix dev dev-web clean-start test-playwright bench test-tdbin
 
 # ---------------------------------------------------------------------------
 # OS Detection
@@ -37,6 +37,8 @@ COVERAGE_THRESHOLDS_FILE := coverage-thresholds.json
 build:
 	@echo "==> Building..."
 	npm run -w typediagram-core build
+	@echo "==> Building Rust workspace..."
+	cargo build --workspace
 
 ## test: Fail-fast tests + coverage + threshold enforcement + ratchet.
 ##       See REPO-STANDARDS-SPEC [TEST-RULES] and [COVERAGE-THRESHOLDS-JSON].
@@ -46,6 +48,7 @@ build:
 ##       After all tests pass, ratchets coverage-thresholds.json UP to max(current, measured - 1%).
 test:
 	@echo "==> Testing (fail-fast + coverage + threshold)..."
+	@$(MAKE) _cargo_test
 	npm run -w packages/typediagram test
 	npm run -w packages/cli test
 	npm run -w packages/vscode test
@@ -63,11 +66,14 @@ lint:
 	npm run -ws --if-present typecheck
 	@$(MAKE) _eslint
 	@$(MAKE) _banned_deps
+	@$(MAKE) _cargo_clippy
 
 ## fmt: Format all code in-place.
 fmt:
 	@echo "==> Formatting (write)..."
 	npx prettier --write .
+	@echo "==> Formatting Rust (cargo fmt)..."
+	cargo fmt
 
 ## clean: Remove all build artifacts from every package (dist, per-package
 ##        coverage, root coverage, eleventy + typedoc output).
@@ -109,6 +115,8 @@ _coverage_check:
 _fmt_check:
 	@echo "==> Format check (read-only)..."
 	npx prettier --check .
+	@echo "==> Rust format check (read-only)..."
+	cargo fmt --check
 
 _eslint:
 	@echo "==> ESLint..."
@@ -118,6 +126,14 @@ _banned_deps:
 	@echo "==> Banned-deps check..."
 	npm run check-banned-deps --workspace=packages/typediagram
 
+_cargo_test:
+	@echo "==> Rust tests (cargo test --workspace, fail-fast)..."
+	cargo test --workspace
+
+_cargo_clippy:
+	@echo "==> Rust clippy (workspace, all targets, deny-all)..."
+	cargo clippy --workspace --all-targets -- -D warnings
+
 _bundle_size:
 	@echo "==> Bundle-size budget..."
 	npm run bundle-size --workspace=packages/typediagram
@@ -126,6 +142,24 @@ _bundle_size:
 # =============================================================================
 # Repo-Specific Targets (not part of the 7 standard targets)
 # =============================================================================
+
+## test-tdbin: Run ONLY the tdbin Rust crate tests (cargo test -p tdbin), fail-fast.
+##             `make test` and `make ci` already run these as part of the whole
+##             workspace (cargo test --workspace); this is the fast, focused loop
+##             for iterating on the crate alone.
+test-tdbin:
+	@echo "==> tdbin crate tests (cargo test -p tdbin)..."
+	cargo test -p tdbin
+
+## bench: TDBIN vs Protobuf benchmark. Runs tests and the full Criterion matrix,
+##        then generates Markdown and raw JSON reports from the measured output.
+bench:
+	@echo "==> TDBIN crate tests (round-trip + deterministic size gate)..."
+	cargo test -p tdbin
+	@echo "==> TDBIN vs Protobuf Criterion benchmark matrix..."
+	cargo bench -p tdbin --bench gate -- --noplot
+	@echo "==> Generating data-derived TDBIN benchmark report..."
+	node scripts/tdbin-bench-report.mjs
 
 ## test-playwright: Run Playwright end-to-end tests only (packages/web), both
 ##                  desktop and mobile viewports. Does NOT run vitest or enforce

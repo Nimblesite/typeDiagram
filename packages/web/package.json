@@ -1,6 +1,6 @@
 {
   "name": "@typediagram/web",
-  "version": "0.9.0",
+  "version": "0.0.0-dev",
   "description": "typeDiagram web playground — live editor that renders SVG via the framework.",
   "type": "module",
   "private": true,
@@ -22,21 +22,21 @@
   },
   "dependencies": {
     "marked": "^18.0.0",
-    "typediagram-core": "0.9.0"
+    "typediagram-core": "0.0.0-dev"
   },
   "devDependencies": {
     "@11ty/eleventy": "^3.1.6",
-    "@playwright/test": "^1.59.1",
+    "@playwright/test": "^1.61.1",
     "@types/prismjs": "^1.26.6",
-    "concurrently": "^9.2.1",
-    "happy-dom": "^15.0.0",
-    "monocart-coverage-reports": "^2.12.10",
+    "concurrently": "^10.0.3",
+    "happy-dom": "^20.10.6",
+    "monocart-coverage-reports": "^2.12.12",
     "prismjs": "^1.30.0",
-    "tsx": "^4.21.0",
+    "tsx": "^4.22.5",
     "typedoc": "^0.28.19",
-    "typedoc-plugin-markdown": "^4.11.0",
-    "typescript": "^5.6.0",
-    "vite": "^5.4.0",
-    "vitest": "^2.1.0"
+    "typedoc-plugin-markdown": "^4.12.0",
+    "typescript": "^6.0.3",
+    "vite": "^8.1.3",
+    "vitest": "^4.1.9"
   }
 }

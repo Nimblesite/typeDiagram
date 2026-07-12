@@ -34,13 +34,7 @@ vi.mock("elkjs/lib/elk.bundled.js", () => ({
 import { parse } from "../src/parser/index.js";
 import { buildModel } from "../src/model/index.js";
 import { layout } from "../src/layout/elk.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { unwrap } from "./helpers.js";
 
 describe("[ELK-NOSECTIONS] layout with edges having no sections", () => {
   it("produces edges with empty points when sections are undefined", async () => {

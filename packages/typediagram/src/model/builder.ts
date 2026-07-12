@@ -1,6 +1,7 @@
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err, ok } from "../result.js";
 import { withDiscriminant } from "../variant.js";
+import { collectDeclEdges } from "./edges.js";
 import { validate } from "./validate.js";
 import {
   PRIMITIVES,
@@ -150,81 +151,6 @@ export function resolveResolutions(model: Model): Model {
 
   // rebuild edges from the resolved decls
   const out: Model = { decls: newDecls, edges: [], externals: [...externals].sort() };
-  out.edges = computeEdges(out);
+  out.edges = collectDeclEdges(out.decls);
   return out;
-}
-
-function computeEdges(model: Model): Model["edges"] {
-  // Defer to build.ts logic to avoid duplication: re-import lazily would create a cycle. Inline minimal version.
-  const seen = new Set<string>();
-  const edges: Model["edges"] = [];
-  const push = (e: Model["edges"][number]): void => {
-    const key = `${e.sourceDeclName}|${String(e.sourceRowIndex)}|${String(e.sourceVariantFieldIndex ?? -1)}|${e.targetDeclName}|${e.kind}`;
-    if (seen.has(key)) {
-      return;
-    }
-    seen.add(key);
-    edges.push(e);
-  };
-
-  function* walk(t: ResolvedTypeRef): Generator<{ declName: string; isHead: boolean }> {
-    if (t.resolution.kind === "declared") {
-      yield { declName: t.resolution.declName, isHead: true };
-    }
-    for (const a of t.args) {
-      if (a.resolution.kind === "declared") {
-        yield { declName: a.resolution.declName, isHead: false };
-      }
-      for (const inner of walk(a)) {
-        if (inner.isHead) {
-          continue;
-        }
-        yield inner;
-      }
-    }
-  }
-
-  for (const d of model.decls) {
-    if (d.kind === "record") {
-      d.fields.forEach((f, i) => {
-        for (const r of walk(f.type)) {
-          push({
-            sourceDeclName: d.name,
-            sourceRowIndex: i,
-            sourceVariantFieldIndex: null,
-            targetDeclName: r.declName,
-            label: f.name,
-            kind: r.isHead ? "field" : "genericArg",
-          });
-        }
-      });
-    } else if (d.kind === "union") {
-      d.variants.forEach((v, vi) => {
-        v.fields.forEach((f, fi) => {
-          for (const r of walk(f.type)) {
-            push({
-              sourceDeclName: d.name,
-              sourceRowIndex: vi,
-              sourceVariantFieldIndex: fi,
-              targetDeclName: r.declName,
-              label: `${v.name}.${f.name}`,
-              kind: r.isHead ? "variantPayload" : "genericArg",
-            });
-          }
-        });
-      });
-    } else {
-      for (const r of walk(d.target)) {
-        push({
-          sourceDeclName: d.name,
-          sourceRowIndex: -1,
-          sourceVariantFieldIndex: null,
-          targetDeclName: r.declName,
-          label: "",
-          kind: r.isHead ? "field" : "genericArg",
-        });
-      }
-    }
-  }
-  return edges;
 }

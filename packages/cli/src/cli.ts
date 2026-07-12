@@ -8,9 +8,12 @@ import {
   type AllOpts,
   type Diagnostic,
 } from "typediagram-core";
+import { emitRustCodec, generateRustModule } from "typediagram-core/converters/rust-tdbin";
 import { HELP_TEXT, parseArgs, type CliArgs } from "./args.js";
 import { readSource } from "./io.js";
 import { versionJson, versionText } from "./version.js";
+
+type TdModelResult = { readonly ok: true; readonly value: modelLayer.Model } | { readonly ok: false };
 
 export const main = async (
   argv: readonly string[],
@@ -24,11 +27,13 @@ export const main = async (
       ? (stdout.write(HELP_TEXT), 0)
       : argsResult.value.version
         ? versionFlow(argsResult.value, stdout, stderr)
-        : argsResult.value.from !== null
-          ? fromLangFlow(argsResult.value, stdout, stderr)
-          : argsResult.value.to !== null
-            ? toLangFlow(argsResult.value, stdout, stderr)
-            : renderFlow(argsResult.value, stdout, stderr);
+        : argsResult.value.tdbinCommand !== null
+          ? tdbinFlow(argsResult.value, stdout, stderr)
+          : argsResult.value.from !== null
+            ? fromLangFlow(argsResult.value, stdout, stderr)
+            : argsResult.value.to !== null
+              ? toLangFlow(argsResult.value, stdout, stderr)
+              : renderFlow(argsResult.value, stdout, stderr);
 };
 
 /** [SWR-VERSION-CLI-OUTPUT] --version: print from package metadata and exit. No runtime, no network. */
@@ -37,21 +42,65 @@ const versionFlow = (args: CliArgs, stdout: NodeJS.WritableStream, stderr: NodeJ
   return r.ok ? (stdout.write(`${r.value}\n`), 0) : (stderr.write(`${r.error.message}\n`), 1);
 };
 
+/** [TDBIN-CLI] `.td` schema → generated Rust TDBIN glue or schema verification. */
+const tdbinFlow = async (
+  args: CliArgs,
+  stdout: NodeJS.WritableStream,
+  stderr: NodeJS.WritableStream
+): Promise<number> => {
+  const model = await readTdModel(args.file, stderr);
+  if (!model.ok) {
+    return 1;
+  }
+  const codegenDiags = modelLayer.validateForCodegen(model.value, "rust");
+  if (codegenDiags.length > 0) {
+    return (writeDiagnostics(codegenDiags, stderr), 1);
+  }
+  const command = args.tdbinCommand;
+  const generated = command === "decode" ? emitRustCodec(model.value) : generateRustModule(model.value);
+  if (!generated.ok) {
+    return (writeDiagnostics(generated.error, stderr), 1);
+  }
+  return command === "verify" ? (stdout.write("tdbin schema ok\n"), 0) : (stdout.write(generated.value), 0);
+};
+
+/** Parse and build typeDiagram source from file/stdin. */
+const readTdModel = async (file: string | null, stderr: NodeJS.WritableStream): Promise<TdModelResult> => {
+  const srcRes = await readSourceOrReport(file, stderr);
+  if (!srcRes.ok) {
+    return { ok: false };
+  }
+  const parsed = parser.parse(srcRes.value);
+  if (!parsed.ok) {
+    writeDiagnostics(parsed.error, stderr);
+    return { ok: false };
+  }
+  const model = modelLayer.buildModel(parsed.value);
+  if (!model.ok) {
+    writeDiagnostics(model.error, stderr);
+    return { ok: false };
+  }
+  return model;
+};
+
+/** Read CLI input and report any I/O failure to stderr. */
+const readSourceOrReport = async (file: string | null, stderr: NodeJS.WritableStream) => {
+  const source = await readSource(file);
+  return source.ok ? source : (stderr.write(`${source.error.message}\n`), source);
+};
+
 /** --from: language source → typeDiagram model → td / SVG / both */
 const fromLangFlow = async (
   args: CliArgs,
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
-  const srcRes = await readSource(args.file);
+  const srcRes = await readSourceOrReport(args.file, stderr);
   if (!srcRes.ok) {
-    return (stderr.write(`${srcRes.error.message}\n`), 1);
+    return 1;
   }
 
-  if (args.from === null) {
-    return (stderr.write("missing --from\n"), 1);
-  }
-  const conv = converters.byLanguage[args.from];
+  const conv = converters.byLanguage[args.from as NonNullable<CliArgs["from"]>];
   const modelResult = conv.fromSource(srcRes.value);
   if (!modelResult.ok) {
     return (writeDiagnostics(modelResult.error, stderr), 1);
@@ -84,9 +133,9 @@ const toLangFlow = async (
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
-  const srcRes = await readSource(args.file);
+  const srcRes = await readSourceOrReport(args.file, stderr);
   if (!srcRes.ok) {
-    return (stderr.write(`${srcRes.error.message}\n`), 1);
+    return 1;
   }
 
   const parsed = parser.parse(srcRes.value);
@@ -99,16 +148,14 @@ const toLangFlow = async (
     return (writeDiagnostics(model.error, stderr), 1);
   }
 
-  if (args.to === null) {
-    return (stderr.write("missing --to\n"), 1);
-  }
   // [MODEL-CODEGEN-UNKNOWN] unknown type names must fail generation, not the
   // downstream build (GH issue #38).
-  const codegenDiags = modelLayer.validateForCodegen(model.value, args.to);
+  const to = args.to as NonNullable<CliArgs["to"]>;
+  const codegenDiags = modelLayer.validateForCodegen(model.value, to);
   if (codegenDiags.length > 0) {
     return (writeDiagnostics(codegenDiags, stderr), 1);
   }
-  const conv = converters.byLanguage[args.to];
+  const conv = converters.byLanguage[to];
   stdout.write(conv.toSource(model.value));
   return 0;
 };
@@ -119,9 +166,9 @@ const renderFlow = async (
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
-  const srcRes = await readSource(args.file);
+  const srcRes = await readSourceOrReport(args.file, stderr);
   if (!srcRes.ok) {
-    return (stderr.write(`${srcRes.error.message}\n`), 1);
+    return 1;
   }
   const result = await renderToString(srcRes.value, toRenderOpts(args));
   return result.ok ? (stdout.write(result.value), 0) : (writeDiagnostics(result.error, stderr), 1);

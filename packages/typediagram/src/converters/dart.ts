@@ -8,17 +8,18 @@
 // Generics use Dart's first-class type parameters.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
+import { type Model, type ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { emitDecls } from "./emit-decls.js";
+import { isOption, mapBuiltinName, parseTypeRef, resolveFieldTypes } from "./parse-typeref.js";
 import {
-  extractBalancedBlock,
   extractTrailingNullable,
   formatGenericsDecl,
   parseGenericParamList,
   splitTopLevelCommas,
 } from "./brace-lang.js";
+import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./scan-decls.js";
 
 // ── Type mapping tables ──
 
@@ -124,108 +125,56 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
     | { kind: "record"; name: string; generics: string[]; body: string; offset: number }
     | { kind: "enum"; name: string; body: string; offset: number }
     | { kind: "alias"; name: string; generics: string[]; target: string; offset: number };
-  const pending: PendingDecl[] = [];
-  const consumedRanges: Array<[number, number]> = [];
-  const isInsideConsumed = (idx: number): boolean => consumedRanges.some(([start, end]) => idx >= start && idx < end);
+  const consumed = makeConsumedTracker();
 
-  // 1. Sealed parents (union headers).
-  SEALED_CLASS_HEAD_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = SEALED_CLASS_HEAD_RE.exec(source)) !== null) {
-    const [full, name, gens] = m;
-    /* v8 ignore next 3 — regex guarantees name is captured */
-    if (name === undefined) {
-      continue;
+  // 1. Sealed parents (union headers) — mark their bodies consumed.
+  const sealedParents = scanBraceBlocks(source, SEALED_CLASS_HEAD_RE, { mark: consumed }).flatMap(
+    (b): PendingDecl[] => {
+      const [name, gens] = b.groups;
+      /* v8 ignore next 3 — regex guarantees name is captured */
+      return name === undefined
+        ? []
+        : [{ kind: "sealed-parent", name, generics: parseGenericParamList(gens), offset: b.offset }];
     }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBlock(source, openIdx, "{", "}");
-    /* v8 ignore next 3 — regex ends on `{` so a balanced `}` is expected */
-    if (body === null) {
-      continue;
-    }
-    const endIdx = openIdx + body.length + 2;
-    consumedRanges.push([m.index, endIdx]);
-    pending.push({ kind: "sealed-parent", name, generics: parseGenericParamList(gens), offset: m.index });
-  }
+  );
 
-  // 2. Extending classes (variants).
-  EXTENDING_CLASS_HEAD_RE.lastIndex = 0;
-  while ((m = EXTENDING_CLASS_HEAD_RE.exec(source)) !== null) {
-    const [full, name, gens, parent] = m;
+  // 2. Extending classes (variants) — also mark their bodies consumed.
+  const extending = scanBraceBlocks(source, EXTENDING_CLASS_HEAD_RE, { mark: consumed }).flatMap((b): PendingDecl[] => {
+    const [name, gens, parent] = b.groups;
     /* v8 ignore next 3 — regex guarantees both captures */
-    if (name === undefined || parent === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBlock(source, openIdx, "{", "}");
-    /* v8 ignore next 3 — regex ends on `{` so a balanced `}` is expected */
-    if (body === null) {
-      continue;
-    }
-    const endIdx = openIdx + body.length + 2;
-    consumedRanges.push([m.index, endIdx]);
-    pending.push({
-      kind: "extending",
-      name,
-      generics: parseGenericParamList(gens),
-      parent,
-      body,
-      offset: m.index,
-    });
-  }
+    return name === undefined || parent === undefined
+      ? []
+      : [{ kind: "extending", name, generics: parseGenericParamList(gens), parent, body: b.body, offset: b.offset }];
+  });
 
   // 3. Plain classes (records) — skip anything inside sealed parents or that
   // matches the extending pattern (already captured).
-  PLAIN_CLASS_HEAD_RE.lastIndex = 0;
-  while ((m = PLAIN_CLASS_HEAD_RE.exec(source)) !== null) {
-    if (isInsideConsumed(m.index)) {
-      continue;
-    }
-    const [full, name, gens] = m;
+  const records = scanBraceBlocks(source, PLAIN_CLASS_HEAD_RE, { skip: consumed }).flatMap((b): PendingDecl[] => {
+    const [name, gens] = b.groups;
     /* v8 ignore next 3 — regex guarantees name is captured */
-    if (name === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBlock(source, openIdx, "{", "}");
-    /* v8 ignore next 3 — regex ends on `{` so a balanced `}` is expected */
-    if (body === null) {
-      continue;
-    }
-    pending.push({ kind: "record", name, generics: parseGenericParamList(gens), body, offset: m.index });
-  }
+    return name === undefined
+      ? []
+      : [{ kind: "record", name, generics: parseGenericParamList(gens), body: b.body, offset: b.offset }];
+  });
 
   // 4. Enums.
-  ENUM_RE.lastIndex = 0;
-  while ((m = ENUM_RE.exec(source)) !== null) {
-    if (isInsideConsumed(m.index)) {
-      continue;
-    }
+  const enums = scanAll(ENUM_RE, source, (m): PendingDecl | null => {
     const [, name, body] = m;
     /* v8 ignore next 3 — regex guarantees both captures */
-    if (name === undefined || body === undefined) {
-      continue;
-    }
-    pending.push({ kind: "enum", name, body, offset: m.index });
-  }
+    return name === undefined || body === undefined || consumed.isInside(m.index)
+      ? null
+      : { kind: "enum", name, body, offset: m.index };
+  });
 
   // 5. Typedefs.
-  TYPEDEF_RE.lastIndex = 0;
-  while ((m = TYPEDEF_RE.exec(source)) !== null) {
+  const aliases = scanAll(TYPEDEF_RE, source, (m): PendingDecl | null => {
     const [, name, gens, target] = m;
-    if (name === undefined || target === undefined) {
-      continue;
-    }
-    pending.push({
-      kind: "alias",
-      name,
-      generics: parseGenericParamList(gens),
-      target: target.trim(),
-      offset: m.index,
-    });
-  }
+    return name === undefined || target === undefined
+      ? null
+      : { kind: "alias", name, generics: parseGenericParamList(gens), target: target.trim(), offset: m.index };
+  });
 
-  pending.sort((a, b) => a.offset - b.offset);
+  const pending = orderBySource<PendingDecl>([...sealedParents, ...extending, ...records, ...enums, ...aliases]);
 
   // Group extending-classes under their sealed parents. Emit the sealed
   // parent at its source position, with variants in source order.
@@ -246,13 +195,13 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
     }
     found = true;
     if (p.kind === "sealed-parent") {
-      const variants = (variantsByParent.get(p.name) ?? []).sort((a, b) => a.offset - b.offset);
+      const variants = orderBySource(variantsByParent.get(p.name) ?? []);
       builder.add(
         union(
           p.name,
           variants.map((v) => ({
             name: v.name,
-            fields: parseDartFields(v.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) })),
+            fields: resolveFieldTypes(parseDartFields(v.body)),
           })),
           p.generics
         )
@@ -260,7 +209,7 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     if (p.kind === "record") {
-      const fields = parseDartFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      const fields = resolveFieldTypes(parseDartFields(p.body));
       builder.add(record(p.name, fields, p.generics));
       continue;
     }
@@ -283,8 +232,6 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
 };
 
 // ── To Dart ──
-
-const isOption = (t: ResolvedTypeRef): boolean => t.name === "Option";
 
 const mapTdToDart = (t: ResolvedTypeRef): string => {
   if (isOption(t) && t.args.length === 1) {
@@ -364,20 +311,17 @@ const emitAlias = (name: string, target: ResolvedTypeRef, generics: string[]): s
   return `typedef ${name}${gens} = ${mapTdToDart(target)};`;
 };
 
-const toDart = (model: Model): string => {
-  const lines: string[] = [];
-  for (const d of visibleDeclsForTarget(model.decls, "dart")) {
-    if (d.kind === "record") {
-      lines.push(...emitRecord(d.name, d.fields, d.generics), "");
-    } else if (d.kind === "union") {
-      lines.push(...emitUnion(d.name, d.variants, d.generics), "");
-    } else {
-      lines.push(emitAlias(d.name, d.target, d.generics), "");
-    }
-  }
-  // Trim trailing blank lines into a single newline.
-  return lines.join("\n").replace(/\n+$/, "\n");
-};
+const toDart = (model: Model): string =>
+  emitDecls(
+    model,
+    "dart",
+    {
+      record: (d) => emitRecord(d.name, d.fields, d.generics),
+      union: (d) => emitUnion(d.name, d.variants, d.generics),
+      alias: (d) => [emitAlias(d.name, d.target, d.generics)],
+    },
+    { trimTrailing: true }
+  );
 
 export const dart: Converter = {
   language: "dart",

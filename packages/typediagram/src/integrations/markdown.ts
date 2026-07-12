@@ -3,7 +3,7 @@ import { type Result, ok } from "../result.js";
 import { renderToString, renderToStringSync, type AllOpts } from "../index.js";
 
 // [MD-FENCE-REGEX] Matches ```typediagram or ```typeDiagram fences (case-insensitive).
-const FENCE_RE = /^(```+)\s*typeDiagram\s*\n([\s\S]*?)\n\1\s*$/gim;
+const FENCE_RE = /^(```+)[ \t]*typeDiagram[ \t\r]*\n([\s\S]*?)\n\1[ \t\r]*$/gim;
 
 interface Fence {
   start: number;
@@ -44,6 +44,15 @@ function splice(md: string, fences: Fence[], replacements: string[]): string {
   return out;
 }
 
+const collectRenderResult = (
+  result: Result<string, Diagnostic[]>,
+  diagnostics: Diagnostic[],
+  replacements: string[]
+) =>
+  result.ok
+    ? replacements.push(result.value)
+    : (diagnostics.push(...result.error), replacements.push(formatErrorComment(result.error)));
+
 /**
  * Replace every ```typeDiagram fenced block with the rendered SVG inline.
  * Other fences pass through untouched. If a fence fails to render, its diagnostics
@@ -58,13 +67,7 @@ export async function renderMarkdown(md: string, opts: AllOpts = {}): Promise<Re
   const allDiagnostics: Diagnostic[] = [];
   const replacements: string[] = [];
   for (const f of fences) {
-    const r = await renderToString(f.src, opts);
-    if (r.ok) {
-      replacements.push(r.value);
-    } else {
-      allDiagnostics.push(...r.error);
-      replacements.push(formatErrorComment(r.error));
-    }
+    collectRenderResult(await renderToString(f.src, opts), allDiagnostics, replacements);
   }
   const out = splice(md, fences, replacements);
   return allDiagnostics.length === 0 ? ok(out) : { ok: false, error: allDiagnostics };
@@ -82,13 +85,7 @@ export function renderMarkdownSync(md: string, opts: AllOpts = {}): Result<strin
   const allDiagnostics: Diagnostic[] = [];
   const replacements: string[] = [];
   for (const f of fences) {
-    const r = renderToStringSync(f.src, opts);
-    if (r.ok) {
-      replacements.push(r.value);
-    } else {
-      allDiagnostics.push(...r.error);
-      replacements.push(formatErrorComment(r.error));
-    }
+    collectRenderResult(renderToStringSync(f.src, opts), allDiagnostics, replacements);
   }
   const out = splice(md, fences, replacements);
   return allDiagnostics.length === 0 ? ok(out) : { ok: false, error: allDiagnostics };

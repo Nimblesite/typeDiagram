@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf ~/.vscode/extensions/nimblesite.typediagram-0.1.0 ~/.vscode/extensions/nimblesite.typediagram-0.3.0)",
+      "Read(//Users/christianfindlay/.vscode/extensions/**)"
+    ]
+  },
+  "autoMemoryEnabled": false
+}
