@@ -3,19 +3,37 @@
 //! This support module is reused by the deterministic size gate, the ad hoc
 //! benchmark example, and the Criterion benchmark target.
 
-/// The codegen-emitted TDBIN ADT types and their `impl Struct` codec, shared
-/// with the round-trip tests.
-#[path = "../generated/mod.rs"]
-pub mod generated;
+/// The codegen-emitted columnar (layout 2) corpus ADT types and codecs,
+/// generated from `docs/benchmarks/tdbin-corpus.td`.
+#[path = "../generated_corpus/mod.rs"]
+pub mod generated_corpus;
+
+/// The codegen-emitted columnar (layout 2) Person/PersonBatch/ContactBatch
+/// ADT types and codecs.
+#[path = "../generated_batches/mod.rs"]
+pub mod generated_batches;
+
+/// Record-heavy and union-heavy batch fixtures used by the benchmark suite.
+#[path = "batch_corpus.rs"]
+pub mod batches;
+
+/// Diagram-document fixture matching the committed benchmark schemas.
+#[path = "document_corpus.rs"]
+pub mod documents;
+
+/// Event-stream fixture matching the committed benchmark schemas.
+#[path = "event_corpus.rs"]
+pub mod events;
 
 /// The benchmark corpus: shared scalar constants, a hand-written Protobuf
 /// mirror of the TDBIN `Person` ADT (the competitor baseline), and paired
 /// fixtures that build the SAME two values for both codecs so every size and
 /// speed comparison is strictly 1:1.
 pub mod corpus {
-    use tdbin::{DecodeError, EncodeError, Reader, Struct, Writer};
+    /// Columnar corpus metric types re-exported for the gate and benches.
+    pub use super::generated_corpus::{BenchMetricBatch, BenchMetricColumn};
 
-    use super::generated::{Address, Contact, EmailContact, Person, PhoneContact};
+    use super::generated_batches::{Address, Contact, EmailContact, Person, PhoneContact};
 
     /// `name` of the first fixture (the `Some`/`Email` case).
     const NAME_1: &str = "Ada Lovelace";
@@ -167,144 +185,6 @@ pub mod corpus {
             #[prost(double, repeated, packed = "true", tag = "2")]
             pub values: Vec<f64>,
         }
-    }
-
-    /// TDBIN metric batch matching `docs/benchmarks/tdbin-corpus.td`.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct BenchMetricBatch {
-        /// Batch identifier.
-        pub batch_id: String,
-        /// Start time as epoch milliseconds.
-        pub started_at_epoch_ms: i64,
-        /// Large sample identifiers.
-        pub sample_ids: Vec<i64>,
-        /// Per-sample validity flags.
-        pub valid: Vec<bool>,
-        /// Per-sample latency values.
-        pub latency_ms: Vec<f64>,
-        /// Binary payload samples.
-        pub payloads: Vec<Vec<u8>>,
-        /// Additional metric columns.
-        pub columns: Vec<BenchMetricColumn>,
-    }
-
-    /// TDBIN metric column matching `BenchMetricColumn`.
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct BenchMetricColumn {
-        /// Column name.
-        pub name: String,
-        /// Column values.
-        pub values: Vec<f64>,
-    }
-
-    impl Struct for BenchMetricBatch {
-        const DATA_WORDS: u16 = 1;
-        const PTR_WORDS: u16 = 6;
-
-        fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-            let sample_ids = i64_words(&self.sample_ids);
-            let latency_ms = f64_words(&self.latency_ms);
-            w.string(at, Self::DATA_WORDS, 0, Some(&self.batch_id))?;
-            w.scalar(at, 0, tdbin::scalar::i64_bits(self.started_at_epoch_ms))?;
-            w.word_list(at, Self::DATA_WORDS, 1, Some(&sample_ids))?;
-            w.bool_list(at, Self::DATA_WORDS, 2, Some(&self.valid))?;
-            w.word_list(at, Self::DATA_WORDS, 3, Some(&latency_ms))?;
-            w.bytes_list(at, Self::DATA_WORDS, 4, Some(&self.payloads))?;
-            w.child_list(at, Self::DATA_WORDS, 5, Some(&self.columns))
-        }
-
-        fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-            let batch_id = required_string(r, at, Self::DATA_WORDS, 0)?;
-            let started_at_epoch_ms = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-            let sample_ids = read_i64_list(r, at, Self::DATA_WORDS, 1)?;
-            let valid = r.bool_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
-            let latency_ms = read_f64_list(r, at, Self::DATA_WORDS, 3)?;
-            let payloads = r.bytes_list(at, Self::DATA_WORDS, 4)?.unwrap_or_default();
-            let columns = r
-                .child_list::<BenchMetricColumn>(at, Self::DATA_WORDS, 5)?
-                .unwrap_or_default();
-            Ok(Self {
-                batch_id,
-                started_at_epoch_ms,
-                sample_ids,
-                valid,
-                latency_ms,
-                payloads,
-                columns,
-            })
-        }
-    }
-
-    impl Struct for BenchMetricColumn {
-        const DATA_WORDS: u16 = 0;
-        const PTR_WORDS: u16 = 2;
-
-        fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError> {
-            let values = f64_words(&self.values);
-            w.string(at, Self::DATA_WORDS, 0, Some(&self.name))?;
-            w.word_list(at, Self::DATA_WORDS, 1, Some(&values))
-        }
-
-        fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError> {
-            let name = required_string(r, at, Self::DATA_WORDS, 0)?;
-            let values = read_f64_list(r, at, Self::DATA_WORDS, 1)?;
-            Ok(Self { name, values })
-        }
-    }
-
-    /// Return a required string field or a typed null error.
-    fn required_string(
-        r: &Reader<'_>,
-        at: usize,
-        data_words: u16,
-        slot: u16,
-    ) -> Result<String, DecodeError> {
-        r.string(at, data_words, slot)?
-            .ok_or(DecodeError::UnexpectedNull)
-    }
-
-    /// Convert i64 values to raw wire words.
-    fn i64_words(values: &[i64]) -> Vec<u64> {
-        values
-            .iter()
-            .map(|value| tdbin::scalar::i64_bits(*value))
-            .collect()
-    }
-
-    /// Convert f64 values to raw wire words.
-    fn f64_words(values: &[f64]) -> Vec<u64> {
-        values
-            .iter()
-            .map(|value| tdbin::scalar::f64_bits(*value))
-            .collect()
-    }
-
-    /// Read a raw-word list as i64 values.
-    fn read_i64_list(
-        r: &Reader<'_>,
-        at: usize,
-        data_words: u16,
-        slot: u16,
-    ) -> Result<Vec<i64>, DecodeError> {
-        Ok(r.word_list(at, data_words, slot)?
-            .unwrap_or_default()
-            .into_iter()
-            .map(tdbin::scalar::i64_from)
-            .collect())
-    }
-
-    /// Read a raw-word list as f64 values.
-    fn read_f64_list(
-        r: &Reader<'_>,
-        at: usize,
-        data_words: u16,
-        slot: u16,
-    ) -> Result<Vec<f64>, DecodeError> {
-        Ok(r.word_list(at, data_words, slot)?
-            .unwrap_or_default()
-            .into_iter()
-            .map(tdbin::scalar::f64_from)
-            .collect())
     }
 
     /// Build the first TDBIN fixture (`Some` address, `Some` nickname, `Email`).

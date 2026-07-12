@@ -1,6 +1,6 @@
 # TDBIN Rust Codec Specification
 
-> **Status:** DRAFT v1. Companion to [tdbin-wire-format.md](tdbin-wire-format.md) — that spec defines the bytes; this one defines the first implementation: the `tdbin` crate in the Rust workspace.
+> **Status:** PARTIAL DRAFT v1. The direct typed runtime, framing, packing, structural verification, generated Rust codecs, and benchmark harness exist; the conformance and performance blockers are tracked in the [implementation audit](../reports/tdbin-implementation-audit.md) and [handoff plan](../plans/tdbin-implementation-plan.md#next-agent-handoff). Companion to [tdbin-wire-format.md](tdbin-wire-format.md), which remains authoritative for bytes.
 > Implementation plan: [docs/plans/tdbin-implementation-plan.md](../plans/tdbin-implementation-plan.md).
 
 Every public behavior lives under a `[TDBIN-RS-*]` / `[TDBIN-TEST-*]` / `[TDBIN-BENCH-*]` ID; code and tests MUST reference the IDs in comments/test names so `grep '\[TDBIN-'` traces spec → code → tests.
@@ -10,23 +10,24 @@ Every public behavior lives under a `[TDBIN-RS-*]` / `[TDBIN-TEST-*]` / `[TDBIN-
 ## [TDBIN-RS-CRATE] Crate
 
 - Path `crates/tdbin`, library name `tdbin`. Inherits workspace lints (`[lints] workspace = true`) — all lints deny, per root `Cargo.toml` (REPO-STANDARDS-SPEC `[LINT-RUST]`).
-- Dependencies (v0): **none** — zero external deps so the crate builds offline. Errors are hand-written enums (the `thiserror` derive lands with the logging pass), and `tracing`/`criterion`/`prost` arrive with `[TDBIN-RS-LOG]` / `[TDBIN-BENCH-GATE]` respectively.
+- Runtime dependencies: **none** — the shipped crate builds offline and uses hand-written error enums. `criterion` and `prost` are dev dependencies used only by `[TDBIN-BENCH-GATE]`. The crate deliberately has no logging facility (see the `[TDBIN-RS-LOG]` resolution below).
 - No `unsafe`. No panics reachable from any public function on any input — `unwrap`/`expect`/`panic!`/indexing are workspace-denied; all offset arithmetic is `checked_*` and failures surface as errors (`[TDBIN-RS-NOPANIC]`).
 
-## [TDBIN-RS-API] Public API — direct typed path (CORE, implemented in v0)
+## [TDBIN-RS-API] Public API — direct typed path (CORE, implemented)
 
 **This is the core serialization path and what the `tdbin` crate ships today.** typeDiagram
 codegen emits, per record and union, an `impl tdbin::Struct` whose layout — data (scalar)
 section, pointer section, slot indices, union discriminant — is **baked in at generation time**.
 A blanket `TdBin` gives every such type `to_bytes`/`from_bytes`: a typed value encodes straight
 to bytes and decodes straight back into the typed object, with **no runtime `Schema` and no
-intermediate dynamic `Value`**. Eliminating that reflective hop is what lets it beat a
-schema-driven codec on speed.
+intermediate dynamic `Value`**. Eliminating that reflective hop is intended to reduce overhead;
+only `[TDBIN-BENCH-GATE]` determines whether it beats the comparison codec.
 
 ```rust
 pub trait Struct: Sized {
-    const DATA_WORDS: u16;   // fixed scalar-section width   [TDBIN-REC-ALLOC]
-    const PTR_WORDS:  u16;   // fixed pointer-section width   [TDBIN-REC-SECTIONS]
+    const DATA_WORDS: u16;        // fixed scalar-section width    [TDBIN-REC-ALLOC]
+    const PTR_WORDS:  u16;        // fixed pointer-section width   [TDBIN-REC-SECTIONS]
+    const LAYOUT_HASH: u64 = 0;   // compatibility-major hash      [TDBIN-SCHEMA-HASH]
     fn write_struct(&self, w: &mut Writer, at: usize) -> Result<(), EncodeError>;
     fn read_struct(r: &Reader<'_>, at: usize) -> Result<Self, DecodeError>;
 }
@@ -34,16 +35,40 @@ pub trait Struct: Sized {
 pub trait TdBin: Struct {                                    // blanket impl for every Struct
     fn to_bytes(&self) -> Result<Vec<u8>, EncodeError>;      // Writer::message  [TDBIN-ENC-CANON]
     fn from_bytes(wire: &[u8]) -> Result<Self, DecodeError>; // Reader::message  [TDBIN-SAFE]
+    fn to_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError>;
+    fn to_packed_framed_bytes(&self, schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError>;
+    fn to_framed_bytes_checked(&self) -> Result<Vec<u8>, EncodeError>;        // embeds LAYOUT_HASH
+    fn to_packed_framed_bytes_checked(&self) -> Result<Vec<u8>, EncodeError>; // embeds LAYOUT_HASH
+    fn from_framed_bytes(wire: &[u8]) -> Result<Self, DecodeError>;
+    fn from_framed_bytes_with_hash(wire: &[u8], expected: u64) -> Result<Self, DecodeError>;
 }
 ```
 
 - `Writer` and `Reader<'a>` are the public building blocks the generated impls call: `scalar` /
-  `string` / `bytes` / `child` slot accessors over a word arena, checked offsets, single-pass
-  bounds-checked reads.
+  `string` / `bytes` / `child` slot accessors over a byte arena and checked offsets, plus the
+  columnar column writers/readers and the `ColumnGroup` trait specified by
+  [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`).
+- **Decode is one fused verifying pass** ([TDBIN-SAFE]): every pointer the typed reader follows is
+  bounds-checked, depth-capped, and charged to the amplification budget as it is traversed, and
+  the pointer slots the schema does not visit — extension slots from newer writers
+  ([TDBIN-REC-SHORT]) and every slot of a union struct whose discriminant is unknown
+  ([TDBIN-UNION-UNKNOWN], via `Reader::verify_struct_slots` emitted in generated fallback arms) —
+  are walked by the schema-independent structural verifier before decode returns. A successful
+  decode therefore still proves every reachable pointer slot structurally sound, without a
+  separate whole-message pre-pass.
+- **The layout-hash guard is automatic** ([TDBIN-SCHEMA-HASH]): generated codecs pin
+  `LAYOUT_HASH`, `from_framed_bytes` rejects any frame whose advertised hash contradicts the
+  pinned hash (`HashMismatch`), and `to_framed_bytes_checked`/`to_packed_framed_bytes_checked`
+  embed it. `from_framed_bytes_with_hash` additionally REQUIRES the frame to carry the caller's
+  expected hash. Hand-written tooling types leave `LAYOUT_HASH` at `0` (unpinned: hashless and
+  advertised-hash frames both accepted).
 - `from_bytes` is **safe on arbitrary untrusted bytes** (`[TDBIN-SAFE]`): every read is
   bounds-checked, with a depth cap of 64 (`[TDBIN-SAFE-DEPTH]`), an amplification budget
   (`[TDBIN-SAFE-AMPLIFY]`), and UTF-8 validation (`[TDBIN-SAFE-UTF8]`). No panics on any input
   (`[TDBIN-RS-NOPANIC]`).
+- `from_framed_bytes_with_hash` requires the frame to carry the caller's expected
+  compatibility-major layout hash and returns `HashMismatch` for a missing or different hash.
+  Plain `from_framed_bytes` validates frame structure but does not assert schema identity.
 - `to_bytes` is deterministic/canonical (`[TDBIN-ENC-CANON]`): the same value always yields the
   same bytes, and `bytes → object → bytes` is byte-identical.
 - **The ADT types _and_ their codec are produced by typeDiagram codegen — never hand-written.**
@@ -51,78 +76,92 @@ pub trait TdBin: Struct {                                    // blanket impl for
   (`generateRustModule`) emits the `impl tdbin::Struct`. `crates/tdbin/tests/generated/mod.rs` is
   a checked-in example of that output, round-tripped by `tests/roundtrip.rs` under `cargo test`.
 
-v0 wire subset is bare framing, unpacked: one word per scalar (bool/int/float), String / Bytes /
-nested record / union via pointers, `Option<pointer-type>` = null-for-None, union = discriminant
-word + payload child pointer. `EncodeOptions { packed, framing }`, semantic scalars, and lists are
-Phase 2+ (`[TDBIN-MSG-FRAME]`, `[TDBIN-PRIM-MAP]`).
+The current runtime supports bare, framed, and packed-framed messages; direct bool bit packing;
+fixed-width and semantic scalars; pointer, raw, bit, word, and composite lists; generated records
+and struct-unions; and schema-independent structural verification. This does not imply complete
+v1 conformance: the pickup section below records the remaining deviations.
+
+## Implementation status and pickup (non-normative)
+
+Close these API/codegen gaps before treating the Rust implementation as v1 conformant:
+
+1. Required pointer readers must map null to the schema default instead of returning
+   `UnexpectedNull` (`[TDBIN-PTR-NULL]`, `[TDBIN-REC-SHORT]`). Preserve `NullRoot` for a null root
+   pointer and preserve `None` for optional pointer fields.
+2. Generated scalar options must use a first-fit one-bit presence flag followed by the scalar
+   value slot, not a word-sized presence value (`[TDBIN-PRIM-OPTION]`, `[TDBIN-REC-ALLOC]`).
+3. typeDiagram codegen must emit the frozen compatibility-major hash and generated normal framed
+   decode wrappers must call `from_framed_bytes_with_hash`; the unchecked generic API may remain
+   available for tooling (`[TDBIN-SCHEMA-HASH]`, `[TDBIN-SCHEMA-CANON]`).
+4. Composite-list helpers must represent non-empty, zero-stride element sequences without
+   confusing their zero body-word count with null (`[TDBIN-LIST-COMPOSITE]`).
+5. `[TDBIN-RS-LOG]` needs an implementation and tests, or removal from this v1 contract.
+
+Every item needs byte-exact golden coverage, generated-code compilation, evolution coverage where
+applicable, and adversarial typed-error coverage. After correctness is closed, the next Rust
+performance work is the verify-once borrowed API in
+[tdbin-future-reader.md](tdbin-future-reader.md), not further eager-materialization tuning without a
+profile.
 
 ## [TDBIN-RS-REFLECT] Optional reflective model — NOT part of serialize/deserialize
 
-> ⚠️ **Optional extra, off the hot path.** The `TypeDef` / `TypeRef` schema model and the dynamic
-> `Value` codec (`build_schema` / `encode` / `decode` / `verify`) described here are a **tooling
-> feature** — for programs that want to inspect a model's structure, or encode/decode _without_
-> generated types. They are **explicitly NOT the core serialization path** and are **not required**
-> to round-trip typeDiagram ADTs; the direct typed `Struct` / `TdBin` path above owns that, and it
-> is what makes TDBIN fast (no reflective `Value` hop). This reflective model is a later, separable
-> deliverable (plan Phase 5, `[TDBIN-FUTURE-*]`); it targets the _same_ bytes, so the two paths
-> interoperate. Nothing below is implemented in v0.
+> **Optional extra, off the hot path.** The implemented `tdbin::reflect` module is a bridge between
+> a dynamic tooling tree and an already-generated typed codec. It does not interpret schemas while
+> serializing. The direct `Struct` / `TdBin` path remains the production path.
 
-The reflective/dynamic API is plain functions returning `Result<T, E>` — no classes, no global state:
+Generated or manual types opt in through `ValueCodec`:
 
 ```rust
-pub fn build_schema(defs: &[TypeDef]) -> Result<Schema, SchemaError>;
-pub fn schema_hash(schema: &Schema) -> u64;                       // [TDBIN-SCHEMA-HASH]
-pub fn encode(schema: &Schema, root_type: &str, value: &Value, opts: &EncodeOptions) -> Result<Vec<u8>, EncodeError>;
-pub fn decode(schema: &Schema, root_type: &str, wire: &[u8], opts: &DecodeOptions) -> Result<Value, DecodeError>;
-pub fn verify(schema: &Schema, root_type: &str, wire: &[u8], opts: &DecodeOptions) -> Result<VerifyStats, DecodeError>; // [TDBIN-SAFE]
+pub trait ValueCodec: TdBin {
+    fn type_def() -> TypeDef;
+    fn to_value(&self) -> Value;
+    fn from_value(value: &Value) -> Result<Self, ReflectError>;
+}
+
+pub fn encode<T: ValueCodec>(value: &Value) -> Result<Vec<u8>, ReflectError>;
+pub fn decode<T: ValueCodec>(wire: &[u8]) -> Result<Value, ReflectError>;
+pub fn verify<T: ValueCodec>(wire: &[u8]) -> Result<(), ReflectError>;
+pub fn type_def<T: ValueCodec>() -> TypeDef;
 ```
 
-`TypeDef` mirrors the typeDiagram language reference exactly (records, unions with bare/named-field/tuple variants and optional pinned discriminants, aliases, generics), and `build_schema` validates + monomorphizes (`[TDBIN-SCHEMA-MONO]`) + expands aliases (`[TDBIN-SCHEMA-ALIAS]`) + precomputes layouts once (`[TDBIN-REC-ALLOC]`). The `.td` text → `TypeDef` parser is itself a separate deliverable (`crates/td-schema`); `tdbin` is parser-agnostic.
+`TypeDef`, `TypeRef`, and `Value` cover records, unions, aliases, primitive/semantic values,
+options, lists, named references, and generic-parameter metadata. `encode` converts `Value` to `T`
+then delegates to `T::to_bytes`; `decode` delegates to `T::from_bytes` then materializes `Value`.
+`verify` currently verifies by fully decoding `T`, so it is a tooling convenience rather than the
+future borrowed verifier API.
 
-```rust
-pub enum TypeDef {
-    Record { name: String, params: Vec<String>, fields: Vec<FieldDef> },
-    Union  { name: String, params: Vec<String>, variants: Vec<VariantDef> },
-    Alias  { name: String, params: Vec<String>, target: TypeRef },
-}
-pub struct FieldDef   { pub name: String, pub ty: TypeRef }
-pub struct VariantDef { pub name: String, pub fields: Vec<FieldDef>, pub pinned: Option<i64> }
-pub enum TypeRef {
-    Bool, Int, Float, Str, Bytes, Unit, DateTime, Uuid, Decimal,
-    Option(Box<TypeRef>), List(Box<TypeRef>),
-    Named { name: String, args: Vec<TypeRef> },
-    Param(String),
-}
-
-pub enum Value {                                  // dynamic tree — the hop the typed path avoids
-    Unit, Bool(bool), Int(i64), Float(f64),
-    Str(String), Bytes(Vec<u8>),
-    DateTime(i64), Uuid([u8; 16]), Decimal([u8; 16]),   // [TDBIN-PRIM-MAP]
-    Option(Option<Box<Value>>), List(Vec<Value>),
-    Record { fields: Vec<(String, Value)> },
-    Union  { variant: String, fields: Vec<(String, Value)> },
-}
-```
-
-- `Record.fields` may omit fields (encode as default) and may appear in any order; unknown field names are an `EncodeError`. Enum-unions are `Value::Union` with empty `fields`.
-- `decode` materializes every field the reader's schema knows, applying defaults for short structs (`[TDBIN-REC-SHORT]`); an unknown discriminant is `DecodeError::UnknownVariant` (`[TDBIN-UNION-UNKNOWN]`).
+There is no implemented runtime `build_schema`, schema interpreter, root-name dispatcher, or
+reflective layout-hash function. If those are added later, specify them as a separate tooling API
+and keep them out of the production benchmark path. Do not describe the existing bridge as a
+schema-driven codec.
 
 ## [TDBIN-RS-ERROR] Errors
 
-Four `#[non_exhaustive]` `thiserror` enums; every variant carries actionable context and no payload data:
+The implemented hand-written `#[non_exhaustive]` errors carry no payload bytes:
 
-- `SchemaError` — `DuplicateType`, `UnknownType`, `ArityMismatch`, `InfiniteInline` (recursion not through a pointer), `TooManyVariants`, `TooManyFields` (section caps, `[TDBIN-WIRE-LIMITS]`).
-- `EncodeError` — `TypeMismatch { type_name, field, expected, got }`, `UnknownField`, `UnknownRoot`, `LimitExceeded`, `InvalidDecimal`.
-- `DecodeError` — `BadMagic`, `BadVersion`, `ReservedBits`, `LengthMismatch`, `HashMismatch { expected, got }`, `PointerOutOfBounds { word_index }`, `ReservedPointerKind`, `DepthExceeded`, `AmplificationExceeded`, `MalformedCompositeTag`, `InvalidUtf8 { word_index }`, `UnknownVariant { type_name, ordinal }`, `PackedTruncated`, `LimitExceeded`.
-- Failures are values; no `Err` path may allocate unboundedly or log payload bytes.
+- `EncodeError` — `BadLength`, `LimitExceeded`, and `OffsetOutOfRange`.
+- `DecodeError` — frame/header/hash errors; packed truncation; pointer bounds, kind, and composite-tag errors; depth/amplification/UTF-8/limit errors; `UnknownVariant { ordinal }`; `UnexpectedNull`; and `NullRoot`.
+- `reflect::ReflectError` — dynamic shape/name errors plus wrapped `EncodeError` and `DecodeError`.
+
+There is no implemented `SchemaError` because there is no runtime schema builder. Generated-code
+schema failures are TypeScript `Diagnostic[]` values at generation time. Failures remain values;
+no `Err` path may allocate unboundedly or log payload bytes.
 
 ## [TDBIN-RS-NOPANIC] Totality
 
-`encode`, `decode`, `verify` are **total**: for every input — any schema accepted by `build_schema`, any `Value`, any byte slice — they return `Ok` or `Err`, never panic, never loop unboundedly (traversal budget `[TDBIN-SAFE-AMPLIFY]` bounds decode; value size bounds encode). Control flow is `match`/combinators per repo style — no bare `if` chains.
+The public typed encode/decode APIs and optional reflective bridge are **total**: every typed value
+or input byte slice returns `Ok` or `Err`, never panics, and never loops unboundedly. The traversal
+budget (`[TDBIN-SAFE-AMPLIFY]`) bounds decode and checked wire limits bound encode. There is no
+`build_schema` precondition because no runtime schema builder exists.
 
-## [TDBIN-RS-LOG] Logging
+## [TDBIN-RS-LOG] Logging — REMOVED from the v1 contract
 
-`tracing` spans at `debug` on `encode`/`decode`/`verify` entry/exit with structured fields only — `{ root_type, wire_bytes, words_traversed, packed }`. Never payload contents, never string values (PII rule). Errors log at `warn` with the error variant name and offsets.
+**Resolution (2026-07-11): removed.** `[TDBIN-RS-CRATE]` mandates a zero-dependency runtime, which
+conflicts with a structured-logging dependency; the codec is also a pure, total library whose
+callers own observability. v1 ships no logging facility and therefore cannot leak payload bytes
+through one. If a future major adds instrumentation it must be specified then (a `tracing`
+feature-gated span layer that logs structured metadata only, never payload contents), with tests
+proving sensitive values are absent.
 
 ---
 
@@ -132,7 +171,11 @@ Tests are black-box over the public API, deterministic, assertion-dense, and mer
 
 ### [TDBIN-TEST-ROUNDTRIP]
 
-One comprehensive round-trip test per schema corpus entry: build a **complex** schema (nested records, a recursive tree, every primitive, unions with bare + named + tuple + pinned variants, the full `Option` matrix, `List<List<T>>`, generics `Pair<Int,String>`/`Result<T,E>`, unicode strings, empty lists/strings) → `encode` (bare, framed, packed × unpacked) → `verify` → `decode` → deep-equality with the input, PLUS in the same test: exact expected byte lengths, packed ≤ unpacked, defaults round-trip as `None`/zero, field-order-independence of `Record.fields`, and re-encode determinism (`[TDBIN-ENC-CANON]`).
+One comprehensive generated-code round-trip test per schema corpus entry covers nested records,
+recursive values, every primitive, bare and payload unions, the full `Option` matrix, nested lists,
+generics, Unicode strings, and empty values. Exercise bare, framed, and packed-framed production
+APIs; decode must deep-equal the input and byte-identically re-encode (`[TDBIN-ENC-CANON]`). The
+same suite pins exact sizes, defaults, short/long struct behavior, and checked hash handling.
 
 ### [TDBIN-TEST-GOLDEN]
 
@@ -148,7 +191,9 @@ Evolution suite: encode with schema v1, decode with v1+appended-field / appended
 
 ### [TDBIN-TEST-FUZZ]
 
-`cargo-fuzz` target: `decode(arbitrary bytes)` on a fixed corpus schema — no panics, no timeouts, no OOM (bounded by `DecodeOptions`). Run in CI on a time budget.
+`cargo-fuzz` target: decode arbitrary bytes through bare, framed, and packed entry points for a
+fixed generated type — no panics, timeouts, or OOM. Fixed depth, amplification, and unpack limits
+bound the current implementation. Run it in CI on a time budget.
 
 ---
 
@@ -160,8 +205,17 @@ A fixed benchmark corpus of ≥ 3 realistic payload shapes defined in **both** t
 
 ### [TDBIN-BENCH-GATE]
 
-Criterion benches comparing `tdbin` against `prost` on the corpus. The gate (CI-checked, not vibes):
+Criterion benches compare production `tdbin` APIs against `prost` on the corpus:
 
-- **Size:** TDBIN packed framed bytes ≤ Protobuf encoded bytes on every corpus entry.
-- **Speed:** TDBIN `encode` and `decode` each ≥ 1.5× the throughput of prost's on every corpus entry (target headroom; the roadmap zero-copy reader raises this to order-of-magnitude on reads, research §2).
-- Regressions against the recorded baseline fail the build. Numbers are recorded in the bench report committed with the change.
+- For every corpus entry, at least ONE self-describing production wire mode — framed, or packed
+  framed ([TDBIN-MSG-FRAME]; the frame's `PACKED` flag makes the two interchangeable to every
+  decoder, so the mode is a per-schema deployment choice, like a compression knob) — MUST be
+  **simultaneously** smaller than the Protobuf encoding AND ≥ 1.5× prost's throughput on both
+  `encode` and `decode` (target headroom; the roadmap zero-copy reader raises reads further,
+  research §2).
+- The generated report names each entry's qualifying mode and always publishes BOTH modes'
+  sizes and timings, so the tradeoff is never hidden.
+- Regressions against the recorded baseline fail the build. `make bench` generates the committed
+  [benchmark report](../reports/tdbin-bench-report.md) from
+  [raw data](../reports/tdbin-bench-data.json); those artifacts are the sole numeric authority —
+  never hand-copy benchmark values into plans or specs.

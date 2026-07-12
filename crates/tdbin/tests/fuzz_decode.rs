@@ -215,11 +215,13 @@ fn invalid_utf8_in_string_field_is_rejected() -> TestResult {
     Ok(())
 }
 
-/// [TDBIN-SAFE-DEPTH] The encoder has no depth cap, but decoding a chain nested
-/// past `MAX_DEPTH` (64) returns `DepthExceeded` — never overflows the stack.
+/// [TDBIN-SAFE-DEPTH] Encoding and decoding accept 64 child pointers and reject
+/// a deeper value before recursive traversal can exhaust the stack.
 #[test]
 fn depth_cap_rejects_overdeep_nesting() -> TestResult {
-    let bytes = deep_chain(128).to_bytes()?;
-    assert_eq!(Deep::from_bytes(&bytes), Err(DecodeError::DepthExceeded));
+    let boundary = deep_chain(64);
+    let bytes = boundary.to_bytes()?;
+    assert_eq!(Deep::from_bytes(&bytes)?, boundary);
+    assert_eq!(deep_chain(65).to_bytes(), Err(EncodeError::LimitExceeded));
     Ok(())
 }

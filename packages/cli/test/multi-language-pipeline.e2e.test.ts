@@ -4,20 +4,8 @@
 import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Writable } from "node:stream";
 import { describe, expect, it } from "vitest";
-import { main } from "../src/cli.js";
-
-const makeStream = () => {
-  const chunks: string[] = [];
-  const stream = new Writable({
-    write(chunk, _enc, cb) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk));
-      cb();
-    },
-  });
-  return { stream, text: () => chunks.join("") };
-};
+import { run as runCli } from "./helpers.js";
 
 const SCHEMA = `typeDiagram
 
@@ -32,13 +20,6 @@ type Order {
   total: Float
 }
 `;
-
-const runCli = async (argv: ReadonlyArray<string>): Promise<{ code: number; stdout: string; stderr: string }> => {
-  const out = makeStream();
-  const err = makeStream();
-  const code = await main([...argv], out.stream, err.stream);
-  return { code, stdout: out.text(), stderr: err.text() };
-};
 
 describe("[CLI-PIPELINE-DOCS] multi-language pipeline doc examples", () => {
   it("generates TypeScript + Rust + SVG from the same schema in a repo-style layout", async () => {

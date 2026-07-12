@@ -1,7 +1,7 @@
 //! [TDBIN-MSG-FRAME] black-box tests for the public frame envelope API.
 
 use tdbin::frame::{self, Options};
-use tdbin::{DecodeError, TdBin};
+use tdbin::{DecodeError, Struct, TdBin};
 
 /// The codegen-emitted ADT types and their TDBIN codec, under test.
 mod generated;
@@ -76,7 +76,9 @@ fn tdbin_msg_frame_round_trips_packed_hash_metadata() -> TestResult {
     Ok(())
 }
 
-/// [TDBIN-MSG-FRAME] Generated ADTs can use the framed `TdBin` helpers.
+/// [TDBIN-MSG-FRAME] Generated ADTs can use the framed `TdBin` helpers; the
+/// advertised hash must be the type's pinned `LAYOUT_HASH`, or typed decode
+/// rejects it as contradictory ([TDBIN-SCHEMA-HASH]).
 #[test]
 fn tdbin_msg_frame_round_trips_generated_typed_value() -> TestResult {
     for person in [
@@ -88,11 +90,11 @@ fn tdbin_msg_frame_round_trips_generated_typed_value() -> TestResult {
             country: 61,
         })),
     ] {
-        let framed = person.to_framed_bytes(Some(0x1122_3344_5566_7788))?;
+        let framed = person.to_framed_bytes(Some(Person::LAYOUT_HASH))?;
         let decoded_frame = frame::decode(&framed)?;
         assert_eq!(
             decoded_frame.schema_hash(),
-            Some(0x1122_3344_5566_7788),
+            Some(Person::LAYOUT_HASH),
             "framed typed encode must preserve schema hash"
         );
         assert!(!decoded_frame.is_packed(), "typed framing is unpacked");
@@ -102,6 +104,44 @@ fn tdbin_msg_frame_round_trips_generated_typed_value() -> TestResult {
             "framed typed value must round-trip"
         );
     }
+    Ok(())
+}
+
+/// [TDBIN-SCHEMA-HASH] Checked framing embeds the generated `LAYOUT_HASH`
+/// automatically; plain typed decode accepts it, and a frame advertising a
+/// contradicting hash is rejected without an explicit expectation.
+#[test]
+fn tdbin_schema_hash_checked_framing_round_trips_and_rejects_contradiction() -> TestResult {
+    let person = person_for_frame(Contact::Email(EmailContact {
+        addr: "pinned@example.com".to_owned(),
+    }));
+    assert_ne!(Person::LAYOUT_HASH, 0, "generated types must pin a hash");
+    let framed = person.to_framed_bytes_checked()?;
+    assert_eq!(
+        frame::decode(&framed)?.schema_hash(),
+        Some(Person::LAYOUT_HASH),
+        "checked framing must advertise the pinned hash"
+    );
+    assert_eq!(
+        Person::from_framed_bytes(&framed)?,
+        person,
+        "checked frame must decode without a caller-supplied hash"
+    );
+    let packed = person.to_packed_framed_bytes_checked()?;
+    assert_eq!(
+        Person::from_framed_bytes(&packed)?,
+        person,
+        "checked packed frame must decode"
+    );
+    let contradicted = person.to_framed_bytes(Some(0xBAD))?;
+    assert_eq!(
+        Person::from_framed_bytes(&contradicted),
+        Err(DecodeError::HashMismatch {
+            expected: Person::LAYOUT_HASH,
+            got: Some(0xBAD),
+        }),
+        "a contradicting advertised hash must be rejected automatically"
+    );
     Ok(())
 }
 
@@ -119,6 +159,27 @@ fn tdbin_msg_frame_typed_decode_accepts_packed_body() -> TestResult {
         Person::from_framed_bytes(&framed),
         Ok(person),
         "typed decode must unpack packed frame bodies"
+    );
+    Ok(())
+}
+
+/// [TDBIN-SCHEMA-HASH] Typed framed decode can require the negotiated hash.
+#[test]
+fn tdbin_msg_frame_typed_decode_enforces_expected_hash() -> TestResult {
+    let person = person_for_frame(Contact::Email(EmailContact {
+        addr: "hash@example.com".to_owned(),
+    }));
+    let framed = person.to_packed_framed_bytes(Some(Person::LAYOUT_HASH))?;
+    assert_eq!(
+        Person::from_framed_bytes_with_hash(&framed, 0xCCDD),
+        Err(DecodeError::HashMismatch {
+            expected: 0xCCDD,
+            got: Some(Person::LAYOUT_HASH),
+        })
+    );
+    assert_eq!(
+        Person::from_framed_bytes_with_hash(&framed, Person::LAYOUT_HASH)?,
+        person
     );
     Ok(())
 }

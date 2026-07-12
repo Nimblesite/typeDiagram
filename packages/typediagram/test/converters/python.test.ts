@@ -1,9 +1,15 @@
 // [CONV-PY-TEST] Python converter integration tests.
 import { describe, expect, it } from "vitest";
 import { python } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  expectFieldTypes,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-PY-FROM-COMPLEX] complex Python -> typeDiagram", () => {
   it("parses a messy real-world file with dataclasses, enums, TypedDicts, and noise", () => {
@@ -97,71 +103,58 @@ class HttpStatus(Enum):
 # Trailing noise
 CONSTANT = 42
 `;
-    const model = unwrap(python.fromSource(src));
+    const model = modelFromSource(python, src);
 
     // Should NOT have parsed plain classes
-    expect(model.decls.find((d) => d.name === "DatabaseConnection")).toBeUndefined();
-    expect(model.decls.find((d) => d.name === "Logger")).toBeUndefined();
+    expect(findDecl(model, "DatabaseConnection")).toBeUndefined();
+    expect(findDecl(model, "Logger")).toBeUndefined();
 
     // ChatRequest — record with 8 fields, type mappings
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(8);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "session_id")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("Option");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.args[1]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tags")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tags")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "active")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "score")?.type.name).toBe("Float");
-    expect(chatFields.find((f) => f.name === "raw")?.type.name).toBe("Bytes");
+    expectFieldTypes(chatFields, {
+      message: "String",
+      session_id: "String",
+      tool_results: "Option<List<ToolResult>>",
+      metadata: "Map<String, String>",
+      tags: "List<String>",
+      active: "Bool",
+      score: "Float",
+      raw: "Bytes",
+    });
 
     // ToolResult — record, defaults/comments stripped
-    const tool = model.decls.find((d) => d.name === "ToolResult");
-    expect(tool?.kind).toBe("record");
-    const toolFields = tool?.kind === "record" ? tool.fields : [];
+    expect(findDecl(model, "ToolResult")?.kind).toBe("record");
+    const toolFields = recordFields(model, "ToolResult");
     expect(toolFields).toHaveLength(4);
     expect(toolFields.find((f) => f.name === "ok")?.type.name).toBe("Bool");
 
     // Direction — union from str Enum
-    const dir = model.decls.find((d) => d.name === "Direction");
-    expect(dir?.kind).toBe("union");
-    const dirVariants = dir?.kind === "union" ? dir.variants : [];
+    expect(findDecl(model, "Direction")?.kind).toBe("union");
+    const dirVariants = unionVariants(model, "Direction");
     expect(dirVariants).toHaveLength(4);
     expect(dirVariants[0]?.name).toBe("NORTH");
     expect(dirVariants[3]?.name).toBe("WEST");
 
     // Config — TypedDict parsed as record
-    const cfg = model.decls.find((d) => d.name === "Config");
-    expect(cfg?.kind).toBe("record");
-    const cfgFields = cfg?.kind === "record" ? cfg.fields : [];
-    expect(cfgFields).toHaveLength(3);
-    expect(cfgFields.find((f) => f.name === "host")?.type.name).toBe("String");
-    expect(cfgFields.find((f) => f.name === "port")?.type.name).toBe("Int");
-    expect(cfgFields.find((f) => f.name === "debug")?.type.name).toBe("Bool");
+    expect(findDecl(model, "Config")?.kind).toBe("record");
+    const cfgFields = recordFields(model, "Config");
+    expectFieldTypes(cfgFields, { host: "String", port: "Int", debug: "Bool" });
 
     // GenericContainer — capital List, Dict, Set, Tuple
-    const gc = model.decls.find((d) => d.name === "GenericContainer");
-    expect(gc?.kind).toBe("record");
-    const gcFields = gc?.kind === "record" ? gc.fields : [];
-    expect(gcFields.find((f) => f.name === "items")?.type.name).toBe("List");
-    expect(gcFields.find((f) => f.name === "items")?.type.args[0]?.name).toBe("String");
-    expect(gcFields.find((f) => f.name === "lookup")?.type.name).toBe("Map");
-    expect(gcFields.find((f) => f.name === "lookup")?.type.args[0]?.name).toBe("String");
-    expect(gcFields.find((f) => f.name === "lookup")?.type.args[1]?.name).toBe("Int");
-    expect(gcFields.find((f) => f.name === "unique")?.type.name).toBe("List");
-    expect(gcFields.find((f) => f.name === "pair")?.type.name).toBe("List");
+    expect(findDecl(model, "GenericContainer")?.kind).toBe("record");
+    const gcFields = recordFields(model, "GenericContainer");
+    expectFieldTypes(gcFields, {
+      items: "List<String>",
+      lookup: "Map<String, Int>",
+      unique: "List<String>",
+      pair: "List<Int, String>",
+    });
 
     // HttpStatus — Enum without str mixin
-    const hs = model.decls.find((d) => d.name === "HttpStatus");
-    expect(hs?.kind).toBe("union");
-    expect(hs?.kind === "union" ? hs.variants.length : 0).toBe(3);
+    expect(findDecl(model, "HttpStatus")?.kind).toBe("union");
+    expect(unionVariants(model, "HttpStatus")).toHaveLength(3);
   });
 
   it("returns error on input with only plain classes and functions", () => {
@@ -209,8 +202,7 @@ union Color { Red\n Green\n Blue }
 
 alias Email = String
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = python.toSource(model);
+    const output = toSourceFromTd(python, td);
 
     // Imports
     expect(output).toContain("from __future__ import annotations");
@@ -272,27 +264,24 @@ type Order {
 
 union Color { Red\n Green\n Blue }
 `;
-    const model1 = unwrap(buildModel(unwrap(parse(td))));
-    const pyCode = python.toSource(model1);
-    const model2 = unwrap(python.fromSource(pyCode));
+    const pyCode = toSourceFromTd(python, td);
+    const model2 = modelFromSource(python, pyCode);
 
     // 3 decls survived the trip
     expect(model2.decls).toHaveLength(3);
 
-    const user = model2.decls.find((d) => d.name === "User");
-    expect(user?.kind).toBe("record");
-    expect(user?.kind === "record" ? user.fields.length : 0).toBe(3);
-    expect(user?.kind === "record" ? user.fields[0]?.type.name : "").toBe("String");
-    expect(user?.kind === "record" ? user.fields[1]?.type.name : "").toBe("Int");
-    expect(user?.kind === "record" ? user.fields[2]?.type.name : "").toBe("Bool");
+    expect(findDecl(model2, "User")?.kind).toBe("record");
+    const userFields = recordFields(model2, "User");
+    expect(userFields).toHaveLength(3);
+    expect(userFields[0]?.type.name).toBe("String");
+    expect(userFields[1]?.type.name).toBe("Int");
+    expect(userFields[2]?.type.name).toBe("Bool");
 
-    const order = model2.decls.find((d) => d.name === "Order");
-    expect(order?.kind).toBe("record");
-    expect(order?.kind === "record" ? order.fields.length : 0).toBe(2);
+    expect(findDecl(model2, "Order")?.kind).toBe("record");
+    expect(recordFields(model2, "Order")).toHaveLength(2);
 
-    const color = model2.decls.find((d) => d.name === "Color");
-    expect(color?.kind).toBe("union");
-    expect(color?.kind === "union" ? color.variants.length : 0).toBe(3);
+    expect(findDecl(model2, "Color")?.kind).toBe("union");
+    expect(unionVariants(model2, "Color")).toHaveLength(3);
   });
 });
 
@@ -306,8 +295,7 @@ type ChatRequest {
   metadata: Map<String, Int>
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = python.toSource(model, { style: "pydantic" });
+    const out = toSourceFromTd(python, td, { style: "pydantic" });
 
     expect(out).toContain("from pydantic import BaseModel");
     expect(out).toContain("from pydantic import Field");
@@ -329,8 +317,7 @@ type ToolCallOut {
   arguments: Json
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = python.toSource(model);
+    const out = toSourceFromTd(python, td);
 
     expect(out).toContain("Any");
     expect(out).toMatch(/from typing import[^\n]*\bAny\b/);
@@ -342,8 +329,7 @@ type Simple {
   name: String
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = python.toSource(model);
+    const out = toSourceFromTd(python, td);
     expect(out).not.toMatch(/from typing import[^\n]*\bAny\b/);
   });
 });
@@ -357,8 +343,7 @@ union ContentItem {
   Str   { value: String }
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = python.toSource(model);
+    const out = toSourceFromTd(python, td);
 
     expect(out).toContain("class ContentItemText:");
     expect(out).toContain("class ContentItemUrl:");
@@ -379,8 +364,7 @@ type ChatRequest {
   tool_results: Option<List<String>>
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = python.toSource(model);
+    const out = toSourceFromTd(python, td);
 
     expect(out).toContain("message: Optional[str] = None");
     expect(out).toContain("session_id: Optional[str] = None");
@@ -394,8 +378,7 @@ type Req {
   meta: Map<String, Int>
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const out = python.toSource(model);
+    const out = toSourceFromTd(python, td);
 
     expect(out).toContain("from dataclasses import dataclass, field");
     expect(out).toContain("tags: list[str] = field(default_factory=list)");

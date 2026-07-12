@@ -10,6 +10,10 @@ export const parseTypeRef = (raw: string): ResolvedTypeRef => {
   return { name, args: args.map(parseTypeRef), resolution: { kind: "external" } };
 };
 
+/** Convert parsed `{ name, type }` field strings into model type references. */
+export const resolveFieldTypes = (fields: readonly { name: string; type: string }[]) =>
+  fields.map((field) => ({ name: field.name, type: parseTypeRef(field.type) }));
+
 /** Split "A, B<C, D>, E" respecting nested angle brackets. */
 export const splitGenericArgs = (s: string): string[] => {
   const parts: string[] = [];

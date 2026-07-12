@@ -4,6 +4,7 @@ import { Marked } from "marked";
 import Prism from "prismjs";
 import loadLanguages from "prismjs/components/index.js";
 import { highlight as highlightTd } from "../src/highlight.js";
+import { escapeHtml } from "../src/highlight-engine.js";
 
 const TD_LANGS = new Set(["", "td", "typediagram"]);
 
@@ -34,12 +35,10 @@ const LANG_ALIAS: Record<string, string> = {
   gitignore: "bash",
 };
 
-const escHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 const prismHighlight = (code: string, prismLang: string): string => {
   const grammar = Prism.languages[prismLang];
   if (grammar === undefined) {
-    return escHtml(code);
+    return escapeHtml(code);
   }
   return Prism.highlight(code, grammar, prismLang);
 };
@@ -51,7 +50,7 @@ const codeRenderer = ({ text, lang }: { text: string; lang?: string | null }): s
   }
   const prismLang = LANG_ALIAS[key];
   if (prismLang === undefined) {
-    return `<pre><code>${escHtml(text)}</code></pre>`;
+    return `<pre><code>${escapeHtml(text)}</code></pre>`;
   }
   const cls = `language-${prismLang}`;
   return `<pre class="${cls}"><code class="${cls}">${prismHighlight(text, prismLang)}</code></pre>`;

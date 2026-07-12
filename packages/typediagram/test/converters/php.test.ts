@@ -1,9 +1,15 @@
 // [CONV-PHP-TEST] PHP converter integration tests.
 import { describe, expect, it } from "vitest";
 import { php } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  aliasTargetName,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-PHP-TO-COMPLEX] complex typeDiagram -> PHP", () => {
   it("emits readonly DTOs, PHPStan refinements, unions, and alias wrappers", () => {
@@ -51,8 +57,7 @@ type MaybeNothing {
   value: Option<Unit>
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = php.toSource(model);
+    const output = toSourceFromTd(php, td);
 
     expect(output).toContain("<?php");
     expect(output).toContain("declare(strict_types=1);");
@@ -103,12 +108,12 @@ final readonly class Boxed
     ) {}
 }
 `;
-    const model = unwrap(php.fromSource(src));
-    const boxed = model.decls.find((decl) => decl.name === "Boxed");
+    const model = modelFromSource(php, src);
+    const boxed = findDecl(model, "Boxed");
 
     expect(boxed?.kind).toBe("alias");
     expect(boxed?.generics).toEqual(["T"]);
-    expect(boxed?.kind === "alias" ? boxed.target.name : "").toBe("T");
+    expect(aliasTargetName(model, "Boxed")).toBe("T");
   });
 
   it("returns an error when no supported DTO definitions are present", () => {
@@ -161,24 +166,22 @@ final readonly class NoCtor
 {
 }
 `;
-    const model = unwrap(php.fromSource(src));
-    const mapping = model.decls.find((decl) => decl.name === "Mapping");
-    const missingKind = model.decls.find((decl) => decl.name === "MissingKind");
-    const noCtor = model.decls.find((decl) => decl.name === "NoCtor");
+    const model = modelFromSource(php, src);
+    const mappingFields = recordFields(model, "Mapping");
 
-    expect(model.decls.find((decl) => decl.name === "Flag")).toBeUndefined();
-    expect(model.decls.find((decl) => decl.name === "BrokenAlias")).toBeUndefined();
-    expect(mapping?.kind).toBe("record");
-    expect(mapping?.kind === "record" ? mapping.fields[0]?.type.name : "").toBe("Map");
-    expect(mapping?.kind === "record" ? mapping.fields[0]?.type.args[0]?.name : "").toBe("String");
-    expect(mapping?.kind === "record" ? mapping.fields[0]?.type.args[1]?.name : "").toBe("Int");
-    expect(mapping?.kind === "record" ? mapping.fields[1]?.type.name : "").toBe("Option");
-    expect(mapping?.kind === "record" ? mapping.fields[1]?.type.args[0]?.name : "").toBe("List");
-    expect(mapping?.kind === "record" ? mapping.fields[1]?.type.args[0]?.args[0]?.name : "").toBe("String");
-    expect(missingKind?.kind).toBe("record");
-    expect(missingKind?.kind === "record" ? missingKind.fields : []).toHaveLength(0);
-    expect(noCtor?.kind).toBe("record");
-    expect(noCtor?.kind === "record" ? noCtor.fields : []).toHaveLength(0);
+    expect(findDecl(model, "Flag")).toBeUndefined();
+    expect(findDecl(model, "BrokenAlias")).toBeUndefined();
+    expect(findDecl(model, "Mapping")?.kind).toBe("record");
+    expect(mappingFields[0]?.type.name).toBe("Map");
+    expect(mappingFields[0]?.type.args[0]?.name).toBe("String");
+    expect(mappingFields[0]?.type.args[1]?.name).toBe("Int");
+    expect(mappingFields[1]?.type.name).toBe("Option");
+    expect(mappingFields[1]?.type.args[0]?.name).toBe("List");
+    expect(mappingFields[1]?.type.args[0]?.args[0]?.name).toBe("String");
+    expect(findDecl(model, "MissingKind")?.kind).toBe("record");
+    expect(recordFields(model, "MissingKind")).toHaveLength(0);
+    expect(findDecl(model, "NoCtor")?.kind).toBe("record");
+    expect(recordFields(model, "NoCtor")).toHaveLength(0);
   });
 
   it("parses namespaced types, array item docblocks, double-quoted kind tags, and defaults with commas", () => {
@@ -213,19 +216,19 @@ final readonly class CollectionHolder
     ) {}
 }
 `;
-    const model = unwrap(php.fromSource(src));
-    const outcome = model.decls.find((decl) => decl.name === "Outcome");
-    const holder = model.decls.find((decl) => decl.name === "CollectionHolder");
+    const model = modelFromSource(php, src);
+    const outcomeVariants = unionVariants(model, "Outcome");
+    const holderFields = recordFields(model, "CollectionHolder");
 
-    expect(outcome?.kind).toBe("union");
-    expect(outcome?.kind === "union" ? outcome.variants.length : 0).toBe(1);
-    expect(outcome?.kind === "union" ? outcome.variants[0]?.name : "").toBe("Success");
-    expect(outcome?.kind === "union" ? outcome.variants[0]?.fields[0]?.name : "").toBe("message");
-    expect(outcome?.kind === "union" ? outcome.variants[0]?.fields[0]?.type.name : "").toBe("String");
-    expect(outcome?.kind === "union" ? outcome.variants[0]?.fields[1]?.type.name : "").toBe("\\App\\DTO\\User");
-    expect(holder?.kind).toBe("record");
-    expect(holder?.kind === "record" ? holder.fields[0]?.type.name : "").toBe("List");
-    expect(holder?.kind === "record" ? holder.fields[0]?.type.args[0]?.name : "").toBe("\\App\\DTO\\User");
+    expect(findDecl(model, "Outcome")?.kind).toBe("union");
+    expect(outcomeVariants).toHaveLength(1);
+    expect(outcomeVariants[0]?.name).toBe("Success");
+    expect(outcomeVariants[0]?.fields[0]?.name).toBe("message");
+    expect(outcomeVariants[0]?.fields[0]?.type.name).toBe("String");
+    expect(outcomeVariants[0]?.fields[1]?.type.name).toBe("\\App\\DTO\\User");
+    expect(findDecl(model, "CollectionHolder")?.kind).toBe("record");
+    expect(holderFields[0]?.type.name).toBe("List");
+    expect(holderFields[0]?.type.args[0]?.name).toBe("\\App\\DTO\\User");
   });
 });
 
@@ -255,41 +258,40 @@ type MaybeNothing {
   value: Option<Unit>
 }
 `;
-    const model1 = unwrap(buildModel(unwrap(parse(td))));
-    const phpCode = php.toSource(model1);
-    const model2 = unwrap(php.fromSource(phpCode));
+    const phpCode = toSourceFromTd(php, td);
+    const model2 = modelFromSource(php, phpCode);
 
-    const user = model2.decls.find((decl) => decl.name === "User");
-    expect(user?.kind).toBe("record");
-    expect(user?.kind === "record" ? user.fields.length : 0).toBe(3);
-    expect(user?.kind === "record" ? user.fields[0]?.type.name : "").toBe("Int");
-    expect(user?.kind === "record" ? user.fields[1]?.type.name : "").toBe("List");
-    expect(user?.kind === "record" ? user.fields[1]?.type.args[0]?.name : "").toBe("String");
-    expect(user?.kind === "record" ? user.fields[2]?.type.name : "").toBe("Option");
-    expect(user?.kind === "record" ? user.fields[2]?.type.args[0]?.name : "").toBe("String");
+    const userFields = recordFields(model2, "User");
+    expect(findDecl(model2, "User")?.kind).toBe("record");
+    expect(userFields).toHaveLength(3);
+    expect(userFields[0]?.type.name).toBe("Int");
+    expect(userFields[1]?.type.name).toBe("List");
+    expect(userFields[1]?.type.args[0]?.name).toBe("String");
+    expect(userFields[2]?.type.name).toBe("Option");
+    expect(userFields[2]?.type.args[0]?.name).toBe("String");
 
-    const box = model2.decls.find((decl) => decl.name === "Box");
+    const box = findDecl(model2, "Box");
     expect(box?.kind).toBe("record");
     expect(box?.generics).toEqual(["T"]);
-    expect(box?.kind === "record" ? box.fields[0]?.type.name : "").toBe("T");
+    expect(recordFields(model2, "Box")[0]?.type.name).toBe("T");
 
-    const result = model2.decls.find((decl) => decl.name === "Result");
+    const result = findDecl(model2, "Result");
+    const resultVariants = unionVariants(model2, "Result");
     expect(result?.kind).toBe("union");
     expect(result?.generics).toEqual(["T"]);
-    expect(result?.kind === "union" ? result.variants.length : 0).toBe(2);
-    expect(result?.kind === "union" ? result.variants[0]?.name : "").toBe("Ok");
-    expect(result?.kind === "union" ? result.variants[0]?.fields[0]?.type.name : "").toBe("T");
-    expect(result?.kind === "union" ? result.variants[1]?.name : "").toBe("Err");
-    expect(result?.kind === "union" ? result.variants[1]?.fields[0]?.type.name : "").toBe("String");
+    expect(resultVariants).toHaveLength(2);
+    expect(resultVariants[0]?.name).toBe("Ok");
+    expect(resultVariants[0]?.fields[0]?.type.name).toBe("T");
+    expect(resultVariants[1]?.name).toBe("Err");
+    expect(resultVariants[1]?.fields[0]?.type.name).toBe("String");
 
-    const userId = model2.decls.find((decl) => decl.name === "UserId");
-    expect(userId?.kind).toBe("alias");
-    expect(userId?.kind === "alias" ? userId.target.name : "").toBe("Int");
+    expect(findDecl(model2, "UserId")?.kind).toBe("alias");
+    expect(aliasTargetName(model2, "UserId")).toBe("Int");
 
-    const boxed = model2.decls.find((decl) => decl.name === "Boxed");
+    const boxed = findDecl(model2, "Boxed");
     expect(boxed?.kind).toBe("alias");
     expect(boxed?.generics).toEqual(["T"]);
-    expect(boxed?.kind === "alias" ? boxed.target.name : "").toBe("T");
+    expect(aliasTargetName(model2, "Boxed")).toBe("T");
   });
 
   it("losslessly round-trips the home-page example through PHP (TD text preserved)", () => {
@@ -300,10 +302,9 @@ type MaybeNothing {
 describe("[CONV-PHP-EDGE] PHP converter edge cases", () => {
   it("emits an empty constructor for records with no fields", () => {
     const td = `type Empty {}\n`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = php.toSource(model);
+    const output = toSourceFromTd(php, td);
     expect(output).toContain("public function __construct() {}");
-    expect(unwrap(php.fromSource(output)).decls.find((d) => d.name === "Empty")?.kind).toBe("record");
+    expect(findDecl(modelFromSource(php, output), "Empty")?.kind).toBe("record");
   });
 
   it("round-trips Option<List<T>> and Option<Map<K,V>>", () => {
@@ -316,18 +317,16 @@ describe("[CONV-PHP-EDGE] PHP converter edge cases", () => {
   dict: Option<Map<String, Int>>
 }
 `;
-    const code = php.toSource(unwrap(buildModel(unwrap(parse(td)))));
+    const code = toSourceFromTd(php, td);
     expect(code).toContain("public ?array $ids");
     expect(code).toContain("@param list<int>|null $ids");
     expect(code).toContain("@param array<string, int>|null $dict");
-    const wrap = unwrap(php.fromSource(code)).decls.find((d) => d.name === "Wrap");
-    expect(wrap?.kind).toBe("record");
-    if (wrap?.kind !== "record") {
-      return;
-    }
-    expect(wrap.fields[0]?.type.name).toBe("Option");
-    expect(wrap.fields[0]?.type.args[0]?.name).toBe("List");
-    expect(wrap.fields[1]?.type.args[0]?.name).toBe("Map");
+    const back = modelFromSource(php, code);
+    expect(findDecl(back, "Wrap")?.kind).toBe("record");
+    const wrapFields = recordFields(back, "Wrap");
+    expect(wrapFields[0]?.type.name).toBe("Option");
+    expect(wrapFields[0]?.type.args[0]?.name).toBe("List");
+    expect(wrapFields[1]?.type.args[0]?.name).toBe("Map");
   });
 
   it("skips constructor params without the 'public' promotion keyword", () => {
@@ -340,9 +339,9 @@ final readonly class Odd
     ) {}
 }
 `;
-    const odd = unwrap(php.fromSource(src)).decls.find((d) => d.name === "Odd");
-    expect(odd?.kind).toBe("record");
-    expect(odd?.kind === "record" ? odd.fields.map((f) => f.name) : []).toEqual(["ok"]);
+    const model = modelFromSource(php, src);
+    expect(findDecl(model, "Odd")?.kind).toBe("record");
+    expect(recordFields(model, "Odd").map((f) => f.name)).toEqual(["ok"]);
   });
 
   it("tolerates // and /* */ comments and string literals inside class bodies", () => {
@@ -359,8 +358,8 @@ final readonly class Commented
     }
 }
 `;
-    const commented = unwrap(php.fromSource(src)).decls.find((d) => d.name === "Commented");
-    expect(commented?.kind === "record" ? commented.fields.map((f) => f.name) : []).toEqual(["name", "age"]);
+    const commentedFields = recordFields(modelFromSource(php, src), "Commented");
+    expect(commentedFields.map((f) => f.name)).toEqual(["name", "age"]);
   });
 
   it("drops union variants whose $kind literal does not match the class name", () => {
@@ -380,7 +379,7 @@ final readonly class Circle implements Shape
     }
 }
 `;
-    const model = unwrap(php.fromSource(src));
-    expect(model.decls.find((d) => d.name === "Shape")).toBeUndefined();
+    const model = modelFromSource(php, src);
+    expect(findDecl(model, "Shape")).toBeUndefined();
   });
 });

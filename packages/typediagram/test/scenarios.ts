@@ -29,107 +29,91 @@ export interface Scenario {
   readonly countChecks: readonly { pattern: RegExp; count: number }[];
 }
 
+/**
+ * Build a `Scenario`, defaulting every optional expectation list to empty so
+ * each row states only the checks it actually cares about. `name`, `source`,
+ * and `snapshotFile` are required; the rest override the empty defaults.
+ */
+const scenario = (
+  base: Pick<Scenario, "name" | "source" | "snapshotFile"> & Partial<Omit<Scenario, "name" | "source" | "snapshotFile">>
+): Scenario => ({
+  contains: [],
+  notContains: [],
+  patterns: [],
+  countChecks: [],
+  ...base,
+});
+
 export const SCENARIOS: readonly Scenario[] = [
-  {
+  scenario({
     name: "small spec example",
     source: SMALL_EXAMPLE,
     snapshotFile: "small-example.svg",
-    contains: [],
     notContains: ["&amp;lt;"],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "single record",
     source: SINGLE_RECORD,
     snapshotFile: "single-record.svg",
     contains: ["Point", "x: Float"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "single union",
     source: SINGLE_UNION,
     snapshotFile: "single-union.svg",
     contains: ["Direction", "North", "West"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "single alias",
     source: SINGLE_ALIAS,
     snapshotFile: "single-alias.svg",
     contains: ["UserId"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "empty diagram",
     source: EMPTY_DIAGRAM,
     snapshotFile: "empty-diagram.svg",
-    contains: [],
     notContains: ["NaN"],
     patterns: [/^<svg[\s>]/],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "self-referential type",
     source: SELF_REF,
     snapshotFile: "self-ref.svg",
     contains: ["TreeNode", "children"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "multiple generics (Pair, Either, Result)",
     source: MULTI_GENERICS,
     snapshotFile: "multi-generics.svg",
     contains: ["Pair", "Either", "Result"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "deep nested generic references",
     source: DEEP_GENERICS,
     snapshotFile: "deep-generics.svg",
     contains: ["Config", "Rule"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "mixed union (payloads + empty variants)",
     source: MIXED_UNION,
     snapshotFile: "mixed-union.svg",
     contains: ["Click", "Focus", "Blur"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "all primitive types",
     source: ALL_PRIMITIVES,
     snapshotFile: "all-primitives.svg",
     contains: ["Bool", "Int", "Float", "String", "Bytes", "Unit"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "long type and field names",
     source: LONG_NAMES,
     snapshotFile: "long-names.svg",
     contains: ["VeryLongTypeNameThatShouldNotBreakLayout"],
     notContains: ["NaN"],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "many chained nodes (A->B->...->G)",
     source: MANY_NODES,
     snapshotFile: "many-nodes.svg",
@@ -142,38 +126,27 @@ export const SCENARIOS: readonly Scenario[] = [
       `data-decl="F"`,
       `data-decl="G"`,
     ],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "alias chain",
     source: ALIAS_CHAIN,
     snapshotFile: "alias-chain.svg",
     contains: ["Email", "UserEmail", "AdminEmail"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "union referencing union",
     source: UNION_REFS_UNION,
     snapshotFile: "union-refs-union.svg",
     contains: ["Outer", "Inner"],
-    notContains: [],
-    patterns: [],
     countChecks: [{ pattern: /data-kind="union"/g, count: 2 }],
-  },
-  {
+  }),
+  scenario({
     name: "record with all external type references",
     source: ALL_EXTERNAL,
     snapshotFile: "all-external.svg",
     contains: ["HttpRequest", "URL", "Duration"],
-    notContains: [],
-    patterns: [],
-    countChecks: [],
-  },
-  {
+  }),
+  scenario({
     name: "chat-model full spec",
     source: CHAT_EXAMPLE,
     snapshotFile: "chat-model-render.test.svg",
@@ -237,5 +210,5 @@ export const SCENARIOS: readonly Scenario[] = [
       { pattern: /data-kind="record"/g, count: 5 },
       { pattern: /data-kind="union"/g, count: 4 },
     ],
-  },
+  }),
 ];

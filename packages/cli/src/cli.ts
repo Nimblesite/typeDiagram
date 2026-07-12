@@ -66,9 +66,8 @@ const tdbinFlow = async (
 
 /** Parse and build typeDiagram source from file/stdin. */
 const readTdModel = async (file: string | null, stderr: NodeJS.WritableStream): Promise<TdModelResult> => {
-  const srcRes = await readSource(file);
+  const srcRes = await readSourceOrReport(file, stderr);
   if (!srcRes.ok) {
-    stderr.write(`${srcRes.error.message}\n`);
     return { ok: false };
   }
   const parsed = parser.parse(srcRes.value);
@@ -84,15 +83,21 @@ const readTdModel = async (file: string | null, stderr: NodeJS.WritableStream): 
   return model;
 };
 
+/** Read CLI input and report any I/O failure to stderr. */
+const readSourceOrReport = async (file: string | null, stderr: NodeJS.WritableStream) => {
+  const source = await readSource(file);
+  return source.ok ? source : (stderr.write(`${source.error.message}\n`), source);
+};
+
 /** --from: language source → typeDiagram model → td / SVG / both */
 const fromLangFlow = async (
   args: CliArgs,
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
-  const srcRes = await readSource(args.file);
+  const srcRes = await readSourceOrReport(args.file, stderr);
   if (!srcRes.ok) {
-    return (stderr.write(`${srcRes.error.message}\n`), 1);
+    return 1;
   }
 
   const conv = converters.byLanguage[args.from as NonNullable<CliArgs["from"]>];
@@ -128,9 +133,9 @@ const toLangFlow = async (
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
-  const srcRes = await readSource(args.file);
+  const srcRes = await readSourceOrReport(args.file, stderr);
   if (!srcRes.ok) {
-    return (stderr.write(`${srcRes.error.message}\n`), 1);
+    return 1;
   }
 
   const parsed = parser.parse(srcRes.value);
@@ -161,9 +166,9 @@ const renderFlow = async (
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
-  const srcRes = await readSource(args.file);
+  const srcRes = await readSourceOrReport(args.file, stderr);
   if (!srcRes.ok) {
-    return (stderr.write(`${srcRes.error.message}\n`), 1);
+    return 1;
   }
   const result = await renderToString(srcRes.value, toRenderOpts(args));
   return result.ok ? (stdout.write(result.value), 0) : (writeDiagnostics(result.error, stderr), 1);

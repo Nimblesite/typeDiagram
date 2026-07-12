@@ -15,40 +15,23 @@ import {
 } from "../src/model/index.js";
 import { shouldEmitDeclToTarget, visibleDeclsForTarget } from "../src/model/types.js";
 import { CHAT_EXAMPLE, SMALL_EXAMPLE } from "./fixtures.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok, got: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { declCounts, findVariantField, modelFromTd, unwrap } from "./helpers.js";
 
 describe("model — buildModel from AST", () => {
   it("small example: 2 records, 2 unions, 1 alias", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
-    const counts = model.decls.reduce<Record<string, number>>((acc, d) => {
-      acc[d.kind] = (acc[d.kind] ?? 0) + 1;
-      return acc;
-    }, {});
-    expect(counts).toEqual({ record: 2, union: 2, alias: 1 });
+    const model = modelFromTd(SMALL_EXAMPLE);
+    expect(declCounts(model.decls)).toEqual({ record: 2, union: 2, alias: 1 });
   });
 
   it("chat example: 5 records, 4 unions; ToolResultContent.List.items resolves to List<ContentItem>", () => {
-    const ast = unwrap(parse(CHAT_EXAMPLE));
-    const model = unwrap(buildModel(ast));
-    const counts = model.decls.reduce<Record<string, number>>((acc, d) => {
-      acc[d.kind] = (acc[d.kind] ?? 0) + 1;
-      return acc;
-    }, {});
-    expect(counts).toEqual({ record: 5, union: 4 });
+    const model = modelFromTd(CHAT_EXAMPLE);
+    expect(declCounts(model.decls)).toEqual({ record: 5, union: 4 });
 
     const trc = model.decls.find((d) => d.name === "ToolResultContent");
     if (trc?.kind !== "union") {
       throw new Error("expected union");
     }
-    const list = trc.variants.find((v) => v.name === "List");
-    const items = list?.fields.find((f) => f.name === "items");
+    const items = findVariantField(trc.variants, "List", "items");
     expect(items?.type.name).toBe("List");
     expect(items?.type.resolution.kind).toBe("external"); // List is external
     expect(items?.type.args[0]?.name).toBe("ContentItem");
@@ -56,8 +39,7 @@ describe("model — buildModel from AST", () => {
   });
 
   it("Option<Email> on User.email: Option declared, Email is alias-declared", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(SMALL_EXAMPLE);
     const user = model.decls.find((d) => d.name === "User");
     if (user?.kind !== "record") {
       throw new Error();
@@ -68,8 +50,7 @@ describe("model — buildModel from AST", () => {
   });
 
   it("primitives are detected", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(SMALL_EXAMPLE);
     const addr = model.decls.find((d) => d.name === "Address");
     if (addr?.kind !== "record") {
       throw new Error();
@@ -79,8 +60,7 @@ describe("model — buildModel from AST", () => {
   });
 
   it("type params inside Option<T>", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(SMALL_EXAMPLE);
     const opt = model.decls.find((d) => d.name === "Option");
     if (opt?.kind !== "union") {
       throw new Error();
@@ -90,8 +70,7 @@ describe("model — buildModel from AST", () => {
   });
 
   it("emits edges for record→record refs (User→Address)", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(SMALL_EXAMPLE);
     const e = model.edges.find((x) => x.sourceDeclName === "User" && x.targetDeclName === "Address");
     expect(e).toBeDefined();
     expect(e?.kind).toBe("field");
@@ -99,8 +78,7 @@ describe("model — buildModel from AST", () => {
   });
 
   it("emits variantPayload edges (ToolResultContent.List → ContentItem via List<…>)", () => {
-    const ast = unwrap(parse(CHAT_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(CHAT_EXAMPLE);
     const e = model.edges.find((x) => x.sourceDeclName === "ToolResultContent" && x.targetDeclName === "ContentItem");
     expect(e).toBeDefined();
     // List<ContentItem>: List is external (no edge to List), ContentItem is reached as a generic arg.
@@ -198,8 +176,7 @@ describe("model — programmatic ModelBuilder", () => {
 
 describe("model — JSON round-trip", () => {
   it("toJSON / fromJSON deep-equals on small example", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(SMALL_EXAMPLE);
     const json = toJSON(model);
     const back = unwrap(fromJSON(json));
 
@@ -208,26 +185,19 @@ describe("model — JSON round-trip", () => {
   });
 
   it("JSON round-trip for chat example", () => {
-    const ast = unwrap(parse(CHAT_EXAMPLE));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(CHAT_EXAMPLE);
     const json = toJSON(model);
     const back = unwrap(fromJSON(json));
     expect(toJSON(back)).toEqual(json);
   });
 
   it("preserves untagged unions through printSource and JSON", () => {
-    const model = unwrap(
-      buildModel(
-        unwrap(
-          parse(`
+    const model = modelFromTd(`
 untagged union RequestId {
   Number(Int)
   String(String)
 }
-`)
-        )
-      )
-    );
+`);
 
     const requestId = model.decls.find((decl) => decl.name === "RequestId");
     expect(requestId?.kind).toBe("union");
@@ -248,7 +218,7 @@ type JsonRpcError {
   code: Int
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
+    const model = modelFromTd(td);
     expect(printSource(model)).toContain("@targets(rust)");
     expect(printSource(model)).toContain("@skipTargets(typescript)");
 
@@ -265,22 +235,18 @@ type JsonRpcError {
 });
 
 describe("model — printSource round-trip", () => {
-  it("printSource(model) parses back to an equivalent model — small", () => {
-    const ast = unwrap(parse(SMALL_EXAMPLE));
-    const model = unwrap(buildModel(ast));
-    const src = printSource(model);
-    const ast2 = unwrap(parse(src));
-    const model2 = unwrap(buildModel(ast2));
+  const expectPrintSourceRoundTrips = (td: string) => {
+    const model = modelFromTd(td);
+    const model2 = modelFromTd(printSource(model));
     expect(toJSON(model2)).toEqual(toJSON(model));
+  };
+
+  it("printSource(model) parses back to an equivalent model — small", () => {
+    expectPrintSourceRoundTrips(SMALL_EXAMPLE);
   });
 
   it("printSource(model) parses back to an equivalent model — chat", () => {
-    const ast = unwrap(parse(CHAT_EXAMPLE));
-    const model = unwrap(buildModel(ast));
-    const src = printSource(model);
-    const ast2 = unwrap(parse(src));
-    const model2 = unwrap(buildModel(ast2));
-    expect(toJSON(model2)).toEqual(toJSON(model));
+    expectPrintSourceRoundTrips(CHAT_EXAMPLE);
   });
 });
 
@@ -410,8 +376,7 @@ describe("model — JSON edge cases", () => {
   });
 
   it("round-trips alias JSON", () => {
-    const td = `alias Email = String`;
-    const model = unwrap(buildModel(unwrap(parse(td))));
+    const model = modelFromTd(`alias Email = String`);
     const json = toJSON(model);
     const back = unwrap(fromJSON(json));
     expect(toJSON(back)).toEqual(json);
@@ -420,9 +385,7 @@ describe("model — JSON edge cases", () => {
 
 describe("model — build alias edges", () => {
   it("emits edges for alias referencing a declared type", () => {
-    const td = `type User { name: String }\nalias Usr = User`;
-    const ast = unwrap(parse(td));
-    const model = unwrap(buildModel(ast));
+    const model = modelFromTd(`type User { name: String }\nalias Usr = User`);
     const e = model.edges.find((x) => x.sourceDeclName === "Usr" && x.targetDeclName === "User");
     expect(e).toBeDefined();
   });
@@ -437,10 +400,7 @@ describe("model — target visibility helpers", () => {
   });
 
   it("filters declarations for a specific target", () => {
-    const model = unwrap(
-      buildModel(
-        unwrap(
-          parse(`
+    const model = modelFromTd(`
 @targets(rust)
 type RustOnly {
   code: Int
@@ -454,10 +414,7 @@ type AlsoHidden {
 type Shared {
   ok: Bool
 }
-`)
-        )
-      )
-    );
+`);
     expect(visibleDeclsForTarget(model.decls, "typescript").map((decl) => decl.name)).toEqual(["Shared"]);
     expect(visibleDeclsForTarget(model.decls, "rust").map((decl) => decl.name)).toEqual([
       "RustOnly",

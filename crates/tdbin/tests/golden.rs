@@ -1,4 +1,5 @@
-//! [TDBIN-TEST-GOLDEN] Byte-exact golden vectors for the FROZEN v0 Person/Contact
+//! [TDBIN-TEST-GOLDEN] [TDBIN-ENC-ORDER] [TDBIN-ENC-CANON] [TDBIN-MSG-BARE]
+//! [TDBIN-UNION-STRUCT] [TDBIN-UNION-DISC] [TDBIN-REC-SECTIONS] Byte-exact golden vectors for the FROZEN v0 Person/Contact
 //! wire layout. Each test pins the encoder to a hex constant AND decodes that
 //! frozen hex straight back to the fixture — so an accidental wire-format change
 //! (in either direction) is caught deterministically under `make test`.
@@ -8,113 +9,48 @@
 //! hand-writes an `impl Struct`. The Person layout is frozen by agreement, which
 //! is what makes byte-exact golden constants legitimate.
 
-mod generated;
+/// Shared lowercase-hex codec helpers (identical across the golden lanes).
+#[path = "support/hexvectors.rs"]
+mod hexvectors;
 
-use generated::{Address, Contact, EmailContact, Person, PhoneContact};
+/// Shared Person/Contact fixtures, ADT wiring, and `TestResult` alias
+/// (reused by `roundtrip.rs`).
+#[path = "support/persons.rs"]
+mod persons;
+
+use hexvectors::{from_hex, to_hex};
+use persons::generated::Contact;
+use persons::{email_contact, person_with_email, person_with_phone, phone_contact, TestResult};
 use tdbin::TdBin;
 
-/// Boxed-error alias so tests use `?` without `unwrap`/`expect`.
-type TestResult = Result<(), Box<dyn std::error::Error>>;
-
-// ── Fixtures (distinct from `roundtrip.rs` to broaden coverage, not duplicate) ──
+// ── Golden-lane fixtures: distinct VALUES over the shared builders ──
 
 /// A Person exercising Some(address), Some(nickname), and the Email variant.
-fn person_full() -> Person {
-    Person {
-        name: "Grace Hopper".to_owned(),
-        age: 85,
-        active: true,
-        score: 12.5,
-        address: Some(Address {
-            street: "1 Compiler Rd".to_owned(),
-            zip: 1906,
-        }),
-        nickname: Some("Amazing Grace".to_owned()),
-        contact: Contact::Email(EmailContact {
-            addr: "grace@navy.mil".to_owned(),
-        }),
-    }
+fn person_full() -> persons::generated::Person {
+    person_with_email(
+        "Grace Hopper",
+        85,
+        12.5,
+        "1 Compiler Rd",
+        1906,
+        "Amazing Grace",
+        "grace@navy.mil",
+    )
 }
 
 /// A Person exercising None fields, a negative float, and the Phone variant.
-fn person_minimal() -> Person {
-    Person {
-        name: "Edsger Dijkstra".to_owned(),
-        age: 72,
-        active: false,
-        score: -3.0,
-        address: None,
-        nickname: None,
-        contact: Contact::Phone(PhoneContact {
-            number: 1930,
-            country: 31,
-        }),
-    }
+fn person_minimal() -> persons::generated::Person {
+    person_with_phone("Edsger Dijkstra", 72, -3.0, 1930, 31)
 }
 
 /// The Email arm of the Contact union, standalone.
 fn contact_email() -> Contact {
-    Contact::Email(EmailContact {
-        addr: "ada@analytical.uk".to_owned(),
-    })
+    email_contact("ada@analytical.uk")
 }
 
 /// The Phone arm of the Contact union, standalone.
 fn contact_phone() -> Contact {
-    Contact::Phone(PhoneContact {
-        number: 1815,
-        country: 44,
-    })
-}
-
-// ── Hex helpers (no external deps: this crate is offline-safe) ──
-
-/// Lowercase hex encoding of `bytes`.
-fn to_hex(bytes: &[u8]) -> String {
-    const HEX: &[u8; 16] = b"0123456789abcdef";
-    let mut out = String::new();
-    for &byte in bytes {
-        if let (Some(&hi), Some(&lo)) = (
-            HEX.get(usize::from(byte >> 4)),
-            HEX.get(usize::from(byte & 0x0F)),
-        ) {
-            out.push(char::from(hi));
-            out.push(char::from(lo));
-        }
-    }
-    out
-}
-
-/// Decode one lowercase hex nibble, or `None` if it is not `[0-9a-f]`.
-fn hex_nibble(c: u8) -> Option<u8> {
-    match c {
-        b'0'..=b'9' => Some(c.wrapping_sub(b'0')),
-        b'a'..=b'f' => Some(c.wrapping_sub(b'a').wrapping_add(10)),
-        _ => None,
-    }
-}
-
-/// Decode a lowercase hex string to bytes.
-fn from_hex(s: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
-    let raw = s.as_bytes();
-    if !raw.len().is_multiple_of(2) {
-        return Err("hex string has odd length".into());
-    }
-    let mut out = Vec::new();
-    for pair in raw.chunks(2) {
-        let hi = pair
-            .first()
-            .copied()
-            .and_then(hex_nibble)
-            .ok_or("bad hex digit")?;
-        let lo = pair
-            .get(1)
-            .copied()
-            .and_then(hex_nibble)
-            .ok_or("bad hex digit")?;
-        out.push((hi << 4) | lo);
-    }
-    Ok(out)
+    phone_contact(1815, 44)
 }
 
 /// Assert `value` encodes to exactly `hex`, and that decoding `hex` reproduces it.

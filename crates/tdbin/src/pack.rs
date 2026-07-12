@@ -1,4 +1,13 @@
 //! Cap'n Proto word packing for TDBIN bodies ([TDBIN-PACK]).
+//!
+//! Hot-path shape ([TDBIN-PACK-WORD], [TDBIN-PACK-RUNS]): whole words are
+//! classified with a branch-free SWAR nonzero-byte mask, both directions
+//! write through cursors into preallocated buffers (no per-byte growth
+//! checks), zero runs cost two bytes to emit and a cursor bump to consume
+//! (the output arrives pre-zeroed), and sparse words touch only their
+//! nonzero bytes. Output is byte-identical to the reference algorithm: a
+//! zero run starts on an all-zero word, a dense run starts on an all-nonzero
+//! word and extends over words with at least seven nonzero bytes.
 
 use crate::error::{DecodeError, EncodeError};
 
@@ -13,7 +22,19 @@ const DENSE_RUN_TAG: u8 = 0xFF;
 /// Maximum extra words encoded by a run count.
 const MAX_RUN_COUNT: usize = 255;
 /// Dense words are no larger as raw passthrough than sparse-packed bytes.
-const DENSE_NONZERO_BYTES: u8 = 7;
+const DENSE_NONZERO_BYTES: u32 = 7;
+/// Low seven bits of every byte lane (SWAR nonzero test).
+const LANE_LOW: u64 = 0x7F7F_7F7F_7F7F_7F7F;
+/// Bit 0 of every byte lane.
+const LANE_ONES: u64 = 0x0101_0101_0101_0101;
+/// Multiplier gathering per-lane high bits into the top byte (movemask).
+const LANE_GATHER: u64 = 0x0102_0408_1020_4080;
+/// Fast-decode window: one tag byte plus a full word plus slack.
+const FAST_WINDOW: usize = 10;
+/// Minimum decode-buffer growth step.
+const GROW_STEP: usize = 1 << 16;
+/// Headroom one fast element can need: a 256-word run.
+const ELEMENT_ROOM: usize = 256 * WORD_BYTES;
 
 /// Pack a word-aligned TDBIN body ([TDBIN-PACK-WORD], [TDBIN-PACK-RUNS]).
 ///
@@ -21,17 +42,33 @@ const DENSE_NONZERO_BYTES: u8 = 7;
 /// Returns [`EncodeError`] when the body is not word-aligned or output capacity
 /// overflows.
 pub fn encode(body: &[u8]) -> Result<Vec<u8>, EncodeError> {
+    let mut out = Vec::new();
+    encode_into(body, &mut out)?;
+    Ok(out)
+}
+
+/// Pack a word-aligned TDBIN body onto the end of `out` ([TDBIN-PACK]).
+///
+/// # Errors
+/// Returns [`EncodeError`] when the body is not word-aligned or output capacity
+/// overflows.
+pub fn encode_into(body: &[u8], out: &mut Vec<u8>) -> Result<(), EncodeError> {
     body.len()
         .is_multiple_of(WORD_BYTES)
         .then_some(())
         .ok_or(EncodeError::BadLength)?;
-    let mut out = Vec::with_capacity(body.len());
+    let base = out.len();
+    let worst = base
+        .checked_add(encode_capacity(body.len())?)
+        .ok_or(EncodeError::LimitExceeded)?;
+    out.resize(worst, 0);
     let mut offset = 0;
-    while offset < body.len() {
-        let word = read_word(body, offset).map_err(|_| EncodeError::LimitExceeded)?;
-        offset = encode_word(body, offset, word, &mut out)?;
+    let mut cursor = base;
+    while let Some(word) = read_word(body, offset) {
+        (offset, cursor) = encode_word(body, offset, word, out, cursor)?;
     }
-    Ok(out)
+    out.truncate(cursor);
+    Ok(())
 }
 
 /// Unpack a packed TDBIN body.
@@ -40,77 +77,293 @@ pub fn encode(body: &[u8]) -> Result<Vec<u8>, EncodeError> {
 /// Returns [`DecodeError`] when the packed stream is truncated or would exceed
 /// the decoder output cap.
 pub fn decode(packed: &[u8]) -> Result<Vec<u8>, DecodeError> {
-    let mut out = Vec::with_capacity(initial_decode_capacity(packed.len())?);
-    let mut cursor = 0;
-    while cursor < packed.len() {
-        let tag = read_u8(packed, cursor)?;
-        cursor = advance(cursor, 1)?;
-        cursor = decode_tag(tag, packed, cursor, &mut out)?;
+    let mut out = Vec::new();
+    let mut written = 0_usize;
+    let mut cursor = 0_usize;
+    while window_at(packed, cursor).is_some() && grow_chunk(&mut out, written) {
+        (cursor, written) = decode_chunk(packed, cursor, &mut out, written)?;
+    }
+    out.truncate(written);
+    while let Some(tag) = packed.get(cursor).copied() {
+        cursor = decode_tag(tag, packed, advance(cursor, 1)?, &mut out)?;
     }
     Ok(out)
 }
 
-/// Encode one word and return the next input offset.
+/// Grow the pre-zeroed output so at least one worst-case element fits; `false`
+/// near the output cap hands off to the exact careful tail.
+fn grow_chunk(out: &mut Vec<u8>, written: usize) -> bool {
+    match written.checked_add(ELEMENT_ROOM) {
+        Some(needed) if needed <= MAX_UNPACKED_BYTES => {
+            if out.len() < needed {
+                let doubled = out.len().wrapping_mul(2).max(GROW_STEP);
+                out.resize(doubled.min(MAX_UNPACKED_BYTES).max(needed), 0);
+            }
+            true
+        }
+        _ => false,
+    }
+}
+
+/// Decode fast elements into the pre-zeroed slice until the headroom or the
+/// input window runs out; the sparse path is fully inlined with no per-word
+/// slice construction, so the loop is bounded by the tag-load/popcount chain.
+fn decode_chunk(
+    packed: &[u8],
+    mut cursor: usize,
+    out: &mut Vec<u8>,
+    mut written: usize,
+) -> Result<(usize, usize), DecodeError> {
+    let limit = out.len().saturating_sub(ELEMENT_ROOM);
+    let fast_end = packed.len().saturating_sub(FAST_WINDOW);
+    let dst = out.as_mut_slice();
+    while cursor <= fast_end && written <= limit {
+        let tag = packed.get(cursor).copied().unwrap_or(0);
+        if tag == ZERO_RUN_TAG || tag == DENSE_RUN_TAG {
+            let Some(window) = window_at(packed, cursor) else {
+                break;
+            };
+            (cursor, written) = decode_fast_element(packed, window, cursor, dst, written)?;
+        } else {
+            let end = cursor.wrapping_add(9);
+            let src = packed
+                .get(cursor.wrapping_add(1)..end)
+                .and_then(|slice| <[u8; WORD_BYTES]>::try_from(slice).ok())
+                .ok_or(DecodeError::PackedTruncated)?;
+            let word = expand_word(tag, u64::from_le_bytes(src));
+            if let Some(cell) = dst.get_mut(written..written.wrapping_add(WORD_BYTES)) {
+                cell.copy_from_slice(&word.to_le_bytes());
+            }
+            let taken = usize::try_from(tag.count_ones()).unwrap_or(WORD_BYTES);
+            cursor = cursor.wrapping_add(taken.wrapping_add(1));
+            written = written.wrapping_add(WORD_BYTES);
+        }
+    }
+    Ok((cursor, written))
+}
+
+/// Branchless sparse expansion: a constant eight-lane pass selects each
+/// output byte from the compacted source, so the loop never carries a
+/// data-dependent branch (the variable-trip alternative mispredicts once per
+/// word on mixed tags).
+fn expand_word(tag: u8, src: u64) -> u64 {
+    let mut word = 0_u64;
+    let mut rest = src;
+    let mut lane = 0_u32;
+    while lane < 8 {
+        let take = (u64::from(tag) >> lane) & 1;
+        word |= (rest & 0xFF)
+            .wrapping_mul(take)
+            .wrapping_shl(lane.wrapping_mul(8));
+        rest = rest.wrapping_shr(u32::try_from(take.wrapping_mul(8)).unwrap_or(0));
+        lane = lane.wrapping_add(1);
+    }
+    word
+}
+
+/// Worst-case packed capacity: an isolated all-dense word costs 10 bytes.
+fn encode_capacity(body_len: usize) -> Result<usize, EncodeError> {
+    body_len
+        .checked_add(body_len >> 2)
+        .and_then(|len| len.checked_add(FAST_WINDOW))
+        .ok_or(EncodeError::LimitExceeded)
+}
+
+/// Encode one word, returning the next input offset and output cursor.
 fn encode_word(
     body: &[u8],
     offset: usize,
-    word: [u8; WORD_BYTES],
-    out: &mut Vec<u8>,
-) -> Result<usize, EncodeError> {
-    let tag = tag_word(word)?;
-    match tag {
-        ZERO_RUN_TAG => encode_zero_run(body, offset, out),
-        DENSE_RUN_TAG => encode_dense_run(body, offset, word, out),
-        sparse => encode_sparse_word(offset, word, sparse, out),
+    word: u64,
+    out: &mut [u8],
+    cursor: usize,
+) -> Result<(usize, usize), EncodeError> {
+    match tag_of(word) {
+        ZERO_RUN_TAG => encode_zero_run(body, offset, out, cursor),
+        DENSE_RUN_TAG => encode_dense_run(body, offset, word, out, cursor),
+        sparse => encode_sparse_word(offset, word, sparse, out, cursor),
     }
 }
 
 /// Encode a run of all-zero words.
-fn encode_zero_run(body: &[u8], offset: usize, out: &mut Vec<u8>) -> Result<usize, EncodeError> {
-    let extra = count_zero_extras(body, advance_encode(offset, WORD_BYTES)?)?;
-    out.push(ZERO_RUN_TAG);
-    out.push(u8::try_from(extra).map_err(|_| EncodeError::LimitExceeded)?);
-    let words = extra.checked_add(1).ok_or(EncodeError::LimitExceeded)?;
-    let bytes = words
+fn encode_zero_run(
+    body: &[u8],
+    offset: usize,
+    out: &mut [u8],
+    cursor: usize,
+) -> Result<(usize, usize), EncodeError> {
+    let first_extra = advance_encode(offset, WORD_BYTES)?;
+    let extra = run_extras(body, first_extra, |word| word == 0)?;
+    let count = u8::try_from(extra).map_err(|_| EncodeError::LimitExceeded)?;
+    store(out, cursor, &[ZERO_RUN_TAG, count])?;
+    let extra_bytes = extra
         .checked_mul(WORD_BYTES)
         .ok_or(EncodeError::LimitExceeded)?;
-    advance_encode(offset, bytes)
+    Ok((
+        advance_encode(first_extra, extra_bytes)?,
+        advance_encode(cursor, 2)?,
+    ))
 }
 
 /// Encode a dense passthrough run beginning with `word`.
 fn encode_dense_run(
     body: &[u8],
     offset: usize,
-    word: [u8; WORD_BYTES],
-    out: &mut Vec<u8>,
-) -> Result<usize, EncodeError> {
-    let extra = count_dense_extras(body, advance_encode(offset, WORD_BYTES)?)?;
-    out.push(DENSE_RUN_TAG);
-    out.extend_from_slice(&word);
-    out.push(u8::try_from(extra).map_err(|_| EncodeError::LimitExceeded)?);
+    word: u64,
+    out: &mut [u8],
+    cursor: usize,
+) -> Result<(usize, usize), EncodeError> {
     let start = advance_encode(offset, WORD_BYTES)?;
+    let extra = run_extras(body, start, |word| {
+        tag_of(word).count_ones() >= DENSE_NONZERO_BYTES
+    })?;
+    let count = u8::try_from(extra).map_err(|_| EncodeError::LimitExceeded)?;
+    store(out, cursor, &[DENSE_RUN_TAG])?;
+    store(out, advance_encode(cursor, 1)?, &word.to_le_bytes())?;
+    store(out, advance_encode(cursor, 9)?, &[count])?;
     let extra_bytes = extra
         .checked_mul(WORD_BYTES)
         .ok_or(EncodeError::LimitExceeded)?;
     let end = advance_encode(start, extra_bytes)?;
     let raw = body.get(start..end).ok_or(EncodeError::LimitExceeded)?;
-    out.extend_from_slice(raw);
-    Ok(end)
+    store(out, advance_encode(cursor, FAST_WINDOW)?, raw)?;
+    Ok((
+        end,
+        advance_encode(cursor, FAST_WINDOW.wrapping_add(raw.len()))?,
+    ))
 }
 
-/// Encode a sparse word.
+/// Encode a sparse word: the tag byte then only its nonzero bytes.
 fn encode_sparse_word(
     offset: usize,
-    word: [u8; WORD_BYTES],
+    word: u64,
     tag: u8,
-    out: &mut Vec<u8>,
-) -> Result<usize, EncodeError> {
-    out.push(tag);
-    append_nonzero_bytes(word, out);
-    advance_encode(offset, WORD_BYTES)
+    out: &mut [u8],
+    cursor: usize,
+) -> Result<(usize, usize), EncodeError> {
+    let end = advance_encode(cursor, 9)?;
+    let dst = out.get_mut(cursor..end).ok_or(EncodeError::LimitExceeded)?;
+    if let Some(cell) = dst.first_mut() {
+        *cell = tag;
+    }
+    let mut len = 1_usize;
+    let mut bits = tag;
+    while bits != 0 {
+        let lane = bits.trailing_zeros();
+        if let Some(cell) = dst.get_mut(len) {
+            *cell = extract_lane(word, lane);
+        }
+        len = len.wrapping_add(1);
+        bits &= bits.wrapping_sub(1);
+    }
+    Ok((
+        advance_encode(offset, WORD_BYTES)?,
+        advance_encode(cursor, len)?,
+    ))
 }
 
-/// Decode one tag and return the next packed cursor.
+/// Count extra words matching `predicate`, capped by the one-byte run count.
+fn run_extras(
+    body: &[u8],
+    start: usize,
+    predicate: impl Fn(u64) -> bool,
+) -> Result<usize, EncodeError> {
+    let mut count = 0;
+    let mut offset = start;
+    while count < MAX_RUN_COUNT {
+        match read_word(body, offset) {
+            Some(word) if predicate(word) => {
+                count = count.checked_add(1).ok_or(EncodeError::LimitExceeded)?;
+                offset = advance_encode(offset, WORD_BYTES)?;
+            }
+            _ => break,
+        }
+    }
+    Ok(count)
+}
+
+/// Decode one element with unconditional whole-word reads: zero runs bump the
+/// cursor over pre-zeroed output, dense runs bulk-copy, sparse words write
+/// only their nonzero bytes. The caller guarantees `ELEMENT_ROOM` headroom.
+fn decode_fast_element(
+    packed: &[u8],
+    window: &[u8],
+    cursor: usize,
+    dst: &mut [u8],
+    written: usize,
+) -> Result<(usize, usize), DecodeError> {
+    let tag = window.first().copied().unwrap_or(0);
+    match tag {
+        ZERO_RUN_TAG => {
+            let extra = usize::from(window.get(1).copied().unwrap_or(0));
+            let bytes = extra
+                .wrapping_add(1)
+                .checked_mul(WORD_BYTES)
+                .ok_or(DecodeError::LimitExceeded)?;
+            Ok((advance(cursor, 2)?, advance(written, bytes)?))
+        }
+        DENSE_RUN_TAG => decode_fast_dense(packed, window, cursor, dst, written),
+        sparse => {
+            let src = window
+                .get(1..1 + WORD_BYTES)
+                .and_then(|slice| <[u8; WORD_BYTES]>::try_from(slice).ok())
+                .ok_or(DecodeError::PackedTruncated)?;
+            let word = expand_word(sparse, u64::from_le_bytes(src));
+            copy_at(dst, written, &word.to_le_bytes())?;
+            let taken =
+                usize::try_from(sparse.count_ones()).map_err(|_| DecodeError::LimitExceeded)?;
+            Ok((
+                advance(cursor, taken.wrapping_add(1))?,
+                advance(written, WORD_BYTES)?,
+            ))
+        }
+    }
+}
+
+/// Decode a dense passthrough run in the fast path.
+fn decode_fast_dense(
+    packed: &[u8],
+    window: &[u8],
+    cursor: usize,
+    dst: &mut [u8],
+    written: usize,
+) -> Result<(usize, usize), DecodeError> {
+    let extra = usize::from(window.get(9).copied().unwrap_or(0));
+    let raw_bytes = extra
+        .checked_mul(WORD_BYTES)
+        .ok_or(DecodeError::LimitExceeded)?;
+    let word = window.get(1..9).ok_or(DecodeError::PackedTruncated)?;
+    copy_at(dst, written, word)?;
+    let raw_start = advance(cursor, FAST_WINDOW)?;
+    let raw_end = advance(raw_start, raw_bytes)?;
+    let raw = packed
+        .get(raw_start..raw_end)
+        .ok_or(DecodeError::PackedTruncated)?;
+    copy_at(dst, written.wrapping_add(WORD_BYTES), raw)?;
+    Ok((
+        raw_end,
+        advance(written, WORD_BYTES.wrapping_add(raw_bytes))?,
+    ))
+}
+
+/// Copy `src` into the pre-zeroed output at `at`.
+fn copy_at(out: &mut [u8], at: usize, src: &[u8]) -> Result<(), DecodeError> {
+    let end = at
+        .checked_add(src.len())
+        .ok_or(DecodeError::LimitExceeded)?;
+    out.get_mut(at..end)
+        .ok_or(DecodeError::LimitExceeded)?
+        .copy_from_slice(src);
+    Ok(())
+}
+
+/// The remaining bytes at `cursor` when at least a full window remains.
+fn window_at(packed: &[u8], cursor: usize) -> Option<&[u8]> {
+    packed
+        .get(cursor..)
+        .filter(|window| window.len() >= FAST_WINDOW)
+}
+
+/// Decode one tag near the end of the stream and return the next cursor.
 fn decode_tag(
     tag: u8,
     packed: &[u8],
@@ -128,11 +381,15 @@ fn decode_tag(
 fn decode_zero_run(packed: &[u8], cursor: usize, out: &mut Vec<u8>) -> Result<usize, DecodeError> {
     let extra = usize::from(read_u8(packed, cursor)?);
     let words = extra.checked_add(1).ok_or(DecodeError::LimitExceeded)?;
-    append_zero_words(out, words)?;
+    let bytes = words
+        .checked_mul(WORD_BYTES)
+        .ok_or(DecodeError::LimitExceeded)?;
+    let len = checked_output_len(out.len(), bytes)?;
+    out.resize(len, 0);
     advance(cursor, 1)
 }
 
-/// Decode a dense passthrough run.
+/// Decode a dense passthrough run with one bulk copy per section.
 fn decode_dense_run(packed: &[u8], cursor: usize, out: &mut Vec<u8>) -> Result<usize, DecodeError> {
     let word_end = advance(cursor, WORD_BYTES)?;
     append_bytes(out, read_range(packed, cursor, word_end)?)?;
@@ -146,116 +403,50 @@ fn decode_dense_run(packed: &[u8], cursor: usize, out: &mut Vec<u8>) -> Result<u
     Ok(raw_end)
 }
 
-/// Decode a sparse word.
+/// Decode a sparse word near the end of the stream, byte by byte.
 fn decode_sparse_word(
     tag: u8,
     packed: &[u8],
     cursor: usize,
     out: &mut Vec<u8>,
 ) -> Result<usize, DecodeError> {
-    let mut word = [0_u8; WORD_BYTES];
-    let mut next = cursor;
-    for offset in 0..WORD_BYTES {
-        next = read_tagged_byte(tag, packed, next, offset, &mut word)?;
+    let nonzero = usize::try_from(tag.count_ones()).map_err(|_| DecodeError::LimitExceeded)?;
+    let end = advance(cursor, nonzero)?;
+    let src = read_range(packed, cursor, end)?;
+    let mut word = 0_u64;
+    let mut bytes = src.iter();
+    let mut bits = tag;
+    while bits != 0 {
+        let lane = bits.trailing_zeros();
+        let byte = bytes.next().copied().ok_or(DecodeError::PackedTruncated)?;
+        word |= u64::from(byte).wrapping_shl(lane.wrapping_mul(8));
+        bits &= bits.wrapping_sub(1);
     }
-    append_bytes(out, &word)?;
-    Ok(next)
+    append_bytes(out, &word.to_le_bytes())?;
+    Ok(end)
 }
 
-/// Read a tagged sparse byte when present.
-fn read_tagged_byte(
-    tag: u8,
-    packed: &[u8],
-    cursor: usize,
-    offset: usize,
-    word: &mut [u8; WORD_BYTES],
-) -> Result<usize, DecodeError> {
-    if tag & bit(offset)? == 0 {
-        Ok(cursor)
-    } else {
-        let byte = read_u8(packed, cursor)?;
-        let slot = word.get_mut(offset).ok_or(DecodeError::LimitExceeded)?;
-        *slot = byte;
-        advance(cursor, 1)
-    }
+/// Branch-free nonzero-byte mask of a word ([TDBIN-PACK-WORD]): SWAR nonzero
+/// test per lane, then a movemask multiply gathering lane bits LSB-first.
+fn tag_of(word: u64) -> u8 {
+    let nonzero = (word & LANE_LOW).wrapping_add(LANE_LOW) | word;
+    let lanes = (nonzero >> 7) & LANE_ONES;
+    u8::try_from(lanes.wrapping_mul(LANE_GATHER).wrapping_shr(56)).unwrap_or(0)
 }
 
-/// Count extra all-zero words after `offset`.
-fn count_zero_extras(body: &[u8], offset: usize) -> Result<usize, EncodeError> {
-    count_matching_extras(body, offset, is_zero_word)
+/// Extract byte `lane` (0-7) of a word.
+fn extract_lane(word: u64, lane: u32) -> u8 {
+    u8::try_from(word.wrapping_shr(lane.wrapping_mul(8)) & 0xFF).unwrap_or(0)
 }
 
-/// Count extra dense words after `offset`.
-fn count_dense_extras(body: &[u8], offset: usize) -> Result<usize, EncodeError> {
-    count_matching_extras(body, offset, is_dense_word)
-}
-
-/// Count extra words matching `predicate`, capped by the one-byte run count.
-fn count_matching_extras(
-    body: &[u8],
-    mut offset: usize,
-    predicate: fn([u8; WORD_BYTES]) -> Result<bool, EncodeError>,
-) -> Result<usize, EncodeError> {
-    let mut count = 0;
-    while count < MAX_RUN_COUNT && offset < body.len() {
-        let word = read_word(body, offset).map_err(|_| EncodeError::LimitExceeded)?;
-        if !predicate(word)? {
-            break;
-        }
-        count = count.checked_add(1).ok_or(EncodeError::LimitExceeded)?;
-        offset = advance_encode(offset, WORD_BYTES)?;
-    }
-    Ok(count)
-}
-
-/// Return whether a word is all zero bytes.
-fn is_zero_word(word: [u8; WORD_BYTES]) -> Result<bool, EncodeError> {
-    tag_word(word).map(|tag| tag == ZERO_RUN_TAG)
-}
-
-/// Return whether a word is dense enough for passthrough.
-fn is_dense_word(word: [u8; WORD_BYTES]) -> Result<bool, EncodeError> {
-    nonzero_count(word).map(|count| count >= DENSE_NONZERO_BYTES)
-}
-
-/// Compute the sparse tag for a word.
-fn tag_word(word: [u8; WORD_BYTES]) -> Result<u8, EncodeError> {
-    let mut tag = 0_u8;
-    for (offset, byte) in word.iter().enumerate() {
-        if *byte != 0 {
-            tag |= bit(offset).map_err(|_| EncodeError::LimitExceeded)?;
-        }
-    }
-    Ok(tag)
-}
-
-/// Count non-zero bytes in a word.
-fn nonzero_count(word: [u8; WORD_BYTES]) -> Result<u8, EncodeError> {
-    let mut count = 0_u8;
-    for byte in word {
-        if byte != 0 {
-            count = count.checked_add(1).ok_or(EncodeError::LimitExceeded)?;
-        }
-    }
-    Ok(count)
-}
-
-/// Append non-zero bytes in word order.
-fn append_nonzero_bytes(word: [u8; WORD_BYTES], out: &mut Vec<u8>) {
-    for byte in word {
-        if byte != 0 {
-            out.push(byte);
-        }
-    }
-}
-
-/// Append zero words to the output.
-fn append_zero_words(out: &mut Vec<u8>, words: usize) -> Result<(), DecodeError> {
-    let bytes = words
-        .checked_mul(WORD_BYTES)
-        .ok_or(DecodeError::LimitExceeded)?;
-    let len = checked_output_len(out.len(), bytes)?;
-    out.resize(len, 0);
+/// Copy `src` into `dst` at `offset` (encode-side store).
+fn store(dst: &mut [u8], offset: usize, src: &[u8]) -> Result<(), EncodeError> {
+    let end = offset
+        .checked_add(src.len())
+        .ok_or(EncodeError::LimitExceeded)?;
+    dst.get_mut(offset..end)
+        .ok_or(EncodeError::LimitExceeded)?
+        .copy_from_slice(src);
     Ok(())
 }
 
@@ -264,14 +455,6 @@ fn append_bytes(out: &mut Vec<u8>, bytes: &[u8]) -> Result<(), DecodeError> {
     checked_output_len(out.len(), bytes.len()).map(|_| ())?;
     out.extend_from_slice(bytes);
     Ok(())
-}
-
-/// Initial unpack output capacity, capped by the decoder limit.
-fn initial_decode_capacity(packed_len: usize) -> Result<usize, DecodeError> {
-    let doubled = packed_len
-        .checked_mul(2)
-        .ok_or(DecodeError::LimitExceeded)?;
-    Ok(doubled.min(MAX_UNPACKED_BYTES))
 }
 
 /// Checked output length after appending `bytes`.
@@ -284,12 +467,6 @@ fn checked_output_len(current: usize, bytes: usize) -> Result<usize, DecodeError
         .ok_or(DecodeError::LimitExceeded)
 }
 
-/// Return the bit for a word byte offset.
-fn bit(offset: usize) -> Result<u8, DecodeError> {
-    let shift = u32::try_from(offset).map_err(|_| DecodeError::LimitExceeded)?;
-    1_u8.checked_shl(shift).ok_or(DecodeError::LimitExceeded)
-}
-
 /// Read one byte at `offset`.
 fn read_u8(bytes: &[u8], offset: usize) -> Result<u8, DecodeError> {
     bytes
@@ -298,11 +475,13 @@ fn read_u8(bytes: &[u8], offset: usize) -> Result<u8, DecodeError> {
         .ok_or(DecodeError::PackedTruncated)
 }
 
-/// Read one word at `offset`.
-fn read_word(bytes: &[u8], offset: usize) -> Result<[u8; WORD_BYTES], DecodeError> {
-    let end = advance(offset, WORD_BYTES)?;
-    let slice = bytes.get(offset..end).ok_or(DecodeError::PackedTruncated)?;
-    <[u8; WORD_BYTES]>::try_from(slice).map_err(|_| DecodeError::PackedTruncated)
+/// Read the whole little-endian word at byte `offset`, or `None` past the end.
+fn read_word(bytes: &[u8], offset: usize) -> Option<u64> {
+    let end = offset.checked_add(WORD_BYTES)?;
+    bytes
+        .get(offset..end)
+        .and_then(|slice| <[u8; WORD_BYTES]>::try_from(slice).ok())
+        .map(u64::from_le_bytes)
 }
 
 /// Read the range `start..end`.

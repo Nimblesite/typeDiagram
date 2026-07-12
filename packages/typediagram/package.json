@@ -39,6 +39,14 @@
     "./converters/rust-tdbin": {
       "types": "./dist/converters/rust-tdbin.d.ts",
       "import": "./dist/converters/rust-tdbin.js"
+    },
+    "./converters/typescript-tdbin": {
+      "types": "./dist/converters/typescript-tdbin.d.ts",
+      "import": "./dist/converters/typescript-tdbin.js"
+    },
+    "./tdbin": {
+      "types": "./dist/tdbin/index.d.ts",
+      "import": "./dist/tdbin/index.js"
     }
   },
   "files": [

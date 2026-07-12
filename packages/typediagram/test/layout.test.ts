@@ -3,13 +3,7 @@ import { parse } from "../src/parser/index.js";
 import { buildModel } from "../src/model/index.js";
 import { layout, measureBlock, measureText } from "../src/layout/index.js";
 import { CHAT_EXAMPLE, SMALL_EXAMPLE } from "./fixtures.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { unwrap } from "./helpers.js";
 
 describe("layout — measure", () => {
   it("ASCII text width is chars * 0.6 * fontSize", () => {

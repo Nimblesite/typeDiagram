@@ -1,6 +1,6 @@
 //! [TDBIN-PACK] black-box tests for Cap'n Proto word packing.
 
-use tdbin::{frame, pack, DecodeError, TdBin};
+use tdbin::{frame, pack, DecodeError, Struct, TdBin};
 
 /// The codegen-emitted ADT types and their TDBIN codec, under test.
 mod generated;
@@ -43,6 +43,25 @@ fn tdbin_pack_word_encodes_sparse_word_byte_exactly() -> TestResult {
     Ok(())
 }
 
+/// [TDBIN-PACK-WORD] Every sparse tag scatters payload bytes to the same slots.
+#[test]
+fn tdbin_pack_word_round_trips_every_sparse_tag() -> TestResult {
+    for tag in 1_u8..u8::MAX {
+        let body: [u8; 8] = core::array::from_fn(|offset| {
+            let mask = 1_u8
+                .checked_shl(u32::try_from(offset).unwrap_or(0))
+                .unwrap_or(0);
+            if tag & mask == 0 {
+                0
+            } else {
+                u8::try_from(offset).unwrap_or(0).saturating_add(1)
+            }
+        });
+        assert_eq!(pack::decode(&pack::encode(&body)?)?, body);
+    }
+    Ok(())
+}
+
 /// [TDBIN-PACK-RUNS] Zero-word runs encode as tag zero plus additional count.
 #[test]
 fn tdbin_pack_runs_encode_zero_words_byte_exactly() -> TestResult {
@@ -73,7 +92,7 @@ fn tdbin_pack_runs_encode_dense_words_byte_exactly() -> TestResult {
 #[test]
 fn tdbin_pack_frame_round_trips_generated_typed_value() -> TestResult {
     let person = packed_person();
-    let packed = person.to_packed_framed_bytes(Some(0xAABB_CCDD_EEFF_0011))?;
+    let packed = person.to_packed_framed_bytes(Some(Person::LAYOUT_HASH))?;
     let decoded_frame = frame::decode(&packed)?;
 
     assert!(
@@ -82,7 +101,7 @@ fn tdbin_pack_frame_round_trips_generated_typed_value() -> TestResult {
     );
     assert_eq!(
         decoded_frame.schema_hash(),
-        Some(0xAABB_CCDD_EEFF_0011),
+        Some(Person::LAYOUT_HASH),
         "schema hash must survive packed framing"
     );
     assert_eq!(

@@ -1,0 +1,548 @@
+{
+  "format_version": 1,
+  "generated_at": "2026-07-11T15:07:08.285Z",
+  "commands": ["cargo bench -p tdbin --bench gate -- --noplot", "node scripts/tdbin-bench-report.mjs"],
+  "corpus_schemas": ["docs/benchmarks/tdbin-corpus.td", "docs/benchmarks/tdbin-corpus.proto"],
+  "gate": {
+    "size_ratio_max": 1,
+    "encode_speed_ratio_min": 1.5,
+    "decode_speed_ratio_min": 1.5,
+    "release_mode": "any self-describing production mode (framed or packed framed)"
+  },
+  "environment": {
+    "platform": "darwin",
+    "release": "25.5.0",
+    "architecture": "arm64",
+    "cpu": "Apple M4 Max",
+    "logical_cpus": 14,
+    "memory_bytes": 38654705664,
+    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
+    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "dependencies": "tdbin v0.0.0 (/Users/christianfindlay/Documents/Code/typeDiagram/crates/tdbin)\n[dev-dependencies]\n├── criterion v0.8.2\n└── prost v0.14.3"
+  },
+  "sizes": {
+    "format_version": 1,
+    "fixtures": [
+      {
+        "name": "with_address",
+        "shape": "tiny nested record and union",
+        "corpus": false,
+        "logical_items": 1,
+        "tdbin_bare": 160,
+        "tdbin_framed": 172,
+        "tdbin_packed_framed": 109,
+        "protobuf": 79
+      },
+      {
+        "name": "without_address",
+        "shape": "tiny sparse record and union",
+        "corpus": false,
+        "logical_items": 1,
+        "tdbin_bare": 112,
+        "tdbin_framed": 124,
+        "tdbin_packed_framed": 54,
+        "protobuf": 31
+      },
+      {
+        "name": "metric_batch",
+        "shape": "list-heavy telemetry",
+        "corpus": true,
+        "logical_items": 4096,
+        "tdbin_bare": 43776,
+        "tdbin_framed": 43788,
+        "tdbin_packed_framed": 23045,
+        "protobuf": 84149
+      },
+      {
+        "name": "person_batch",
+        "shape": "repeated records",
+        "corpus": false,
+        "logical_items": 512,
+        "tdbin_bare": 22976,
+        "tdbin_framed": 22988,
+        "tdbin_packed_framed": 20071,
+        "protobuf": 29184
+      },
+      {
+        "name": "contact_batch",
+        "shape": "repeated unions",
+        "corpus": false,
+        "logical_items": 2048,
+        "tdbin_bare": 23144,
+        "tdbin_framed": 23156,
+        "tdbin_packed_framed": 22317,
+        "protobuf": 35221
+      },
+      {
+        "name": "diagram_document",
+        "shape": "record-heavy diagram document",
+        "corpus": true,
+        "logical_items": 768,
+        "tdbin_bare": 45160,
+        "tdbin_framed": 45172,
+        "tdbin_packed_framed": 37868,
+        "protobuf": 50788
+      },
+      {
+        "name": "event_batch",
+        "shape": "union-heavy event stream",
+        "corpus": true,
+        "logical_items": 2048,
+        "tdbin_bare": 116360,
+        "tdbin_framed": 116372,
+        "tdbin_packed_framed": 102861,
+        "protobuf": 131744
+      }
+    ]
+  },
+  "benchmarks": [
+    {
+      "fixture": "with_address",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 83.0986024519383,
+      "confidence_interval_ns": [82.75906918294152, 83.3815792987034],
+      "sample_count": 50,
+      "sampled_time_ns": 5010966247
+    },
+    {
+      "fixture": "with_address",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 109.3599955037348,
+      "confidence_interval_ns": [101.10398443996914, 111.63251257218099],
+      "sample_count": 50,
+      "sampled_time_ns": 6167315255
+    },
+    {
+      "fixture": "with_address",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 198.64182683798805,
+      "confidence_interval_ns": [196.79967216953517, 207.63834509272823],
+      "sample_count": 50,
+      "sampled_time_ns": 4688622750
+    },
+    {
+      "fixture": "with_address",
+      "operation": "protobuf_encode",
+      "median_ns": 69.4070397719205,
+      "confidence_interval_ns": [64.09463081445617, 73.29276867542798],
+      "sample_count": 50,
+      "sampled_time_ns": 4853818290
+    },
+    {
+      "fixture": "with_address",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 154.30256338383225,
+      "confidence_interval_ns": [151.27704125756728, 157.0964401015884],
+      "sample_count": 50,
+      "sampled_time_ns": 5247387792
+    },
+    {
+      "fixture": "with_address",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 939.8466969498579,
+      "confidence_interval_ns": [908.5379492439257, 966.4722433975369],
+      "sample_count": 50,
+      "sampled_time_ns": 7711428377
+    },
+    {
+      "fixture": "with_address",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 3605.618066451447,
+      "confidence_interval_ns": [3548.2055785694556, 3652.6665439258645],
+      "sample_count": 50,
+      "sampled_time_ns": 5589697585
+    },
+    {
+      "fixture": "with_address",
+      "operation": "protobuf_decode",
+      "median_ns": 921.2747494756468,
+      "confidence_interval_ns": [913.1263968042108, 939.4358635102728],
+      "sample_count": 50,
+      "sampled_time_ns": 5038537211
+    },
+    {
+      "fixture": "without_address",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 338.23941935625714,
+      "confidence_interval_ns": [335.94558211992916, 341.9764862369185],
+      "sample_count": 50,
+      "sampled_time_ns": 4902567339
+    },
+    {
+      "fixture": "without_address",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 400.05962862713375,
+      "confidence_interval_ns": [396.69831002150937, 402.9557669363937],
+      "sample_count": 50,
+      "sampled_time_ns": 5493679418
+    },
+    {
+      "fixture": "without_address",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 764.9362829090513,
+      "confidence_interval_ns": [754.5268784450246, 777.8599521207768],
+      "sample_count": 50,
+      "sampled_time_ns": 2607578164
+    },
+    {
+      "fixture": "without_address",
+      "operation": "protobuf_encode",
+      "median_ns": 35.643756724257955,
+      "confidence_interval_ns": [35.34580951704713, 36.04477387841564],
+      "sample_count": 50,
+      "sampled_time_ns": 5172749164
+    },
+    {
+      "fixture": "without_address",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 73.63715672425766,
+      "confidence_interval_ns": [73.28936054166395, 74.39476561989946],
+      "sample_count": 50,
+      "sampled_time_ns": 5770456038
+    },
+    {
+      "fixture": "without_address",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 76.62628666396307,
+      "confidence_interval_ns": [76.28170920091168, 76.97378832520158],
+      "sample_count": 50,
+      "sampled_time_ns": 5716749832
+    },
+    {
+      "fixture": "without_address",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 542.176390275313,
+      "confidence_interval_ns": [537.789443896877, 545.6730102040816],
+      "sample_count": 50,
+      "sampled_time_ns": 5451650873
+    },
+    {
+      "fixture": "without_address",
+      "operation": "protobuf_decode",
+      "median_ns": 53.270764638974285,
+      "confidence_interval_ns": [52.774499120830136, 54.62112858742235],
+      "sample_count": 50,
+      "sampled_time_ns": 5653604124
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 12304.579206968829,
+      "confidence_interval_ns": [12034.351204594741, 12986.859614434008],
+      "sample_count": 50,
+      "sampled_time_ns": 3765785380
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 14973.70605269598,
+      "confidence_interval_ns": [14362.956805293006, 15266.240419615773],
+      "sample_count": 50,
+      "sampled_time_ns": 4256507585
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 27741.34569382736,
+      "confidence_interval_ns": [24611.30361188019, 29641.257145924064],
+      "sample_count": 50,
+      "sampled_time_ns": 4639950838
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "protobuf_encode",
+      "median_ns": 50695.82419075859,
+      "confidence_interval_ns": [45812.643214688826, 56102.63138832998],
+      "sample_count": 50,
+      "sampled_time_ns": 5412158586
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 7712.441381987577,
+      "confidence_interval_ns": [7535.392364793213, 7846.435093167702],
+      "sample_count": 50,
+      "sampled_time_ns": 3110157084
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 7950.836157946074,
+      "confidence_interval_ns": [7797.901587003475, 8153.567186053687],
+      "sample_count": 50,
+      "sampled_time_ns": 4824275454
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 37962.75155400156,
+      "confidence_interval_ns": [37782.57575757576, 38310.655483405484],
+      "sample_count": 50,
+      "sampled_time_ns": 5710549457
+    },
+    {
+      "fixture": "metric_batch",
+      "operation": "protobuf_decode",
+      "median_ns": 35866.98133657133,
+      "confidence_interval_ns": [35315.62229357798, 36267.435779816515],
+      "sample_count": 50,
+      "sampled_time_ns": 4988323041
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 11811.259324532171,
+      "confidence_interval_ns": [11727.91182913472, 11857.022682529383],
+      "sample_count": 50,
+      "sampled_time_ns": 5002386459
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 11857.785178035178,
+      "confidence_interval_ns": [11793.738811982714, 11876.218218218219],
+      "sample_count": 50,
+      "sampled_time_ns": 4998342748
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 15541.067667958656,
+      "confidence_interval_ns": [15265.019379844962, 15892.26976744186],
+      "sample_count": 50,
+      "sampled_time_ns": 5124612873
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "protobuf_encode",
+      "median_ns": 18246.74396654719,
+      "confidence_interval_ns": [18085.814536340855, 18350.320477843918],
+      "sample_count": 50,
+      "sampled_time_ns": 5069842789
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 36733.65223791067,
+      "confidence_interval_ns": [36446.825531914896, 37009.23423423423],
+      "sample_count": 50,
+      "sampled_time_ns": 5009308170
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 37817.89528566519,
+      "confidence_interval_ns": [37126.017136329014, 38522.627846534655],
+      "sample_count": 50,
+      "sampled_time_ns": 4937394337
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 41742.64619883041,
+      "confidence_interval_ns": [41256.072874493926, 42369.14766917293],
+      "sample_count": 50,
+      "sampled_time_ns": 5122980873
+    },
+    {
+      "fixture": "person_batch",
+      "operation": "protobuf_decode",
+      "median_ns": 57691.02573529412,
+      "confidence_interval_ns": [57264.09488795518, 58092.244884910484],
+      "sample_count": 50,
+      "sampled_time_ns": 5044088503
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 9627.04700894493,
+      "confidence_interval_ns": [9605.446515892421, 9661.16333876664],
+      "sample_count": 50,
+      "sampled_time_ns": 5017694914
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 9653.37920771757,
+      "confidence_interval_ns": [9611.229788467112, 9720.221674876848],
+      "sample_count": 50,
+      "sampled_time_ns": 5011654586
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 12925.319602272728,
+      "confidence_interval_ns": [12866.41525974026, 13029.128030303029],
+      "sample_count": 50,
+      "sampled_time_ns": 5076227668
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "protobuf_encode",
+      "median_ns": 28364.751068519512,
+      "confidence_interval_ns": [28008.61768707483, 28740.990767735668],
+      "sample_count": 50,
+      "sampled_time_ns": 5413163040
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 36763.935706018514,
+      "confidence_interval_ns": [36436.13937621832, 38004.730273752015],
+      "sample_count": 50,
+      "sampled_time_ns": 5239417333
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 43522.073933998836,
+      "confidence_interval_ns": [42990.50632911392, 45359.17721518988],
+      "sample_count": 50,
+      "sampled_time_ns": 4709271376
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 40589.56235239541,
+      "confidence_interval_ns": [38987.891636141634, 41945.72649572649],
+      "sample_count": 50,
+      "sampled_time_ns": 4278261001
+    },
+    {
+      "fixture": "contact_batch",
+      "operation": "protobuf_decode",
+      "median_ns": 72148.43694196429,
+      "confidence_interval_ns": [69175.54523809523, 74153.18263888889],
+      "sample_count": 50,
+      "sampled_time_ns": 4708885204
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 16468.413178034374,
+      "confidence_interval_ns": [15267.550766410459, 17475.167218925613],
+      "sample_count": 50,
+      "sampled_time_ns": 3973093918
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 13958.201267482516,
+      "confidence_interval_ns": [13514.264891562685, 15376.681784105258],
+      "sample_count": 50,
+      "sampled_time_ns": 5476900039
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 24274.09638554217,
+      "confidence_interval_ns": [23245.29059093517, 24469.05464716007],
+      "sample_count": 50,
+      "sampled_time_ns": 5682131288
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "protobuf_encode",
+      "median_ns": 23293.14121825226,
+      "confidence_interval_ns": [21948.859618104667, 24437.80198019802],
+      "sample_count": 50,
+      "sampled_time_ns": 2832264585
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 74797.71759259258,
+      "confidence_interval_ns": [74476.04962962963, 75054.47592592593],
+      "sample_count": 50,
+      "sampled_time_ns": 5183134501
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 75938.81051463718,
+      "confidence_interval_ns": [75538.61046511628, 76333.85859973359],
+      "sample_count": 50,
+      "sampled_time_ns": 5024830496
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 84772.29507844402,
+      "confidence_interval_ns": [84151.99468085106, 85929.28039513677],
+      "sample_count": 50,
+      "sampled_time_ns": 5079075627
+    },
+    {
+      "fixture": "diagram_document",
+      "operation": "protobuf_decode",
+      "median_ns": 120168.45172634271,
+      "confidence_interval_ns": [119515.8756684492, 120872.32037815126],
+      "sample_count": 50,
+      "sampled_time_ns": 5248374578
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "tdbin_encode_bare",
+      "median_ns": 40854.41593242901,
+      "confidence_interval_ns": [40522.44836317135, 41923.52321004159],
+      "sample_count": 50,
+      "sampled_time_ns": 5159725958
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "tdbin_encode_framed",
+      "median_ns": 39913.562568681315,
+      "confidence_interval_ns": [39642.669137761244, 40059.578889860146],
+      "sample_count": 50,
+      "sampled_time_ns": 5226986670
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "tdbin_encode_packed_framed",
+      "median_ns": 55970.928275599545,
+      "confidence_interval_ns": [55781.71908310115, 56181.00070422535],
+      "sample_count": 50,
+      "sampled_time_ns": 5066256920
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "protobuf_encode",
+      "median_ns": 79863.94954248366,
+      "confidence_interval_ns": [78118.58975141887, 81755.60055555555],
+      "sample_count": 50,
+      "sampled_time_ns": 5017193506
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "tdbin_decode_bare",
+      "median_ns": 202750.00983436854,
+      "confidence_interval_ns": [201498.01509872242, 203393.86091269844],
+      "sample_count": 50,
+      "sampled_time_ns": 5454116957
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "tdbin_decode_framed",
+      "median_ns": 205236.58258928574,
+      "confidence_interval_ns": [200798.04421768707, 206521.79277244495],
+      "sample_count": 50,
+      "sampled_time_ns": 5581533544
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "tdbin_decode_packed_framed",
+      "median_ns": 227074.67709305946,
+      "confidence_interval_ns": [224506.687654321, 229686.21978557506],
+      "sample_count": 50,
+      "sampled_time_ns": 5164226039
+    },
+    {
+      "fixture": "event_batch",
+      "operation": "protobuf_decode",
+      "median_ns": 303783.7773556231,
+      "confidence_interval_ns": [297643.63354037266, 308790.9420849421],
+      "sample_count": 50,
+      "sampled_time_ns": 5401235540
+    }
+  ]
+}

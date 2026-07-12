@@ -1,24 +1,8 @@
 // [CLI-E2E] Full CLI: argv -> parse -> renderToString -> stdout / diagnostics -> stderr, exit code.
 import { readFile } from "node:fs/promises";
-import { Writable } from "node:stream";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { main } from "../src/cli.js";
 import { versionJson, versionText } from "../src/version.js";
-
-const fixtureUrl = (name: string) => new URL(`./fixtures/${name}`, import.meta.url);
-const fixturePath = (name: string) => fileURLToPath(fixtureUrl(name));
-
-const makeStream = () => {
-  const chunks: string[] = [];
-  const stream = new Writable({
-    write(chunk, _enc, cb) {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk.toString("utf8") : String(chunk));
-      cb();
-    },
-  });
-  return { stream, text: () => chunks.join("") };
-};
+import { fixturePath, run, runStdin } from "./helpers.js";
 
 describe("[CLI-E2E] typediagram CLI", () => {
   it.each([
@@ -31,106 +15,82 @@ describe("[CLI-E2E] typediagram CLI", () => {
       names: ["ChatRequest", "ToolResultContent", "ContentItem", "UriKind", "Option"],
     },
   ])("renders spec example $file to SVG on stdout (exit 0)", async ({ file, names }) => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main([fixturePath(file)], out.stream, err.stream);
-    expect(err.text()).toBe("");
+    const { code, stdout, stderr } = await run([fixturePath(file)]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    expect(out.text()).toMatch(/^<svg[\s>]/);
-    const txt = out.text();
+    expect(stdout).toMatch(/^<svg[\s>]/);
     for (const name of names) {
-      expect(txt).toContain(name);
+      expect(stdout).toContain(name);
     }
   });
 
   it("reports parse errors to stderr with exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main([fixturePath("bad.td")], out.stream, err.stream);
+    const { code, stderr } = await run([fixturePath("bad.td")]);
     expect(code).toBe(1);
-    expect(err.text().length).toBeGreaterThan(0);
+    expect(stderr.length).toBeGreaterThan(0);
   });
 
   it("fails cleanly when file is missing", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["/no/such/path.td"], out.stream, err.stream);
+    const { code, stderr } = await run(["/no/such/path.td"]);
     expect(code).toBe(1);
-    expect(err.text()).toMatch(/cannot read/);
+    expect(stderr).toMatch(/cannot read/);
   });
 
   it("--help prints usage and exits 0", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--help"], out.stream, err.stream);
+    const { code, stdout, stderr } = await run(["--help"]);
     expect(code).toBe(0);
-    expect(out.text()).toContain("typediagram");
-    expect(err.text()).toBe("");
+    expect(stdout).toContain("typediagram");
+    expect(stderr).toBe("");
   });
 
   it("renders with --font-size option", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--font-size", "16", fixturePath("small.td")], out.stream, err.stream);
+    const { code, stdout } = await run(["--font-size", "16", fixturePath("small.td")]);
     expect(code).toBe(0);
-    expect(out.text()).toMatch(/^<svg[\s>]/);
-    expect(out.text()).toContain('font-size="16"');
+    expect(stdout).toMatch(/^<svg[\s>]/);
+    expect(stdout).toContain('font-size="16"');
   });
 
   it("rejects unknown flag with exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--bogus"], out.stream, err.stream);
+    const { code } = await run(["--bogus"]);
     expect(code).toBe(1);
   });
 });
 
 describe("[CLI-E2E-FROM] --from language conversion", () => {
   it("--from typescript converts TS interfaces to SVG", async () => {
-    const out = makeStream();
-    const errS = makeStream();
-    const code = await main(["--from", "typescript", fixturePath("types.ts")], out.stream, errS.stream);
-    expect(errS.text()).toBe("");
+    const { code, stdout, stderr } = await run(["--from", "typescript", fixturePath("types.ts")]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    expect(out.text()).toMatch(/^<svg[\s>]/);
-    expect(out.text()).toContain("User");
-    expect(out.text()).toContain("Address");
+    expect(stdout).toMatch(/^<svg[\s>]/);
+    expect(stdout).toContain("User");
+    expect(stdout).toContain("Address");
   });
 
   it("--from with bad source returns exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--from", "typescript", fixturePath("bad.td")], out.stream, err.stream);
+    const { code } = await run(["--from", "typescript", fixturePath("bad.td")]);
     expect(code).toBe(1);
   });
 
   it("--from with missing file returns exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--from", "typescript", "/no/such/file.ts"], out.stream, err.stream);
+    const { code, stderr } = await run(["--from", "typescript", "/no/such/file.ts"]);
     expect(code).toBe(1);
-    expect(err.text()).toMatch(/cannot read/);
+    expect(stderr).toMatch(/cannot read/);
   });
 
   it("--from --emit td outputs typeDiagram source (not SVG)", async () => {
-    const out = makeStream();
-    const errS = makeStream();
-    const code = await main(["--from", "rust", "--emit", "td", fixturePath("types.rs")], out.stream, errS.stream);
-    expect(errS.text()).toBe("");
+    const { code, stdout, stderr } = await run(["--from", "rust", "--emit", "td", fixturePath("types.rs")]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    expect(out.text()).not.toMatch(/^<svg/);
-    expect(out.text()).toContain("type User");
-    expect(out.text()).toContain("union Shape");
+    expect(stdout).not.toMatch(/^<svg/);
+    expect(stdout).toContain("type User");
+    expect(stdout).toContain("union Shape");
   });
 
   it("--from --emit td+svg outputs td then separator then SVG", async () => {
-    const out = makeStream();
-    const errS = makeStream();
-    const code = await main(["--from", "rust", "--emit", "td+svg", fixturePath("types.rs")], out.stream, errS.stream);
-    expect(errS.text()).toBe("");
+    const { code, stdout, stderr } = await run(["--from", "rust", "--emit", "td+svg", fixturePath("types.rs")]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    const text = out.text();
-    const parts = text.split("\n---\n");
+    const parts = stdout.split("\n---\n");
     expect(parts.length).toBe(2);
     expect(parts[0]).toContain("type User");
     expect(parts[1]).toMatch(/^<svg[\s>]/);
@@ -139,103 +99,81 @@ describe("[CLI-E2E-FROM] --from language conversion", () => {
 
 describe("[CLI-E2E-TO] --to language export", () => {
   it("--to typescript converts typeDiagram to TS source", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "typescript", fixturePath("small.td")], out.stream, err.stream);
+    const { code, stdout } = await run(["--to", "typescript", fixturePath("small.td")]);
     expect(code).toBe(0);
-    expect(out.text()).toContain("export interface User");
-    expect(out.text()).toContain("name: string");
+    expect(stdout).toContain("export interface User");
+    expect(stdout).toContain("name: string");
   });
 
   it("--to rust converts typeDiagram to Rust source", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "rust", fixturePath("small.td")], out.stream, err.stream);
+    const { code, stdout } = await run(["--to", "rust", fixturePath("small.td")]);
     expect(code).toBe(0);
-    expect(out.text()).toContain("pub struct User");
-    expect(out.text()).toContain("pub enum");
+    expect(stdout).toContain("pub struct User");
+    expect(stdout).toContain("pub enum");
   });
 
   it("--to python converts typeDiagram to Python source", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "python", fixturePath("small.td")], out.stream, err.stream);
+    const { code, stdout } = await run(["--to", "python", fixturePath("small.td")]);
     expect(code).toBe(0);
-    expect(out.text()).toContain("@dataclass");
-    expect(out.text()).toContain("class User:");
+    expect(stdout).toContain("@dataclass");
+    expect(stdout).toContain("class User:");
   });
 
   it("--to go converts typeDiagram to Go source", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "go", fixturePath("small.td")], out.stream, err.stream);
+    const { code, stdout } = await run(["--to", "go", fixturePath("small.td")]);
     expect(code).toBe(0);
-    expect(out.text()).toContain("type User struct");
+    expect(stdout).toContain("type User struct");
   });
 
   it("--to with bad typeDiagram source returns exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "typescript", fixturePath("bad.td")], out.stream, err.stream);
+    const { code } = await run(["--to", "typescript", fixturePath("bad.td")]);
     expect(code).toBe(1);
   });
 
   it("--to with missing file returns exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "typescript", "/no/such/file.td"], out.stream, err.stream);
+    const { code, stderr } = await run(["--to", "typescript", "/no/such/file.td"]);
     expect(code).toBe(1);
-    expect(err.text()).toMatch(/cannot read/);
+    expect(stderr).toMatch(/cannot read/);
   });
 
   it("--to with duplicate declarations fails model build", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--to", "typescript", fixturePath("duplicate.td")], out.stream, err.stream);
+    const { code, stderr } = await run(["--to", "typescript", fixturePath("duplicate.td")]);
     expect(code).toBe(1);
-    expect(err.text()).toContain("duplicate");
+    expect(stderr).toContain("duplicate");
   });
 });
 
 describe("[CLI-TDBIN] generated Rust TDBIN glue", () => {
   it("encode emits generated Rust ADTs plus TDBIN codec impls", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["encode", fixturePath("scalars.td")], out.stream, err.stream);
-    expect(err.text()).toBe("");
+    const { code, stdout, stderr } = await run(["encode", fixturePath("scalars.td")]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    expect(out.text()).toContain("pub struct AuditEvent");
-    expect(out.text()).toContain("impl tdbin::Struct for AuditEvent");
-    expect(out.text()).toContain("w.word_list(at, Self::DATA_WORDS, 0, Some(&history_words))?;");
+    expect(stdout).toContain("pub struct AuditEvent");
+    expect(stdout).toContain("impl tdbin::Struct for AuditEvent");
+    expect(stdout).toContain("w.word_list(at, Self::DATA_WORDS, 0, Some(&history_words))?;");
   });
 
   it("decode emits codec impls for already-generated Rust ADTs", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["decode", fixturePath("scalars.td")], out.stream, err.stream);
-    expect(err.text()).toBe("");
+    const { code, stdout, stderr } = await run(["decode", fixturePath("scalars.td")]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    expect(out.text()).not.toContain("pub struct AuditEvent");
-    expect(out.text()).toContain("impl tdbin::Struct for AuditEvent");
-    expect(out.text()).toContain("fn read_struct");
+    expect(stdout).not.toContain("pub struct AuditEvent");
+    expect(stdout).toContain("impl tdbin::Struct for AuditEvent");
+    expect(stdout).toContain("fn read_struct");
   });
 
   it("verify validates TDBIN schema support without emitting Rust source", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["verify", fixturePath("scalars.td")], out.stream, err.stream);
-    expect(err.text()).toBe("");
+    const { code, stdout, stderr } = await run(["verify", fixturePath("scalars.td")]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
-    expect(out.text()).toBe("tdbin schema ok\n");
+    expect(stdout).toBe("tdbin schema ok\n");
   });
 
   it("verify reports unsupported TDBIN schemas as diagnostics", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["verify", fixturePath("small.td")], out.stream, err.stream);
+    const { code, stdout, stderr } = await run(["verify", fixturePath("small.td")]);
     expect(code).toBe(1);
-    expect(out.text()).toBe("");
-    expect(err.text()).toContain("tdbin:");
+    expect(stdout).toBe("");
+    expect(stderr).toContain("tdbin:");
   });
 
   it("verify reports missing files, parse errors, and model errors", async () => {
@@ -244,22 +182,18 @@ describe("[CLI-TDBIN] generated Rust TDBIN glue", () => {
       ["verify", fixturePath("bad.td")],
       ["verify", fixturePath("duplicate.td")],
     ]) {
-      const out = makeStream();
-      const err = makeStream();
-      const code = await main(argv, out.stream, err.stream);
+      const { code, stdout, stderr } = await run(argv);
       expect(code).toBe(1);
-      expect(out.text()).toBe("");
-      expect(err.text().length).toBeGreaterThan(0);
+      expect(stdout).toBe("");
+      expect(stderr.length).toBeGreaterThan(0);
     }
   });
 
   it("verify reports Rust codegen validation errors before TDBIN generation", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["verify", fixturePath("unknown-types.td")], out.stream, err.stream);
+    const { code, stdout, stderr } = await run(["verify", fixturePath("unknown-types.td")]);
     expect(code).toBe(1);
-    expect(out.text()).toBe("");
-    expect(err.text()).toMatch(/unknown type/i);
+    expect(stdout).toBe("");
+    expect(stderr).toMatch(/unknown type/i);
   });
 });
 
@@ -274,33 +208,10 @@ describe("[CLI-E2E-FIXTURE] fixtures present", () => {
 
 describe("[CLI-E2E-STDIN] stdin input", () => {
   it("reads source from stdin when no file given", async () => {
-    const { Readable } = await import("node:stream");
     const src = await readFile(fixturePath("small.td"), "utf8");
-    const fakeStdin = new Readable({
-      read() {
-        this.push(src);
-        this.push(null);
-      },
-    });
-    const original = process.stdin;
-    Object.defineProperty(process, "stdin", {
-      value: fakeStdin,
-      writable: true,
-      configurable: true,
-    });
-    try {
-      const out = makeStream();
-      const err = makeStream();
-      const code = await main([], out.stream, err.stream);
-      expect(code).toBe(0);
-      expect(out.text()).toMatch(/^<svg[\s>]/);
-    } finally {
-      Object.defineProperty(process, "stdin", {
-        value: original,
-        writable: true,
-        configurable: true,
-      });
-    }
+    const { code, stdout } = await runStdin([], src);
+    expect(code).toBe(0);
+    expect(stdout).toMatch(/^<svg[\s>]/);
   });
 });
 
@@ -309,16 +220,14 @@ describe("[CLI-E2E-STDIN] stdin input", () => {
 // [CONV-SCALARS] semantic scalars must reach codegen output end-to-end.
 describe("[CLI-CODEGEN-UNKNOWN] --to rejects unknown type identifiers", () => {
   it("exits 1, emits nothing, and lists every unknown type on stderr", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main([fixturePath("unknown-types.td"), "--to", "python"], out.stream, err.stream);
+    const { code, stdout, stderr } = await run([fixturePath("unknown-types.td"), "--to", "python"]);
     expect(code).toBe(1);
-    expect(out.text()).toBe("");
-    expect(err.text()).toMatch(/unknown type/i);
-    expect(err.text()).toContain("Timestamp");
-    expect(err.text()).toContain("Instant");
-    expect(err.text()).not.toContain("DateTime");
-    expect(err.text()).not.toContain("Uuid");
+    expect(stdout).toBe("");
+    expect(stderr).toMatch(/unknown type/i);
+    expect(stderr).toContain("Timestamp");
+    expect(stderr).toContain("Instant");
+    expect(stderr).not.toContain("DateTime");
+    expect(stderr).not.toContain("Uuid");
   });
 
   it.each([
@@ -338,13 +247,11 @@ describe("[CLI-CODEGEN-UNKNOWN] --to rejects unknown type identifiers", () => {
       snippets: ["Guid id", "DateTimeOffset createdAt", "decimal amount"],
     },
   ])("emits native scalar types for $lang with exit 0", async ({ lang, snippets }) => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main([fixturePath("scalars.td"), "--to", lang], out.stream, err.stream);
-    expect(err.text()).toBe("");
+    const { code, stdout, stderr } = await run([fixturePath("scalars.td"), "--to", lang]);
+    expect(stderr).toBe("");
     expect(code).toBe(0);
     for (const snippet of snippets) {
-      expect(out.text()).toContain(snippet);
+      expect(stdout).toContain(snippet);
     }
   });
 
@@ -357,21 +264,17 @@ describe("[CLI-CODEGEN-UNKNOWN] --to rejects unknown type identifiers", () => {
   };
 
   it("--version prints 'typediagram <version>' from package metadata, exits 0, no stderr", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--version"], out.stream, err.stream);
+    const { code, stdout, stderr } = await run(["--version"]);
     expect(code).toBe(0);
-    expect(err.text()).toBe("");
-    expect(out.text()).toBe(`typediagram ${await cliPkgVersion()}\n`);
+    expect(stderr).toBe("");
+    expect(stdout).toBe(`typediagram ${await cliPkgVersion()}\n`);
   });
 
   it("--version --json emits version-manifest JSON (manifestVersion/name/version/kind/language)", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--version", "--json"], out.stream, err.stream);
+    const { code, stdout, stderr } = await run(["--version", "--json"]);
     expect(code).toBe(0);
-    expect(err.text()).toBe("");
-    expect(JSON.parse(out.text())).toEqual({
+    expect(stderr).toBe("");
+    expect(JSON.parse(stdout)).toEqual({
       manifestVersion: 1,
       name: "typediagram",
       version: await cliPkgVersion(),
@@ -381,11 +284,9 @@ describe("[CLI-CODEGEN-UNKNOWN] --to rejects unknown type identifiers", () => {
   });
 
   it("--json without --version is rejected with exit 1", async () => {
-    const out = makeStream();
-    const err = makeStream();
-    const code = await main(["--json"], out.stream, err.stream);
+    const { code, stderr } = await run(["--json"]);
     expect(code).toBe(1);
-    expect(err.text()).toContain("--json requires --version");
+    expect(stderr).toContain("--json requires --version");
   });
 
   it("version helpers fail loudly when package metadata is broken or unreadable", () => {

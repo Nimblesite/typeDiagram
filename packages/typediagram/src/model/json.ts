@@ -2,7 +2,17 @@ import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err, ok } from "../result.js";
 import { withDiscriminant } from "../variant.js";
 import { resolveResolutions } from "./builder.js";
-import type { DeclTargeting, Model, ResolvedDecl, ResolvedTypeRef, ResolvedVariant } from "./types.js";
+import type {
+  DeclTargeting,
+  Model,
+  ResolvedAlias,
+  ResolvedDecl,
+  ResolvedField,
+  ResolvedRecord,
+  ResolvedTypeRef,
+  ResolvedUnion,
+  ResolvedVariant,
+} from "./types.js";
 
 export const SCHEMA_VERSION = 1;
 
@@ -13,41 +23,14 @@ export interface ModelJson {
 
 export type DeclJson = RecordJson | UnionJson | AliasJson;
 
-export interface RecordJson {
-  kind: "record";
-  name: string;
-  generics: string[];
-  fields: FieldJson[];
-  targeting?: DeclTargeting;
-}
-export interface UnionJson {
-  kind: "union";
-  name: string;
-  generics: string[];
-  untagged?: true;
-  variants: VariantJson[];
-  targeting?: DeclTargeting;
-}
-export interface AliasJson {
-  kind: "alias";
-  name: string;
-  generics: string[];
-  target: TypeRefJson;
-  targeting?: DeclTargeting;
-}
-export interface FieldJson {
-  name: string;
-  type: TypeRefJson;
-}
-export interface VariantJson {
-  name: string;
-  discriminant?: string;
-  fields: FieldJson[];
-}
-export interface TypeRefJson {
-  name: string;
-  args: TypeRefJson[];
-}
+/** [MODEL-JSON-SHAPE] JSON decls mirror the resolved model minus every `resolution`
+ * field: strip it recursively from the type refs and reuse the resolved shapes. */
+export type TypeRefJson = Omit<ResolvedTypeRef, "resolution" | "args"> & { args: TypeRefJson[] };
+export type FieldJson = Omit<ResolvedField, "type"> & { type: TypeRefJson };
+export type VariantJson = Omit<ResolvedVariant, "fields"> & { fields: FieldJson[] };
+export type RecordJson = Omit<ResolvedRecord, "fields"> & { fields: FieldJson[] };
+export type UnionJson = Omit<ResolvedUnion, "variants"> & { variants: VariantJson[] };
+export type AliasJson = Omit<ResolvedAlias, "target"> & { target: TypeRefJson };
 
 export function toJSON(model: Model): ModelJson {
   return {

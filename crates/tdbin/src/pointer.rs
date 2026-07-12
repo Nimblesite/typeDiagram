@@ -14,6 +14,10 @@ const KIND_MASK: u64 = 0b11;
 pub(crate) const ELEM_BIT: u8 = 1;
 /// List element-kind code for a byte list (String / Bytes / enum lists).
 pub(crate) const ELEM_BYTE: u8 = 2;
+/// List element-kind code for a two-byte raw list ([TDBIN-COL-VAR] lengths).
+pub(crate) const ELEM_TWO_BYTES: u8 = 3;
+/// List element-kind code for a four-byte raw list ([TDBIN-COL-VAR] lengths).
+pub(crate) const ELEM_FOUR_BYTES: u8 = 4;
 /// List element-kind code for an eight-byte raw list.
 pub(crate) const ELEM_EIGHT_BYTES: u8 = 5;
 /// List element-kind code for a pointer list.

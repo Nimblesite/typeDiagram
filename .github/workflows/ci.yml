@@ -75,6 +75,20 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # [CI-RUST-TOOLCHAIN] The Makefile wires the Rust `crates/` workspace into
+      # make test/lint/fmt (cargo test --workspace, cargo clippy -D warnings,
+      # cargo fmt --check). Both CI scopes reach cargo: full scope via `make ci`,
+      # web scope via `make lint` + `make _fmt_check`. Install/pin stable with the
+      # clippy + rustfmt components explicitly rather than trusting the runner
+      # image's implicit default toolchain (which can drift or lack components).
+      - name: Rust toolchain (stable + clippy + rustfmt)
+        run: |
+          rustup toolchain install stable --profile minimal --component clippy,rustfmt
+          rustup default stable
+          cargo --version
+          cargo clippy --version
+          cargo fmt --version
+
       # [SWR-SEC-VULN-GATE] fail at high for production dependencies. Cheap;
       # runs in both scopes.
       - name: Dependency vulnerability gate

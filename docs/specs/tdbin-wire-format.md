@@ -1,6 +1,6 @@
 # TDBIN Wire Format Specification
 
-> **Status:** DRAFT v1 — normative spec derived from [docs/research/binary-format-research.md](../research/binary-format-research.md).
+> **Status:** DRAFT v1 normative design; current Rust and TypeScript implementations are only partially conformant. See the [implementation audit](../reports/tdbin-implementation-audit.md) and [handoff plan](../plans/tdbin-implementation-plan.md#next-agent-handoff).
 > **Scope:** the language-neutral binary wire format for typeDiagram ADTs (records + tagged unions). The Rust codec API is specified in [tdbin-rust-api.md](tdbin-rust-api.md); the implementation plan is [docs/plans/tdbin-implementation-plan.md](../plans/tdbin-implementation-plan.md).
 > **Goal (non-negotiable):** smaller AND faster than Protobuf, measured by the bench gate `[TDBIN-BENCH-GATE]` (Rust API spec).
 > **Design thesis (research §0):** schema-known fixed layout (no field tags → smaller) + zero-parse/verify-on-access (no decode materialization → faster) + XOR-default word-packing (reclaims zero-copy padding → smaller again).
@@ -90,16 +90,16 @@ The target object is `data_words` words of scalar data followed by `ptr_words` p
 | 32–34 | elem   | element kind, table below                                                                        |
 | 35–63 | count  | u29: element count, EXCEPT composite (`elem=7`): total words excluding the tag word              |
 
-| elem | Element       | Used by                                                                       |
-| ---- | ------------- | ----------------------------------------------------------------------------- |
-| 0    | void (0 bits) | `List<Unit>`                                                                  |
-| 1    | 1 bit         | `List<Bool>` (bit-packed, `[TDBIN-WIRE-WORD]` bit order)                      |
-| 2    | 1 byte        | `String`, `Bytes`, `List<enum>` (`[TDBIN-LIST-ELEM]`)                         |
-| 3    | 2 bytes       | reserved for width-refined ints (`[TDBIN-FUTURE-WIDTH-TYPES]`)                |
-| 4    | 4 bytes       | reserved for width-refined ints/floats                                        |
-| 5    | 8 bytes       | `List<Int>`, `List<Float>`, `List<DateTime>`                                  |
-| 6    | pointer       | `List<String>`, `List<Bytes>`, `List<List<T>>`, `List<record>`, `List<union>` |
-| 7    | composite     | inline struct elements (`[TDBIN-LIST-COMPOSITE]`)                             |
+| elem | Element       | Used by                                                        |
+| ---- | ------------- | -------------------------------------------------------------- |
+| 0    | void (0 bits) | `List<Unit>`                                                   |
+| 1    | 1 bit         | `List<Bool>` (bit-packed, `[TDBIN-WIRE-WORD]` bit order)       |
+| 2    | 1 byte        | `String`, `Bytes`, `List<enum>` (`[TDBIN-LIST-ELEM]`)          |
+| 3    | 2 bytes       | reserved for width-refined ints (`[TDBIN-FUTURE-WIDTH-TYPES]`) |
+| 4    | 4 bytes       | reserved for width-refined ints/floats                         |
+| 5    | 8 bytes       | `List<Int>`, `List<Float>`, `List<DateTime>`                   |
+| 6    | pointer       | `List<String>`, `List<Bytes>`, `List<List<T>>`                 |
+| 7    | composite     | inline struct elements (`[TDBIN-LIST-COMPOSITE]`)              |
 
 List bodies MUST be zero-padded to a word boundary.
 
@@ -276,15 +276,13 @@ Generic types (`Pair<A,B>`, `Option<T>`, `List<T>`, `Result<T,E>`) are **monomor
 
 ### [TDBIN-SCHEMA-HASH]
 
-The framed `schema_hash` field carries a **layout hash**: FNV-1a 64-bit (offset basis `0xcbf29ce484222325`, prime `0x100000001b3`) over the canonical layout text `[TDBIN-SCHEMA-CANON]` for the declared schema major. The layout hash includes only wire-compatibility facts: encoding class, scalar widths and bit offsets, pointer slots, section word counts, union discriminant capacity, list element kinds, and semantic-scalar byte layouts. It excludes names, comments, source formatting, and tooling metadata. Append-compatible releases that keep the same schema major and preserve all previously assigned layout facts keep the same layout hash; breaking changes MUST bump the schema major and therefore change the layout hash.
+The framed `schema_hash` field carries a **compatibility-major layout hash**: FNV-1a 64-bit (offset basis `0xcbf29ce484222325`, prime `0x100000001b3`) over the frozen canonical layout manifest `[TDBIN-SCHEMA-CANON]` for the declared schema major. The manifest records the wire facts present when that major is published: encoding class, scalar widths and bit offsets, pointer slots, section word counts, union discriminant capacity, list element kinds, and semantic-scalar byte layouts. It excludes names, comments, source formatting, and tooling metadata. Append-compatible releases MUST retain that frozen manifest and hash; newly appended fields or variants are not added to it. Any change to a frozen fact MUST publish a new schema major and hash.
 
 Tooling MAY additionally compute an **exact schema text hash** over the full canonical typeDiagram source (names included). That exact hash is for diagnostics, codegen drift checks, and registry lookups; it MUST NOT be used as the framed rejection hash because it would reject append-compatible messages.
 
 ### [TDBIN-SCHEMA-CANON]
 
-Canonical layout text: all reachable monomorphized types, aliases expanded, sorted by stable layout identity, each rendered with no whitespace as
-`type Name{field:Type,…}` / `union Name{Variant{field:Type,…},Bare,…}`
-with fields and variants in ordinal order, plus their computed layout facts (`class`, widths, bit offsets, pointer slots, section sizes, and union capacity). Names are retained only as local readability labels before hashing; the layout hash input uses stable ordinal/type identities so a rename does not change the framed compatibility hash. The exact schema text hash, when needed by tooling, uses the full name-preserving canonical typeDiagram text instead.
+At publication of a schema major, tooling freezes a canonical layout manifest containing every reachable monomorphized type, aliases expanded and sorted by stable ordinal/type identity. Each entry records only encoding class, field/variant ordinal, wire type, widths, bit offsets, pointer slots, section sizes, union capacity, list kind, and semantic-scalar layout, rendered without whitespace. Source names are not hash input. Later append-compatible releases reuse the frozen manifest byte-for-byte even when their current structs have longer sections. The exact schema text hash, when needed by tooling, uses the full name-preserving canonical typeDiagram text instead.
 
 ---
 
@@ -334,9 +332,22 @@ For ordinary records, the verifier validates every non-null pointer slot in the 
 
 ---
 
+## Implementation conformance note (non-normative)
+
+The specification remains the source of truth when current code disagrees with it. Status as of 2026-07-11:
+
+- CLOSED: generated Rust and TypeScript readers decode null required pointer fields as schema defaults (`[TDBIN-PTR-NULL]`, `[TDBIN-REC-SHORT]`), with generated default factories/derives and executing tests in both languages.
+- CLOSED: scalar `Option<T>` presence is a first-fit single bit followed by the natural-width value slot in both generators (`[TDBIN-PRIM-OPTION]`, `[TDBIN-REC-ALLOC]`), driven by one shared allocator with a cross-language slot-parity test.
+- CLOSED: codegen freezes a canonical layout manifest (`[TDBIN-SCHEMA-CANON]`), emits its FNV-1a hash as `Struct::LAYOUT_HASH`, and normal framed decode automatically rejects contradicting advertised hashes (`[TDBIN-SCHEMA-HASH]`); `to_framed_bytes_checked` embeds the pinned hash, and a `frozenManifest` generator input covers append-compatible republishing.
+- CLOSED: union discriminants occupy their spec width; the v1 generators reserve the remainder of the discriminant word as always-zero padding and reject nonzero remainders as unknown ordinals on read (a strictly stronger check; wire bytes identical to the pinned goldens).
+- OPEN: non-empty zero-stride composite lists (`List<empty-record>`) remain unimplemented at layout 1, and empty-record column groups are a loud generation-time diagnostic at layout 2.
+- OPEN: TypeScript cross-language gaps (lossless i64, list/columnar generation) are tracked in [tdbin-future-typescript.md](tdbin-future-typescript.md); the TS generator's supported subset now executes real round-trips in its test suite.
+
+Columnar layout major 2 (`[TDBIN-COL-*]`, [tdbin-columnar.md](tdbin-columnar.md)) is implemented end to end in Rust: runtime, generated codecs, golden vectors, and the benchmark corpus. Do not weaken wire rules to match code. Benchmark results are not wire requirements; their sole numeric source is the generated [benchmark report](../reports/tdbin-bench-report.md).
+
 ## [TDBIN-FUTURE] Reserved forward paths (not in v1)
 
-- **[TDBIN-FUTURE-COLUMNAR]** — struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps, SIMD-BP128 bit-packed integer columns; research §3.3/§3.5, the 13%-smaller + SIMD-scannable regime). Will occupy a new list element kind or flag.
+- **[TDBIN-FUTURE-COLUMNAR]** — DELIVERED as layout major 2: struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps) is now normative in [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`), built from existing pointer primitives without reinterpreting v1 composite elem kind 7. SIMD-BP128 bit-packed integer columns remain future work.
 - **[TDBIN-FUTURE-READER]** — zero-copy verify-once/access-lazily reader (nanosecond field access; research §2.4).
 - **[TDBIN-FUTURE-RPC]** — the `[TDRPC-*]` spec: typeDiagram **function definitions as the service contract** (research §6.0), streaming modes from signature shape, numeric method ids (no method-name strings on the wire), capability pointers (kind `11`), promise pipelining. Fed by the dedicated RPC research pass.
 - **[TDBIN-FUTURE-TS]** — TypeScript codec in `packages/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).

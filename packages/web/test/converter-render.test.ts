@@ -27,6 +27,17 @@ vi.mock("typediagram-core", () => ({
 
 import { convertSource, convertFromTd } from "../src/converter-render.js";
 
+const mockSourceModel = (tdSource: string) => {
+  const model = { decls: [], edges: [], externals: [] };
+  mockFromSource.mockReturnValue({ ok: true, value: model });
+  mockPrintSource.mockReturnValue(tdSource);
+};
+
+const mockTdModel = () => {
+  mockParse.mockReturnValue({ ok: true, value: { decls: [] } });
+  mockBuildModel.mockReturnValue({ ok: true, value: { decls: [], edges: [], externals: [] } });
+};
+
 describe("[WEB-CONV-RENDER] convertSource()", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,9 +72,7 @@ describe("[WEB-CONV-RENDER] convertSource()", () => {
   });
 
   it("returns diagnostics HTML when render fails", async () => {
-    const fakeModel = { decls: [], edges: [], externals: [] };
-    mockFromSource.mockReturnValue({ ok: true, value: fakeModel });
-    mockPrintSource.mockReturnValue("typeDiagram\n");
+    mockSourceModel("typeDiagram\n");
     mockRenderToString.mockResolvedValue({ ok: false, error: [{ message: "render error" }] });
     mockFormatDiagnostics.mockReturnValue("Error: render error");
 
@@ -74,9 +83,7 @@ describe("[WEB-CONV-RENDER] convertSource()", () => {
   });
 
   it("passes dark theme when prefers-color-scheme is dark", async () => {
-    const fakeModel = { decls: [], edges: [], externals: [] };
-    mockFromSource.mockReturnValue({ ok: true, value: fakeModel });
-    mockPrintSource.mockReturnValue("typeDiagram\n");
+    mockSourceModel("typeDiagram\n");
     mockRenderToString.mockResolvedValue({ ok: true, value: "<svg/>" });
 
     await convertSource("x", "typescript");
@@ -90,9 +97,7 @@ describe("[WEB-CONV-RENDER] convertSource()", () => {
       writable: true,
     });
 
-    const fakeModel = { decls: [], edges: [], externals: [] };
-    mockFromSource.mockReturnValue({ ok: true, value: fakeModel });
-    mockPrintSource.mockReturnValue("typeDiagram\n");
+    mockSourceModel("typeDiagram\n");
     mockRenderToString.mockResolvedValue({ ok: true, value: "<svg/>" });
 
     await convertSource("x", "go");
@@ -135,10 +140,7 @@ describe("[WEB-CONV-RENDER] convertFromTd()", () => {
   });
 
   it("returns language source and SVG on success", async () => {
-    const fakeAst = { decls: [] };
-    const fakeModel = { decls: [], edges: [], externals: [] };
-    mockParse.mockReturnValue({ ok: true, value: fakeAst });
-    mockBuildModel.mockReturnValue({ ok: true, value: fakeModel });
+    mockTdModel();
     mockToSource.mockReturnValue("export interface Foo {\n  x: number;\n}\n");
     mockRenderToString.mockResolvedValue({ ok: true, value: "<svg>diagram</svg>" });
 
@@ -170,10 +172,7 @@ describe("[WEB-CONV-RENDER] convertFromTd()", () => {
   });
 
   it("returns language source even when SVG render fails", async () => {
-    const fakeAst = { decls: [] };
-    const fakeModel = { decls: [], edges: [], externals: [] };
-    mockParse.mockReturnValue({ ok: true, value: fakeAst });
-    mockBuildModel.mockReturnValue({ ok: true, value: fakeModel });
+    mockTdModel();
     mockToSource.mockReturnValue("pub struct Foo {}");
     mockRenderToString.mockResolvedValue({ ok: false, error: [{ message: "render error" }] });
     mockFormatDiagnostics.mockReturnValue("Error: render error");

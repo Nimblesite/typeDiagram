@@ -1,4 +1,6 @@
-//! Transport framing for TDBIN messages ([TDBIN-MSG-FRAME]).
+//! Transport framing for TDBIN messages ([TDBIN-MSG-FRAME]): length-prefixed
+//! self-delimiting frames concatenate into streams, with the layout hash
+//! negotiated once per stream ([TDBIN-MSG-STREAM]).
 //!
 //! The frame layer is deliberately separate from the bare message reader and
 //! writer: it validates the self-describing envelope, then exposes the body
@@ -102,19 +104,14 @@ impl<'a> Message<'a> {
 /// # Errors
 /// Returns [`EncodeError::LimitExceeded`] when the body length exceeds `u32`.
 pub fn encode(body: &[u8], options: Options) -> Result<Vec<u8>, EncodeError> {
-    let body_len = u32::try_from(body.len()).map_err(|_| EncodeError::LimitExceeded)?;
     let header_len = header_len(options.flags());
     let capacity = header_len
         .checked_add(body.len())
         .ok_or(EncodeError::LimitExceeded)?;
     let mut out = Vec::with_capacity(capacity);
-    out.extend_from_slice(&MAGIC);
-    out.push(VERSION);
-    out.push(options.flags());
-    out.extend_from_slice(&0_u16.to_le_bytes());
-    out.extend_from_slice(&body_len.to_le_bytes());
-    append_hash(&mut out, options.schema_hash);
+    out.resize(header_len, 0);
     out.extend_from_slice(body);
+    fill_header(&mut out, options)?;
     Ok(out)
 }
 
@@ -123,8 +120,56 @@ pub fn encode(body: &[u8], options: Options) -> Result<Vec<u8>, EncodeError> {
 /// # Errors
 /// Returns [`EncodeError`] when packing or framing exceeds a limit.
 pub fn encode_packed(body: &[u8], schema_hash: Option<u64>) -> Result<Vec<u8>, EncodeError> {
-    let packed = pack::encode(body)?;
-    encode(&packed, Options::new(true, schema_hash))
+    let options = Options::new(true, schema_hash);
+    let mut out = vec![0; header_len(options.flags())];
+    pack::encode_into(body, &mut out)?;
+    fill_header(&mut out, options)?;
+    Ok(out)
+}
+
+/// Reserved header bytes for a frame with or without a schema hash.
+pub(crate) const fn header_len_for(schema_hash: Option<u64>) -> usize {
+    match schema_hash {
+        Some(_) => HASH_HEADER_LEN,
+        None => BASE_HEADER_LEN,
+    }
+}
+
+/// Fill the reserved frame header at the front of an encoded message whose
+/// body already follows it ([TDBIN-MSG-FRAME]).
+///
+/// # Errors
+/// Returns [`EncodeError::LimitExceeded`] when the body length exceeds `u32`.
+pub(crate) fn fill_header(out: &mut [u8], options: Options) -> Result<(), EncodeError> {
+    let header_len = header_len(options.flags());
+    let body_len = out
+        .len()
+        .checked_sub(header_len)
+        .and_then(|len| u32::try_from(len).ok())
+        .ok_or(EncodeError::LimitExceeded)?;
+    let header = out
+        .get_mut(..header_len)
+        .ok_or(EncodeError::LimitExceeded)?;
+    write_at(header, 0, &MAGIC)?;
+    write_at(header, VERSION_OFFSET, &[VERSION])?;
+    write_at(header, FLAGS_OFFSET, &[options.flags()])?;
+    write_at(header, RESERVED_OFFSET, &0_u16.to_le_bytes())?;
+    write_at(header, BODY_LEN_OFFSET, &body_len.to_le_bytes())?;
+    match options.schema_hash {
+        None => Ok(()),
+        Some(hash) => write_at(header, BASE_HEADER_LEN, &hash.to_le_bytes()),
+    }
+}
+
+/// Copy `src` into `dst` at `offset`, bounds-checked.
+fn write_at(dst: &mut [u8], offset: usize, src: &[u8]) -> Result<(), EncodeError> {
+    let end = offset
+        .checked_add(src.len())
+        .ok_or(EncodeError::LimitExceeded)?;
+    dst.get_mut(offset..end)
+        .ok_or(EncodeError::LimitExceeded)?
+        .copy_from_slice(src);
+    Ok(())
 }
 
 /// Decode a TDBIN frame, validating every reserved field and length.
@@ -146,13 +191,6 @@ pub fn decode(bytes: &[u8]) -> Result<Message<'_>, DecodeError> {
         packed: has_flag(flags, FLAG_PACKED),
         schema_hash,
     })
-}
-
-/// Append the optional schema hash to an output buffer.
-fn append_hash(out: &mut Vec<u8>, schema_hash: Option<u64>) {
-    if let Some(value) = schema_hash {
-        out.extend_from_slice(&value.to_le_bytes());
-    }
 }
 
 /// Return the header length implied by `flags`.

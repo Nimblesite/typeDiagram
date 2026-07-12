@@ -1,9 +1,15 @@
 // [CONV-TS-TEST] TypeScript converter integration tests.
 import { describe, expect, it } from "vitest";
 import { typescript } from "../../src/converters/index.js";
-import { parse } from "../../src/parser/index.js";
-import { buildModel } from "../../src/model/index.js";
-import { expectLosslessRoundTrip, unwrap } from "./helpers.js";
+import {
+  expectFieldTypes,
+  expectLosslessRoundTrip,
+  findDecl,
+  modelFromSource,
+  recordFields,
+  toSourceFromTd,
+  unionVariants,
+} from "./helpers.js";
 
 describe("[CONV-TS-FROM-COMPLEX] complex TypeScript -> typeDiagram", () => {
   it("parses a messy real-world file with interfaces, unions, aliases, and noise", () => {
@@ -89,40 +95,37 @@ export interface NullableFields {
   age: number;
 }
 `;
-    const model = unwrap(typescript.fromSource(src));
+    const model = modelFromSource(typescript, src);
 
     // Should NOT have parsed Logger or HttpClient
-    expect(model.decls.find((d) => d.name === "Logger")).toBeUndefined();
-    expect(model.decls.find((d) => d.name === "HttpClient")).toBeUndefined();
+    expect(findDecl(model, "Logger")).toBeUndefined();
+    expect(findDecl(model, "HttpClient")).toBeUndefined();
 
     // ChatRequest — record with 8 fields, type mappings
-    const chat = model.decls.find((d) => d.name === "ChatRequest");
-    expect(chat?.kind).toBe("record");
-    const chatFields = chat?.kind === "record" ? chat.fields : [];
+    expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
+    const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(8);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
     // string[] syntax does map to List
-    expect(chatFields.find((f) => f.name === "tags")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tags")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "debug")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "timeout")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "payload")?.type.name).toBe("Bytes");
+    expectFieldTypes(chatFields, {
+      message: "String",
+      tool_results: "List<ToolResult>",
+      metadata: "Map<String, String>",
+      tags: "List<String>",
+      debug: "Bool",
+      timeout: "Int",
+      payload: "Bytes",
+    });
 
     // ToolResult — record with 5 fields
-    const tool = model.decls.find((d) => d.name === "ToolResult");
-    expect(tool?.kind).toBe("record");
-    expect(tool?.kind === "record" ? tool.fields.length : 0).toBe(5);
+    expect(findDecl(model, "ToolResult")?.kind).toBe("record");
+    expect(recordFields(model, "ToolResult")).toHaveLength(5);
 
     // GenericBox<T> — has generics
     const box = model.decls.find((d) => d.name === "GenericBox");
     expect(box?.kind).toBe("record");
     expect(box?.generics).toContain("T");
-    const boxFields = box?.kind === "record" ? box.fields : [];
-    expect(boxFields.find((f) => f.name === "value")?.type.name).toBe("T");
-    expect(boxFields.find((f) => f.name === "label")?.type.name).toBe("String");
+    const boxFields = recordFields(model, "GenericBox");
+    expectFieldTypes(boxFields, { value: "T", label: "String" });
 
     // Pair<A, B> — two generics
     const pair = model.decls.find((d) => d.name === "Pair");
@@ -130,9 +133,8 @@ export interface NullableFields {
     expect(pair?.generics).toContain("B");
 
     // ContentItem — discriminated union with 4 variants, mixed payloads
-    const ci = model.decls.find((d) => d.name === "ContentItem");
-    expect(ci?.kind).toBe("union");
-    const ciVariants = ci?.kind === "union" ? ci.variants : [];
+    expect(findDecl(model, "ContentItem")?.kind).toBe("union");
+    const ciVariants = unionVariants(model, "ContentItem");
     expect(ciVariants).toHaveLength(4);
     expect(ciVariants[0]?.name).toBe("Text");
     expect(ciVariants[0]?.fields).toHaveLength(2);
@@ -145,24 +147,21 @@ export interface NullableFields {
     expect(ciVariants[3]?.fields).toHaveLength(0);
 
     // Status — string literal union → alias
-    expect(model.decls.find((d) => d.name === "Status")?.kind).toBe("alias");
+    expect(findDecl(model, "Status")?.kind).toBe("alias");
 
     // Shape — union of type names
-    const shape = model.decls.find((d) => d.name === "Shape");
-    expect(shape?.kind).toBe("union");
-    expect(shape?.kind === "union" ? shape.variants.length : 0).toBe(3);
+    expect(findDecl(model, "Shape")?.kind).toBe("union");
+    expect(unionVariants(model, "Shape")).toHaveLength(3);
 
     // Email — simple alias
-    expect(model.decls.find((d) => d.name === "Email")?.kind).toBe("alias");
+    expect(findDecl(model, "Email")?.kind).toBe("alias");
 
     // IdList — alias to Array<string>
-    const idList = model.decls.find((d) => d.name === "IdList");
-    expect(idList?.kind).toBe("alias");
+    expect(findDecl(model, "IdList")?.kind).toBe("alias");
 
     // NullableFields — `T | null` and `T | undefined` become Option<T>.
-    const nullable = model.decls.find((d) => d.name === "NullableFields");
-    expect(nullable?.kind).toBe("record");
-    const nfFields = nullable?.kind === "record" ? nullable.fields : [];
+    expect(findDecl(model, "NullableFields")?.kind).toBe("record");
+    const nfFields = recordFields(model, "NullableFields");
     const nameField = nfFields.find((f) => f.name === "name");
     expect(nameField?.type.name).toBe("Option");
     expect(nameField?.type.args[0]?.name).toBe("String");
@@ -197,16 +196,14 @@ type Odd =
 
 type Missing = Foo
 `;
-    const model = unwrap(typescript.fromSource(src));
-    const weird = model.decls.find((d) => d.name === "Weird");
-    expect(weird?.kind).toBe("record");
-    const fields = weird?.kind === "record" ? weird.fields : [];
+    const model = modelFromSource(typescript, src);
+    expect(findDecl(model, "Weird")?.kind).toBe("record");
+    const fields = recordFields(model, "Weird");
     expect(fields.map((f) => f.name)).toEqual(["good", "nested"]);
     expect(fields[1]?.type.name).toBe("Map");
 
-    const odd = model.decls.find((d) => d.name === "Odd");
-    expect(odd?.kind).toBe("union");
-    const variants = odd?.kind === "union" ? odd.variants : [];
+    expect(findDecl(model, "Odd")?.kind).toBe("union");
+    const variants = unionVariants(model, "Odd");
     expect(variants[0]?.name).toBe("Named");
     expect(variants[0]?.fields[0]?.name).toBe("payload");
     expect(variants[1]?.name).toContain("value");
@@ -252,8 +249,7 @@ union Direction { North\n South\n East\n West }
 alias Email = String
 alias Wrapper<T> = List<T>
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = typescript.toSource(model);
+    const output = toSourceFromTd(typescript, td);
 
     // ChatRequest — interface with all type mappings
     expect(output).toContain("export interface ChatRequest");
@@ -308,8 +304,7 @@ untagged union RequestId {
   String(String)
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = typescript.toSource(model);
+    const output = toSourceFromTd(typescript, td);
 
     expect(output).toContain("export type RequestId =");
     expect(output).toContain("  | number");
@@ -326,8 +321,7 @@ untagged union Value {
   Point { x: Int, y: Int }
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = typescript.toSource(model);
+    const output = toSourceFromTd(typescript, td);
 
     expect(output).toContain("export type Value =");
     expect(output).toContain("  | undefined");
@@ -348,8 +342,7 @@ type VisibleInTs {
   ok: Bool
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = typescript.toSource(model);
+    const output = toSourceFromTd(typescript, td);
 
     expect(output).not.toContain("export interface JsonRpcError");
     expect(output).toContain("export interface VisibleInTs");
@@ -366,8 +359,7 @@ type SharedFrame {
   id: String
 }
 `;
-    const model = unwrap(buildModel(unwrap(parse(td))));
-    const output = typescript.toSource(model);
+    const output = toSourceFromTd(typescript, td);
 
     expect(output).not.toContain("export interface RustOnlyErrorFrame");
     expect(output).toContain("export interface SharedFrame");
@@ -396,23 +388,19 @@ union Shape {
 
 alias Tag = String
 `;
-    const model1 = unwrap(buildModel(unwrap(parse(td))));
-    const tsCode = typescript.toSource(model1);
-    const model2 = unwrap(typescript.fromSource(tsCode));
+    const tsCode = toSourceFromTd(typescript, td);
+    const model2 = modelFromSource(typescript, tsCode);
 
     expect(model2.decls).toHaveLength(4);
 
-    const user = model2.decls.find((d) => d.name === "User");
-    expect(user?.kind).toBe("record");
-    expect(user?.kind === "record" ? user.fields.length : 0).toBe(3);
+    expect(findDecl(model2, "User")?.kind).toBe("record");
+    expect(recordFields(model2, "User")).toHaveLength(3);
 
-    const order = model2.decls.find((d) => d.name === "Order");
-    expect(order?.kind).toBe("record");
-    expect(order?.kind === "record" ? order.fields.length : 0).toBe(2);
+    expect(findDecl(model2, "Order")?.kind).toBe("record");
+    expect(recordFields(model2, "Order")).toHaveLength(2);
 
-    const shape = model2.decls.find((d) => d.name === "Shape");
-    expect(shape?.kind).toBe("union");
-    const variants = shape?.kind === "union" ? shape.variants : [];
+    expect(findDecl(model2, "Shape")?.kind).toBe("union");
+    const variants = unionVariants(model2, "Shape");
     expect(variants).toHaveLength(3);
     expect(variants[0]?.name).toBe("Circle");
     expect(variants[0]?.fields).toHaveLength(1);

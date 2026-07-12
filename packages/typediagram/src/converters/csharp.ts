@@ -8,17 +8,18 @@
 // Option<T> <-> T?. Alias <-> `using X = Y;`.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
+import { type Model, type ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { isOption, mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { emitDecls } from "./emit-decls.js";
+import { isOption, mapBuiltinName, parseTypeRef, resolveFieldTypes } from "./parse-typeref.js";
 import {
-  extractBalancedBlock,
   extractTrailingNullable,
   formatGenericsDecl,
   parseGenericParamList,
   splitTopLevelCommas,
 } from "./brace-lang.js";
+import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./scan-decls.js";
 
 // ── Type mapping tables ──
 
@@ -125,10 +126,9 @@ const parseCsParams = (body: string) =>
 const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
   const builder = new ModelBuilder();
   let found = false;
-  // Record which offsets we've already consumed as abstract-record bodies so
-  // the primary-record scan doesn't re-pick-up nested `sealed record` lines.
-  const consumedRanges: Array<[number, number]> = [];
-  const isInsideConsumed = (idx: number): boolean => consumedRanges.some(([start, end]) => idx >= start && idx < end);
+  // Track offsets already consumed as abstract-record bodies so the
+  // primary-record scan doesn't re-pick-up nested `sealed record` lines.
+  const consumed = makeConsumedTracker();
 
   // First pass: locate abstract-record DU bodies and mark them consumed. We
   // defer adding the unions until we interleave them with records by source
@@ -144,81 +144,49 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
       }
     | { kind: "union-enum"; name: string; body: string; offset: number }
     | { kind: "alias"; name: string; target: string; offset: number };
-  const pending: PendingDecl[] = [];
 
-  ABSTRACT_RECORD_HEAD_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = ABSTRACT_RECORD_HEAD_RE.exec(source)) !== null) {
-    const [full, name, gens] = m;
-    /* v8 ignore next 3 — regex guarantees name is captured */
-    if (name === undefined) {
-      continue;
-    }
-    const openIdx = m.index + full.length - 1;
-    const body = extractBalancedBlock(source, openIdx, "{", "}");
-    /* v8 ignore next 3 — regex ends on `{` so balanced `}` is expected */
-    if (body === null) {
-      continue;
-    }
-    const endIdx = openIdx + body.length + 2;
-    consumedRanges.push([openIdx, endIdx]);
-
-    const variants: Array<{ name: string; params: string | undefined }> = [];
-    NESTED_VARIANT_RE.lastIndex = 0;
-    let vm: RegExpExecArray | null;
-    while ((vm = NESTED_VARIANT_RE.exec(body)) !== null) {
+  const parseVariants = (body: string): Array<{ name: string; params: string | undefined }> =>
+    scanAll(NESTED_VARIANT_RE, body, (vm) => {
       const [, vname, vparams] = vm;
       /* v8 ignore next 3 — regex guarantees vname is captured */
-      if (vname === undefined) {
-        continue;
-      }
-      variants.push({ name: vname, params: vparams });
-    }
-    pending.push({ kind: "union-abstract", name, gens, variants, offset: m.index });
-  }
+      return vname === undefined ? null : { name: vname, params: vparams };
+    });
 
-  PRIMARY_RECORD_RE.lastIndex = 0;
-  while ((m = PRIMARY_RECORD_RE.exec(source)) !== null) {
-    if (isInsideConsumed(m.index)) {
-      continue;
-    }
-    const [, name, gens, params] = m;
-    /* v8 ignore next 3 — regex guarantees both captures */
-    if (name === undefined || params === undefined) {
-      continue;
-    }
-    pending.push({ kind: "record", name, gens, params, offset: m.index });
-  }
+  const pending: PendingDecl[] = [
+    ...scanBraceBlocks(source, ABSTRACT_RECORD_HEAD_RE, { mark: consumed }).flatMap((b): PendingDecl[] => {
+      const [name, gens] = b.groups;
+      /* v8 ignore next 3 — regex guarantees name is captured */
+      return name === undefined
+        ? []
+        : [{ kind: "union-abstract", name, gens, variants: parseVariants(b.body), offset: b.offset }];
+    }),
+    ...scanAll(PRIMARY_RECORD_RE, source, (m): PendingDecl | null => {
+      const [, name, gens, params] = m;
+      /* v8 ignore next 3 — regex guarantees both captures */
+      return name === undefined || params === undefined || consumed.isInside(m.index)
+        ? null
+        : { kind: "record", name, gens, params, offset: m.index };
+    }),
+    ...scanAll(ENUM_RE, source, (m): PendingDecl | null => {
+      const [, name, body] = m;
+      /* v8 ignore next 3 — regex guarantees both captures */
+      return name === undefined || body === undefined || consumed.isInside(m.index)
+        ? null
+        : { kind: "union-enum", name, body, offset: m.index };
+    }),
+    ...scanAll(USING_ALIAS_RE, source, (m): PendingDecl | null => {
+      const [, name, target] = m;
+      /* v8 ignore next 3 — regex guarantees both captures */
+      return name === undefined || target === undefined
+        ? null
+        : { kind: "alias", name, target: target.trim(), offset: m.index };
+    }),
+  ];
 
-  ENUM_RE.lastIndex = 0;
-  while ((m = ENUM_RE.exec(source)) !== null) {
-    if (isInsideConsumed(m.index)) {
-      continue;
-    }
-    const [, name, body] = m;
-    /* v8 ignore next 3 — regex guarantees both captures */
-    if (name === undefined || body === undefined) {
-      continue;
-    }
-    pending.push({ kind: "union-enum", name, body, offset: m.index });
-  }
-
-  USING_ALIAS_RE.lastIndex = 0;
-  while ((m = USING_ALIAS_RE.exec(source)) !== null) {
-    const [, name, target] = m;
-    /* v8 ignore next 3 — regex guarantees both captures */
-    if (name === undefined || target === undefined) {
-      continue;
-    }
-    pending.push({ kind: "alias", name, target: target.trim(), offset: m.index });
-  }
-
-  pending.sort((a, b) => a.offset - b.offset);
-
-  for (const p of pending) {
+  for (const p of orderBySource(pending)) {
     found = true;
     if (p.kind === "record") {
-      const fields = parseCsParams(p.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      const fields = resolveFieldTypes(parseCsParams(p.params));
       builder.add(record(p.name, fields, parseGenericParamList(p.gens)));
       continue;
     }
@@ -228,9 +196,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
           p.name,
           p.variants.map((v) => {
             const fields =
-              v.params === undefined || v.params.trim().length === 0
-                ? []
-                : parseCsParams(v.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+              v.params === undefined || v.params.trim().length === 0 ? [] : resolveFieldTypes(parseCsParams(v.params));
             return { name: v.name, fields };
           }),
           parseGenericParamList(p.gens)
@@ -322,25 +288,20 @@ const emitAlias = (name: string, target: ResolvedTypeRef): string => {
   return `using ${name} = ${mapTdToCs(target)};`;
 };
 
-const toCSharp = (model: Model): string => {
-  const lines: string[] = ["#nullable enable", ""];
-
-  // Emit decls in their original model order. `using X = Y;` is valid at
-  // file scope wherever it appears, so keeping aliases in source order
-  // preserves round-trip order at the cost of the more idiomatic
-  // "usings-at-top" layout.
-  for (const d of visibleDeclsForTarget(model.decls, "csharp")) {
-    if (d.kind === "record") {
-      lines.push(...emitRecord(d.name, d.fields, d.generics), "");
-    } else if (d.kind === "union") {
-      lines.push(...emitUnion(d.name, d.variants, d.generics), "");
-    } else {
-      lines.push(emitAlias(d.name, d.target), "");
-    }
-  }
-
-  return lines.join("\n");
-};
+// Emit decls in their original model order. `using X = Y;` is valid at file
+// scope wherever it appears, so keeping aliases in source order preserves
+// round-trip order at the cost of the more idiomatic "usings-at-top" layout.
+const toCSharp = (model: Model): string =>
+  emitDecls(
+    model,
+    "csharp",
+    {
+      record: (d) => emitRecord(d.name, d.fields, d.generics),
+      union: (d) => emitUnion(d.name, d.variants, d.generics),
+      alias: (d) => [emitAlias(d.name, d.target)],
+    },
+    { prelude: ["#nullable enable", ""] }
+  );
 
 export const csharp: Converter = {
   language: "csharp",

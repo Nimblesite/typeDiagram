@@ -4,7 +4,8 @@ import { type Result, err } from "../result.js";
 import { type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
+import { parseFields, scanAll } from "./scan-decls.js";
 
 // ── Type mapping tables ──
 
@@ -62,23 +63,6 @@ const normalizeFsType = (t: string): string => {
   return trimmed;
 };
 
-/** Split "A, B<C, D>" respecting nested angle brackets. */
-const splitFsGenericArgs = (s: string): string[] => {
-  const parts: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charAt(i);
-    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
-    if (c === "," && depth === 0) {
-      parts.push(s.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  const last = s.slice(start).trim();
-  return last.length > 0 ? [...parts, last] : parts;
-};
-
 const mapFsType = (t: string): string => {
   const normalized = normalizeFsType(t);
   const angleBracket = normalized.indexOf("<");
@@ -86,29 +70,19 @@ const mapFsType = (t: string): string => {
     const baseName = normalized.slice(0, angleBracket);
     const mapped = FS_TO_TD[baseName] ?? baseName;
     const inner = normalized.slice(angleBracket + 1, normalized.lastIndexOf(">"));
-    const args = splitFsGenericArgs(inner).map(mapFsType);
+    const args = splitGenericArgs(inner).map(mapFsType);
     return `${mapped}<${args.join(", ")}>`;
   }
   return FS_TO_TD[normalized] ?? normalized;
 };
 
 const parseFsFields = (body: string) =>
-  body
-    .split("\n")
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith("//"))
-    .map((l) => {
-      const m = FIELD_RE.exec(l);
-      if (m === null) {
-        return null;
-      }
-      const [, name, type] = m;
-      if (name === undefined || type === undefined) {
-        return null;
-      }
-      return { name, type: mapFsType(type.replace(/;?\s*$/, "").trim()) };
-    })
-    .filter((f): f is { name: string; type: string } => f !== null);
+  parseFields(body, {
+    separator: "\n",
+    commentPrefix: "//",
+    fieldRe: FIELD_RE,
+    mapType: (type) => mapFsType(type.replace(/;?\s*$/, "").trim()),
+  });
 
 const parseDuVariants = (body: string) =>
   body
@@ -143,47 +117,39 @@ const fromFSharp = (source: string): Result<Model, Diagnostic[]> => {
   const duNames = new Set<string>();
 
   // Records
-  RECORD_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = RECORD_RE.exec(source)) !== null) {
+  for (const r of scanAll(RECORD_RE, source, (m) => {
     const [, name, gens, body] = m;
-    if (name === undefined || body === undefined) {
-      continue;
-    }
+    return name === undefined || body === undefined ? null : { name, gens, body };
+  })) {
     found = true;
-    recordNames.add(name);
-    const fields = parseFsFields(body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
-    builder.add(record(name, fields, fsGenerics(gens)));
+    recordNames.add(r.name);
+    const fields = parseFsFields(r.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+    builder.add(record(r.name, fields, fsGenerics(r.gens)));
   }
 
   // Discriminated unions
-  DU_RE.lastIndex = 0;
-  while ((m = DU_RE.exec(source)) !== null) {
+  for (const u of scanAll(DU_RE, source, (m) => {
     const [, name, gens, body] = m;
-    if (name === undefined || body === undefined) {
-      continue;
-    }
+    return name === undefined || body === undefined ? null : { name, gens, body };
+  })) {
     found = true;
-    duNames.add(name);
-    const variants = parseDuVariants(body).map((v) => ({
+    duNames.add(u.name);
+    const variants = parseDuVariants(u.body).map((v) => ({
       name: v.name,
       fields: v.fields.map((f) => ({ name: f.name, type: parseTypeRef(f.type) })),
     }));
-    builder.add(union(name, variants, fsGenerics(gens)));
+    builder.add(union(u.name, variants, fsGenerics(u.gens)));
   }
 
   // Type abbreviations (skip already-parsed records/DUs)
-  TYPE_ABBREV_RE.lastIndex = 0;
-  while ((m = TYPE_ABBREV_RE.exec(source)) !== null) {
+  for (const a of scanAll(TYPE_ABBREV_RE, source, (m) => {
     const [, name, gens, target] = m;
-    if (name === undefined || target === undefined) {
-      continue;
-    }
-    if (recordNames.has(name) || duNames.has(name)) {
-      continue;
-    }
+    return name === undefined || target === undefined || recordNames.has(name) || duNames.has(name)
+      ? null
+      : { name, gens, target };
+  })) {
     found = true;
-    builder.add(alias(name, parseTypeRef(mapFsType(target.trim())), fsGenerics(gens)));
+    builder.add(alias(a.name, parseTypeRef(mapFsType(a.target.trim())), fsGenerics(a.gens)));
   }
 
   return found

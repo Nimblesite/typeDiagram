@@ -4,13 +4,7 @@ import { escapeAttr, escapeText, svg, raw } from "../src/render-svg/svg-tag.js";
 import { renderSvg } from "../src/render-svg/index.js";
 import type { LaidOutGraph } from "../src/layout/types.js";
 import { CHAT_EXAMPLE, SMALL_EXAMPLE } from "./fixtures.js";
-
-function unwrap<T>(r: { ok: true; value: T } | { ok: false; error: unknown }): T {
-  if (!r.ok) {
-    throw new Error(`expected ok: ${JSON.stringify(r.error)}`);
-  }
-  return r.value;
-}
+import { unwrap } from "./helpers.js";
 
 describe("render — small example", () => {
   it("produces an <svg> document", async () => {

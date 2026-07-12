@@ -21,7 +21,7 @@ import {
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
 
 // ── Type mapping tables ──
 
@@ -91,22 +91,6 @@ const parseFields = (body: string) =>
     })
     .filter((f): f is { name: string; type: string } => f !== null);
 
-const splitTsGenericArgs = (s: string): string[] => {
-  const parts: string[] = [];
-  let depth = 0;
-  let start = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charAt(i);
-    depth += c === "<" ? 1 : c === ">" ? -1 : 0;
-    if (c === "," && depth === 0) {
-      parts.push(s.slice(start, i).trim());
-      start = i + 1;
-    }
-  }
-  const last = s.slice(start).trim();
-  return last.length > 0 ? [...parts, last] : parts;
-};
-
 // Split a top-level TypeScript union (`A | B | C`) into parts, respecting
 // angle brackets so `Map<string, number> | undefined` splits into two, not
 // three.
@@ -160,7 +144,7 @@ const mapTsType = (t: string): string => {
     const baseName = trimmed.slice(0, angleBracket);
     const mapped = TS_TO_TD[baseName] ?? baseName;
     const inner = trimmed.slice(angleBracket + 1, trimmed.lastIndexOf(">"));
-    const args = splitTsGenericArgs(inner).map(mapTsType);
+    const args = splitGenericArgs(inner).map(mapTsType);
     return `${mapped}<${args.join(", ")}>`;
   }
   return TS_TO_TD[trimmed] ?? trimmed;
