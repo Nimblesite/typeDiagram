@@ -25,10 +25,10 @@ const scriptTag = document.querySelector("script[data-source]");
 const initial =
   scriptTag
     ?.getAttribute("data-source")
-    ?.replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
+    ?.replace(/&quot;/g, '"')
     .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"') ?? "";
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&") ?? "";
 
 void renderSource(initial);
 
