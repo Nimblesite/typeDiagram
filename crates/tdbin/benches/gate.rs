@@ -14,6 +14,8 @@ use std::time::Duration;
 use bench_corpus::{batches, corpus, documents, events};
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use prost::Message;
+use serde::de::DeserializeOwned;
+use serde::Serialize;
 use tdbin::{Struct, TdBin};
 
 /// Return a TDBIN encoded message or terminate the benchmark process.

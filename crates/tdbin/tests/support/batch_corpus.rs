@@ -13,6 +13,7 @@ pub const PERSON_COUNT: usize = 512;
 pub const CONTACT_COUNT: usize = 2_048;
 
 /// Protobuf record-heavy batch.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Message)]
 pub struct PbPersonBatch {
     /// Repeated records.
@@ -21,6 +22,7 @@ pub struct PbPersonBatch {
 }
 
 /// Protobuf union-heavy batch.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Message)]
 pub struct PbContactBatch {
     /// Repeated oneof envelopes.
@@ -29,6 +31,7 @@ pub struct PbContactBatch {
 }
 
 /// Protobuf message envelope required around each repeated oneof value.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, Message)]
 pub struct PbContactEnvelope {
     /// Contact payload.
@@ -37,6 +40,7 @@ pub struct PbContactEnvelope {
 }
 
 /// Protobuf mirror of the generated Contact union.
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, PartialEq, prost::Oneof)]
 pub enum PbContact {
     /// Email contact.

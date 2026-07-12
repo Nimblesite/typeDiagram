@@ -25,17 +25,19 @@ fn fixture<T, P>(
 ) -> Result<String, BoxError>
 where
     T: Struct + TdBin,
-    P: Message,
+    P: Message + serde::Serialize,
 {
     let bare = td.to_bytes()?;
     let framed = td.to_framed_bytes(None)?;
     let packed = td.to_packed_framed_bytes(None)?;
+    let msgpack = rmp_serde::to_vec_named(pb)?;
     Ok(format!(
-        "{{\"name\":\"{name}\",\"shape\":\"{shape}\",\"corpus\":{corpus},\"logical_items\":{items},\"tdbin_bare\":{},\"tdbin_framed\":{},\"tdbin_packed_framed\":{},\"protobuf\":{}}}",
+        "{{\"name\":\"{name}\",\"shape\":\"{shape}\",\"corpus\":{corpus},\"logical_items\":{items},\"tdbin_bare\":{},\"tdbin_framed\":{},\"tdbin_packed_framed\":{},\"protobuf\":{},\"msgpack\":{}}}",
         bare.len(),
         framed.len(),
         packed.len(),
-        pb.encoded_len()
+        pb.encoded_len(),
+        msgpack.len()
     ))
 }
 

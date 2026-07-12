@@ -13,12 +13,17 @@ publish = false
 [lints]
 workspace = true
 
-# prost is the COMPETITOR baseline for the honest size/speed benchmark, pulled in
-# only for the `size_gate` test and the `bench` example. It is a DEV-dependency so
-# the shipped runtime stays zero-dep ([TDBIN-BENCH-CORPUS], [TDBIN-BENCH-GATE]).
+# prost and rmp-serde are the COMPETITOR baselines for the honest size/speed
+# benchmark, pulled in only for the `size_gate` test and the `bench` example.
+# They are DEV-dependencies so the shipped runtime stays zero-dep
+# ([TDBIN-BENCH-CORPUS], [TDBIN-BENCH-GATE]). The prost mirror structs carry
+# `serde` derives so the SAME 1:1 fixture values feed the MessagePack baseline
+# (`rmp-serde`) with no third struct set.
 [dev-dependencies]
 criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
 prost = "0.14"
+serde = { version = "1", features = ["derive"] }
+rmp-serde = "1"
 
 # The TDBIN-vs-Protobuf speed benchmark, run via `cargo run --release --example bench`.
 [[example]]

@@ -14,6 +14,7 @@ pub mod pb {
     use super::documents;
 
     /// Protobuf event-stream envelope.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchEventBatch {
         /// Ordered diagram events.
@@ -22,6 +23,7 @@ pub mod pb {
     }
 
     /// Protobuf envelope for one event union.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchEventEnvelope {
         /// Event payload.
@@ -30,6 +32,7 @@ pub mod pb {
     }
 
     /// Protobuf event oneof.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Oneof)]
     pub enum BenchEvent {
         /// A node was created.
@@ -53,6 +56,7 @@ pub mod pb {
     }
 
     /// Protobuf node-created payload.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchNodeCreated {
         /// Owning document identifier.
@@ -64,6 +68,7 @@ pub mod pb {
     }
 
     /// Protobuf node-moved payload.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchNodeMoved {
         /// Owning document identifier.
@@ -81,6 +86,7 @@ pub mod pb {
     }
 
     /// Protobuf edge-added payload.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchEdgeAdded {
         /// Owning document identifier.
@@ -92,6 +98,7 @@ pub mod pb {
     }
 
     /// Protobuf selection-changed payload.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchSelectionChanged {
         /// Owning document identifier.
@@ -106,6 +113,7 @@ pub mod pb {
     }
 
     /// Protobuf view-changed payload.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchViewChanged {
         /// Owning document identifier.
@@ -123,6 +131,7 @@ pub mod pb {
     }
 
     /// Protobuf empty heartbeat payload.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, Copy, PartialEq, prost::Message)]
     pub struct BenchHeartbeat {}
 }

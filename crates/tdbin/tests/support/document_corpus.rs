@@ -14,6 +14,7 @@ const META_COUNT: usize = 16;
 /// Protobuf mirror types for the document fixture.
 pub mod pb {
     /// Protobuf diagram document.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchDocument {
         /// Stable document identifier.
@@ -40,6 +41,7 @@ pub mod pb {
     }
 
     /// Protobuf diagram node.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchNode {
         /// Stable node identifier.
@@ -72,6 +74,7 @@ pub mod pb {
     }
 
     /// Protobuf diagram edge.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchEdge {
         /// Stable edge identifier.
@@ -95,6 +98,7 @@ pub mod pb {
     }
 
     /// Protobuf style rule.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchStyle {
         /// Selector expression.
@@ -115,6 +119,7 @@ pub mod pb {
     }
 
     /// Protobuf metadata key/value pair.
+    #[derive(serde::Serialize, serde::Deserialize)]
     #[derive(Clone, PartialEq, prost::Message)]
     pub struct BenchMeta {
         /// Metadata key.
