@@ -68,9 +68,9 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.1",
-    "typescript": "^6.0.3",
-    "vitest": "^4.1.9",
-    "@types/node": "^26.1.0",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "@types/node": "^26.1.1",
     "happy-dom": "^20.10.6"
   }
 }
