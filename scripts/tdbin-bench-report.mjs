@@ -15,10 +15,12 @@ const operations = [
   "tdbin_encode_framed",
   "tdbin_encode_packed_framed",
   "protobuf_encode",
+  "msgpack_encode",
   "tdbin_decode_bare",
   "tdbin_decode_framed",
   "tdbin_decode_packed_framed",
   "protobuf_decode",
+  "msgpack_decode",
 ];
 
 const run = (command, args) => execFileSync(command, args, { cwd: root, encoding: "utf8" }).trim();
@@ -96,7 +98,7 @@ const winner = (value, baseline) => (value < baseline ? "TDBIN" : value > baseli
 const sizeRows = sizes.fixtures
   .map(
     (row) =>
-      `| \`${row.name}\` | ${row.shape} | ${row.corpus ? "corpus" : "stress"} | ${row.logical_items.toLocaleString()} | ${row.tdbin_bare.toLocaleString()} | ${row.tdbin_framed.toLocaleString()} | ${row.tdbin_packed_framed.toLocaleString()} | ${row.protobuf.toLocaleString()} | ${percent(row.tdbin_framed, row.protobuf)} | ${percent(row.tdbin_packed_framed, row.protobuf)} |`
+      `| \`${row.name}\` | ${row.shape} | ${row.corpus ? "corpus" : "stress"} | ${row.logical_items.toLocaleString()} | ${row.tdbin_bare.toLocaleString()} | ${row.tdbin_framed.toLocaleString()} | ${row.tdbin_packed_framed.toLocaleString()} | ${row.protobuf.toLocaleString()} | ${row.msgpack.toLocaleString()} | ${percent(row.tdbin_framed, row.protobuf)} | ${percent(row.tdbin_packed_framed, row.protobuf)} |`
   )
   .join("\n");
 
@@ -122,6 +124,35 @@ const modeRows = sizes.fixtures
     })
   )
   .join("\n");
+
+// [TDBIN-BENCH-PIVOT] Reader-facing summary: protocol on the Y axis, bench type
+// (size / encode speed / decode speed) on the X axis. `tdbin` uses the framed
+// wire mode — the self-describing production peer of msgpack (struct-as-map) and
+// Protobuf, so all three rows compare like-for-like. The detailed multi-mode
+// tables below retain bare/framed/packed and every Criterion statistic.
+const median = (fixture, operation) => estimate(fixture, operation).median_ns;
+const sizeVsPb = (bytes, protobuf) =>
+  bytes === protobuf ? "same" : `${bytes < protobuf ? "" : "+"}${percent(bytes, protobuf)}`;
+const protocols = [
+  { label: "tdbin (framed)", size: (f) => f.tdbin_framed, encode: "tdbin_encode_framed", decode: "tdbin_decode_framed" },
+  { label: "protobuf", size: (f) => f.protobuf, encode: "protobuf_encode", decode: "protobuf_decode" },
+  { label: "msgpack", size: (f) => f.msgpack, encode: "msgpack_encode", decode: "msgpack_decode" },
+];
+const protocolTables = sizes.fixtures
+  .map((fixture) => {
+    const rows = protocols
+      .map((protocol) => {
+        const bytes = protocol.size(fixture);
+        return `| ${protocol.label} | ${bytes.toLocaleString()} | ${sizeVsPb(bytes, fixture.protobuf)} | ${duration(median(fixture.name, protocol.encode))} | ${duration(median(fixture.name, protocol.decode))} |`;
+      })
+      .join("\n");
+    return `### \`${fixture.name}\` — ${fixture.shape} (${fixture.corpus ? "corpus" : "stress"}, ${fixture.logical_items.toLocaleString()} items)
+
+| Protocol | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
+| --- | ---: | ---: | ---: | ---: |
+${rows}`;
+  })
+  .join("\n\n");
 
 const passCount = modeRows.split("\n").filter((row) => row.endsWith(" PASS |")).length;
 const modeQualifies = (fixture, bytes, encodeOp, decodeOp) =>
@@ -165,6 +196,12 @@ Qualifying modes: ${releaseResults.map((row) => "`" + row.fixture + "` = " + row
 
 The release gate ([TDBIN-BENCH-GATE]) requires, for every corpus entry — the committed realistic schemas in \`docs/benchmarks/tdbin-corpus.{td,proto}\` (record-heavy document, union-heavy event stream, list-heavy dataset) — that at least one self-describing production wire mode (framed, or packed framed; the frame's PACKED flag makes the two interchangeable to every decoder) beats Protobuf on size and by ${data.gate.encode_speed_ratio_min.toFixed(2)}x on both encode and decode simultaneously. Both modes are always measured and published below. Stress rows (marked) are reported against the identical bar; the tiny single-message rows carry a fixed 12-byte frame plus pointer-per-string overhead that no fixed-layout format recovers at sub-100-byte payloads (research §2.2), so they are not corpus entries.
 
+## At a Glance
+
+One table per fixture. Rows are the three protocols; columns are the bench types (size, encode speed, decode speed). \`tdbin\` is the **framed** wire mode — the self-describing production peer of \`msgpack\` (struct-as-map, via \`rmp-serde\`) and \`protobuf\`. Lower is better everywhere. The full multi-mode breakdown (TDBIN bare/framed/packed and every Criterion statistic) is in the detailed tables further down.
+
+${protocolTables}
+
 ## Environment
 
 | Field | Value |
@@ -186,8 +223,8 @@ ${data.environment.dependencies}
 
 All sizes are bytes. Percentage columns are relative to Protobuf; negative is smaller.
 
-| Fixture | Shape | Role | Items | TDBIN bare | TDBIN framed | TDBIN packed framed | Protobuf | Framed delta | Packed delta |
-| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| Fixture | Shape | Role | Items | TDBIN bare | TDBIN framed | TDBIN packed framed | Protobuf | MessagePack | Framed delta | Packed delta |
+| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 ${sizeRows}
 
 ## Criterion Medians

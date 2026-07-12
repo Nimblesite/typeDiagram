@@ -57,22 +57,35 @@ fn pb_bytes<P: Message>(value: &P) -> Vec<u8> {
     }
 }
 
+/// Return a self-describing `MessagePack` (struct-as-map) message, or terminate.
+fn mp_bytes<P: Serialize>(value: &P) -> Vec<u8> {
+    match rmp_serde::to_vec_named(value) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            eprintln!("msgpack encode failed before benchmark: {error:?}");
+            std::process::exit(1);
+        }
+    }
+}
+
 /// Benchmark all encode/decode operations for one paired corpus fixture.
 fn bench_fixture<T, P>(c: &mut Criterion, label: &str, td: &T, pb: &P)
 where
     T: Struct + TdBin,
-    P: Message + Default,
+    P: Message + Default + Serialize + DeserializeOwned,
 {
     let bare = td_bytes(td);
     let framed = td_framed_bytes(td, false);
     let packed_framed = td_framed_bytes(td, true);
     let protobuf = pb_bytes(pb);
+    let msgpack = mp_bytes(pb);
     println!(
-        "[{label}] sizes: tdbin_bare={} tdbin_framed={} tdbin_packed_framed={} protobuf={}",
+        "[{label}] sizes: tdbin_bare={} tdbin_framed={} tdbin_packed_framed={} protobuf={} msgpack={}",
         bare.len(),
         framed.len(),
         packed_framed.len(),
-        protobuf.len()
+        protobuf.len(),
+        msgpack.len()
     );
 
     let mut group = c.benchmark_group(format!("tdbin_vs_protobuf/{label}"));
@@ -108,6 +121,13 @@ where
         },
     );
     let _ = group.bench_with_input(
+        BenchmarkId::new("msgpack_encode", label),
+        pb,
+        |b, value| {
+            b.iter(|| rmp_serde::to_vec_named(black_box(value)));
+        },
+    );
+    let _ = group.bench_with_input(
         BenchmarkId::new("tdbin_decode_bare", label),
         &bare,
         |b, bytes| {
@@ -133,6 +153,13 @@ where
         &protobuf,
         |b, bytes| {
             b.iter(|| P::decode(black_box(bytes.as_slice())));
+        },
+    );
+    let _ = group.bench_with_input(
+        BenchmarkId::new("msgpack_decode", label),
+        &msgpack,
+        |b, bytes| {
+            b.iter(|| rmp_serde::from_slice::<P>(black_box(bytes.as_slice())));
         },
     );
     group.finish();
