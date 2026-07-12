@@ -7,12 +7,19 @@
 # Docs: https://deslop.live/docs/for-ai/
 
 [defaults]
-# Exclude ONLY build/coverage artifacts — never source, and NEVER tests. Tests are
-# first-class code here and stay in the duplication budget. node_modules/target/build
-# are already default-excluded; dist + coverage are this repo's generated-output dirs.
+# Exclude build/coverage artifacts and machine-GENERATED code — never authored
+# source, and never authored tests. node_modules/target/build are already
+# default-excluded; dist + coverage are this repo's generated-output dirs.
+# The `generated_*/mod.rs` fixtures are codegen output of
+# `packages/typediagram/src/converters/rust-tdbin.ts` (regenerated via
+# `scripts/tdbin-regen-fixtures.mjs`, pinned by rust-tdbin-corpus.test.ts). Their
+# structural repetition is emitted by the generator, not hand-written, so it is not
+# authored duplication and does not belong in the budget — the fix for any real
+# repetition there is in the generator, gated by the codegen pin test.
 exclude = [
   "**/coverage/**",
   "**/dist/**",
+  "**/tests/generated_*/mod.rs",
 ]
 
 [threshold]
