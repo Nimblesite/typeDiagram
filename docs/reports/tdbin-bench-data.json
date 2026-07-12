@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "generated_at": "2026-07-11T15:07:08.285Z",
+  "generated_at": "2026-07-12T08:15:06.280Z",
   "commands": ["cargo bench -p tdbin --bench gate -- --noplot", "node scripts/tdbin-bench-report.mjs"],
   "corpus_schemas": ["docs/benchmarks/tdbin-corpus.td", "docs/benchmarks/tdbin-corpus.proto"],
   "gate": {
@@ -16,8 +16,8 @@
     "cpu": "Apple M4 Max",
     "logical_cpus": 14,
     "memory_bytes": 38654705664,
-    "rustc": "rustc 1.96.0 (ac68faa20 2026-05-25)",
-    "cargo": "cargo 1.96.0 (30a34c682 2026-05-25)",
+    "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+    "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
     "dependencies": "tdbin v0.0.0 (/Users/christianfindlay/Documents/Code/typeDiagram/crates/tdbin)\n[dev-dependencies]\n├── criterion v0.8.2\n└── prost v0.14.3"
   },
   "sizes": {
@@ -99,450 +99,450 @@
     {
       "fixture": "with_address",
       "operation": "tdbin_encode_bare",
-      "median_ns": 83.0986024519383,
-      "confidence_interval_ns": [82.75906918294152, 83.3815792987034],
+      "median_ns": 87.08787769284092,
+      "confidence_interval_ns": [85.83105121095318, 88.67318654924685],
       "sample_count": 50,
-      "sampled_time_ns": 5010966247
+      "sampled_time_ns": 5081719791
     },
     {
       "fixture": "with_address",
       "operation": "tdbin_encode_framed",
-      "median_ns": 109.3599955037348,
-      "confidence_interval_ns": [101.10398443996914, 111.63251257218099],
+      "median_ns": 115.32005693641176,
+      "confidence_interval_ns": [109.03053126180885, 124.82153581045931],
       "sample_count": 50,
-      "sampled_time_ns": 6167315255
+      "sampled_time_ns": 4500933336
     },
     {
       "fixture": "with_address",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 198.64182683798805,
-      "confidence_interval_ns": [196.79967216953517, 207.63834509272823],
+      "median_ns": 288.4123942121779,
+      "confidence_interval_ns": [269.2336513571481, 320.60531501262585],
       "sample_count": 50,
-      "sampled_time_ns": 4688622750
+      "sampled_time_ns": 5825125663
     },
     {
       "fixture": "with_address",
       "operation": "protobuf_encode",
-      "median_ns": 69.4070397719205,
-      "confidence_interval_ns": [64.09463081445617, 73.29276867542798],
+      "median_ns": 135.32454676758297,
+      "confidence_interval_ns": [121.44874794344264, 149.17690579037316],
       "sample_count": 50,
-      "sampled_time_ns": 4853818290
+      "sampled_time_ns": 5787919790
     },
     {
       "fixture": "with_address",
       "operation": "tdbin_decode_bare",
-      "median_ns": 154.30256338383225,
-      "confidence_interval_ns": [151.27704125756728, 157.0964401015884],
+      "median_ns": 398.2407696588902,
+      "confidence_interval_ns": [341.299922122231, 435.1841888393849],
       "sample_count": 50,
-      "sampled_time_ns": 5247387792
+      "sampled_time_ns": 5056105122
     },
     {
       "fixture": "with_address",
       "operation": "tdbin_decode_framed",
-      "median_ns": 939.8466969498579,
-      "confidence_interval_ns": [908.5379492439257, 966.4722433975369],
+      "median_ns": 353.1594893576057,
+      "confidence_interval_ns": [324.6078110385472, 381.7991302522968],
       "sample_count": 50,
-      "sampled_time_ns": 7711428377
+      "sampled_time_ns": 4788730667
     },
     {
       "fixture": "with_address",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 3605.618066451447,
-      "confidence_interval_ns": [3548.2055785694556, 3652.6665439258645],
+      "median_ns": 1046.1323179579745,
+      "confidence_interval_ns": [742.6619580668088, 1357.8098454318947],
       "sample_count": 50,
-      "sampled_time_ns": 5589697585
+      "sampled_time_ns": 7339778090
     },
     {
       "fixture": "with_address",
       "operation": "protobuf_decode",
-      "median_ns": 921.2747494756468,
-      "confidence_interval_ns": [913.1263968042108, 939.4358635102728],
+      "median_ns": 240.10802975468832,
+      "confidence_interval_ns": [197.31696990729264, 265.83479589909246],
       "sample_count": 50,
-      "sampled_time_ns": 5038537211
+      "sampled_time_ns": 6804678253
     },
     {
       "fixture": "without_address",
       "operation": "tdbin_encode_bare",
-      "median_ns": 338.23941935625714,
-      "confidence_interval_ns": [335.94558211992916, 341.9764862369185],
+      "median_ns": 140.18080663110226,
+      "confidence_interval_ns": [129.79643429151733, 161.8109129361692],
       "sample_count": 50,
-      "sampled_time_ns": 4902567339
+      "sampled_time_ns": 7027197791
     },
     {
       "fixture": "without_address",
       "operation": "tdbin_encode_framed",
-      "median_ns": 400.05962862713375,
-      "confidence_interval_ns": [396.69831002150937, 402.9557669363937],
+      "median_ns": 127.88736008268663,
+      "confidence_interval_ns": [116.34983389326372, 144.24127364546777],
       "sample_count": 50,
-      "sampled_time_ns": 5493679418
+      "sampled_time_ns": 3582317666
     },
     {
       "fixture": "without_address",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 764.9362829090513,
-      "confidence_interval_ns": [754.5268784450246, 777.8599521207768],
+      "median_ns": 159.9392335485498,
+      "confidence_interval_ns": [157.3632686643561, 161.7110227060933],
       "sample_count": 50,
-      "sampled_time_ns": 2607578164
+      "sampled_time_ns": 4874383206
     },
     {
       "fixture": "without_address",
       "operation": "protobuf_encode",
-      "median_ns": 35.643756724257955,
-      "confidence_interval_ns": [35.34580951704713, 36.04477387841564],
+      "median_ns": 36.66844115564437,
+      "confidence_interval_ns": [35.84229063776525, 37.806351787137245],
       "sample_count": 50,
-      "sampled_time_ns": 5172749164
+      "sampled_time_ns": 5060751292
     },
     {
       "fixture": "without_address",
       "operation": "tdbin_decode_bare",
-      "median_ns": 73.63715672425766,
-      "confidence_interval_ns": [73.28936054166395, 74.39476561989946],
+      "median_ns": 78.4862488543285,
+      "confidence_interval_ns": [77.71920331111673, 79.11501939914129],
       "sample_count": 50,
-      "sampled_time_ns": 5770456038
+      "sampled_time_ns": 5224182423
     },
     {
       "fixture": "without_address",
       "operation": "tdbin_decode_framed",
-      "median_ns": 76.62628666396307,
-      "confidence_interval_ns": [76.28170920091168, 76.97378832520158],
+      "median_ns": 78.06490482329005,
+      "confidence_interval_ns": [77.34051443792157, 80.09066030707751],
       "sample_count": 50,
-      "sampled_time_ns": 5716749832
+      "sampled_time_ns": 5208703751
     },
     {
       "fixture": "without_address",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 542.176390275313,
-      "confidence_interval_ns": [537.789443896877, 545.6730102040816],
+      "median_ns": 535.581008719854,
+      "confidence_interval_ns": [527.6173342290977, 550.3626304754091],
       "sample_count": 50,
-      "sampled_time_ns": 5451650873
+      "sampled_time_ns": 5093168913
     },
     {
       "fixture": "without_address",
       "operation": "protobuf_decode",
-      "median_ns": 53.270764638974285,
-      "confidence_interval_ns": [52.774499120830136, 54.62112858742235],
+      "median_ns": 50.26318041081733,
+      "confidence_interval_ns": [49.5605513132067, 51.29787830728764],
       "sample_count": 50,
-      "sampled_time_ns": 5653604124
+      "sampled_time_ns": 5065208997
     },
     {
       "fixture": "metric_batch",
       "operation": "tdbin_encode_bare",
-      "median_ns": 12304.579206968829,
-      "confidence_interval_ns": [12034.351204594741, 12986.859614434008],
+      "median_ns": 12082.829555045011,
+      "confidence_interval_ns": [11833.6111827957, 12266.268867962332],
       "sample_count": 50,
-      "sampled_time_ns": 3765785380
+      "sampled_time_ns": 4873371085
     },
     {
       "fixture": "metric_batch",
       "operation": "tdbin_encode_framed",
-      "median_ns": 14973.70605269598,
-      "confidence_interval_ns": [14362.956805293006, 15266.240419615773],
+      "median_ns": 11870.648547758285,
+      "confidence_interval_ns": [11775.439720270337, 12045.111239711934],
       "sample_count": 50,
-      "sampled_time_ns": 4256507585
+      "sampled_time_ns": 4962783041
     },
     {
       "fixture": "metric_batch",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 27741.34569382736,
-      "confidence_interval_ns": [24611.30361188019, 29641.257145924064],
+      "median_ns": 23442.387840560357,
+      "confidence_interval_ns": [23196.143658810324, 23813.560072267388],
       "sample_count": 50,
-      "sampled_time_ns": 4639950838
+      "sampled_time_ns": 4962805295
     },
     {
       "fixture": "metric_batch",
       "operation": "protobuf_encode",
-      "median_ns": 50695.82419075859,
-      "confidence_interval_ns": [45812.643214688826, 56102.63138832998],
+      "median_ns": 47464.1642094136,
+      "confidence_interval_ns": [46899.58597603947, 48049.66095471236],
       "sample_count": 50,
-      "sampled_time_ns": 5412158586
+      "sampled_time_ns": 5241324749
     },
     {
       "fixture": "metric_batch",
       "operation": "tdbin_decode_bare",
-      "median_ns": 7712.441381987577,
-      "confidence_interval_ns": [7535.392364793213, 7846.435093167702],
+      "median_ns": 7469.2159931319875,
+      "confidence_interval_ns": [7384.006635700066, 7666.726962780775],
       "sample_count": 50,
-      "sampled_time_ns": 3110157084
+      "sampled_time_ns": 5405004835
     },
     {
       "fixture": "metric_batch",
       "operation": "tdbin_decode_framed",
-      "median_ns": 7950.836157946074,
-      "confidence_interval_ns": [7797.901587003475, 8153.567186053687],
+      "median_ns": 7321.017026985111,
+      "confidence_interval_ns": [7265.559893839192, 7495.359400501672],
       "sample_count": 50,
-      "sampled_time_ns": 4824275454
+      "sampled_time_ns": 5087042869
     },
     {
       "fixture": "metric_batch",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 37962.75155400156,
-      "confidence_interval_ns": [37782.57575757576, 38310.655483405484],
+      "median_ns": 34458.174430017505,
+      "confidence_interval_ns": [33192.6339031339, 35442.424836601305],
       "sample_count": 50,
-      "sampled_time_ns": 5710549457
+      "sampled_time_ns": 4653776461
     },
     {
       "fixture": "metric_batch",
       "operation": "protobuf_decode",
-      "median_ns": 35866.98133657133,
-      "confidence_interval_ns": [35315.62229357798, 36267.435779816515],
+      "median_ns": 38167.277021011396,
+      "confidence_interval_ns": [37096.64351851852, 38959.117438271605],
       "sample_count": 50,
-      "sampled_time_ns": 4988323041
+      "sampled_time_ns": 5333133414
     },
     {
       "fixture": "person_batch",
       "operation": "tdbin_encode_bare",
-      "median_ns": 11811.259324532171,
-      "confidence_interval_ns": [11727.91182913472, 11857.022682529383],
+      "median_ns": 13184.354094827586,
+      "confidence_interval_ns": [12986.266745036573, 13440.801420494206],
       "sample_count": 50,
-      "sampled_time_ns": 5002386459
+      "sampled_time_ns": 4935882041
     },
     {
       "fixture": "person_batch",
       "operation": "tdbin_encode_framed",
-      "median_ns": 11857.785178035178,
-      "confidence_interval_ns": [11793.738811982714, 11876.218218218219],
+      "median_ns": 12056.71304097951,
+      "confidence_interval_ns": [11790, 12398.041851851853],
       "sample_count": 50,
-      "sampled_time_ns": 4998342748
+      "sampled_time_ns": 4790011457
     },
     {
       "fixture": "person_batch",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 15541.067667958656,
-      "confidence_interval_ns": [15265.019379844962, 15892.26976744186],
+      "median_ns": 15041.404648956357,
+      "confidence_interval_ns": [14915.122365285924, 15137.542137096774],
       "sample_count": 50,
-      "sampled_time_ns": 5124612873
+      "sampled_time_ns": 4772413331
     },
     {
       "fixture": "person_batch",
       "operation": "protobuf_encode",
-      "median_ns": 18246.74396654719,
-      "confidence_interval_ns": [18085.814536340855, 18350.320477843918],
+      "median_ns": 16421.974406683403,
+      "confidence_interval_ns": [16250.355749056871, 16873.18663318986],
       "sample_count": 50,
-      "sampled_time_ns": 5069842789
+      "sampled_time_ns": 6627863876
     },
     {
       "fixture": "person_batch",
       "operation": "tdbin_decode_bare",
-      "median_ns": 36733.65223791067,
-      "confidence_interval_ns": [36446.825531914896, 37009.23423423423],
+      "median_ns": 70059.57651515151,
+      "confidence_interval_ns": [62935.340157085564, 74720.77045454546],
       "sample_count": 50,
-      "sampled_time_ns": 5009308170
+      "sampled_time_ns": 5950221541
     },
     {
       "fixture": "person_batch",
       "operation": "tdbin_decode_framed",
-      "median_ns": 37817.89528566519,
-      "confidence_interval_ns": [37126.017136329014, 38522.627846534655],
+      "median_ns": 91897.49752385452,
+      "confidence_interval_ns": [79752.96610169491, 97922.02361492597],
       "sample_count": 50,
-      "sampled_time_ns": 4937394337
+      "sampled_time_ns": 7185206166
     },
     {
       "fixture": "person_batch",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 41742.64619883041,
-      "confidence_interval_ns": [41256.072874493926, 42369.14766917293],
+      "median_ns": 92244.76265256734,
+      "confidence_interval_ns": [70133.96527777778, 113053.5729061128],
       "sample_count": 50,
-      "sampled_time_ns": 5122980873
+      "sampled_time_ns": 4669964288
     },
     {
       "fixture": "person_batch",
       "operation": "protobuf_decode",
-      "median_ns": 57691.02573529412,
-      "confidence_interval_ns": [57264.09488795518, 58092.244884910484],
+      "median_ns": 141485.84999999998,
+      "confidence_interval_ns": [124303.88621794872, 152091.45384615383],
       "sample_count": 50,
-      "sampled_time_ns": 5044088503
+      "sampled_time_ns": 4667564002
     },
     {
       "fixture": "contact_batch",
       "operation": "tdbin_encode_bare",
-      "median_ns": 9627.04700894493,
-      "confidence_interval_ns": [9605.446515892421, 9661.16333876664],
+      "median_ns": 17033.04363255719,
+      "confidence_interval_ns": [13746.51633986928, 21853.716536614647],
       "sample_count": 50,
-      "sampled_time_ns": 5017694914
+      "sampled_time_ns": 3498833250
     },
     {
       "fixture": "contact_batch",
       "operation": "tdbin_encode_framed",
-      "median_ns": 9653.37920771757,
-      "confidence_interval_ns": [9611.229788467112, 9720.221674876848],
+      "median_ns": 21809.42612029969,
+      "confidence_interval_ns": [20410.860321585187, 23426.51251817521],
       "sample_count": 50,
-      "sampled_time_ns": 5011654586
+      "sampled_time_ns": 7438347336
     },
     {
       "fixture": "contact_batch",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 12925.319602272728,
-      "confidence_interval_ns": [12866.41525974026, 13029.128030303029],
+      "median_ns": 27871.796569178852,
+      "confidence_interval_ns": [25198.54739149454, 30680.11811023622],
       "sample_count": 50,
-      "sampled_time_ns": 5076227668
+      "sampled_time_ns": 4811547712
     },
     {
       "fixture": "contact_batch",
       "operation": "protobuf_encode",
-      "median_ns": 28364.751068519512,
-      "confidence_interval_ns": [28008.61768707483, 28740.990767735668],
+      "median_ns": 53212.414046601545,
+      "confidence_interval_ns": [49860.01893162393, 58796.2425170068],
       "sample_count": 50,
-      "sampled_time_ns": 5413163040
+      "sampled_time_ns": 4086413454
     },
     {
       "fixture": "contact_batch",
       "operation": "tdbin_decode_bare",
-      "median_ns": 36763.935706018514,
-      "confidence_interval_ns": [36436.13937621832, 38004.730273752015],
+      "median_ns": 31445.512604709973,
+      "confidence_interval_ns": [31284.4176705653, 31701.027013279727],
       "sample_count": 50,
-      "sampled_time_ns": 5239417333
+      "sampled_time_ns": 4859493915
     },
     {
       "fixture": "contact_batch",
       "operation": "tdbin_decode_framed",
-      "median_ns": 43522.073933998836,
-      "confidence_interval_ns": [42990.50632911392, 45359.17721518988],
+      "median_ns": 31063.60227027027,
+      "confidence_interval_ns": [30919.645161290322, 31181.92472653061],
       "sample_count": 50,
-      "sampled_time_ns": 4709271376
+      "sampled_time_ns": 4954496997
     },
     {
       "fixture": "contact_batch",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 40589.56235239541,
-      "confidence_interval_ns": [38987.891636141634, 41945.72649572649],
+      "median_ns": 33327.808050492924,
+      "confidence_interval_ns": [33163.28394357743, 33453.610270774974],
       "sample_count": 50,
-      "sampled_time_ns": 4278261001
+      "sampled_time_ns": 5061957790
     },
     {
       "fixture": "contact_batch",
       "operation": "protobuf_decode",
-      "median_ns": 72148.43694196429,
-      "confidence_interval_ns": [69175.54523809523, 74153.18263888889],
+      "median_ns": 59526.56932966024,
+      "confidence_interval_ns": [59360.61471861472, 59659.09090909091],
       "sample_count": 50,
-      "sampled_time_ns": 4708885204
+      "sampled_time_ns": 5015078166
     },
     {
       "fixture": "diagram_document",
       "operation": "tdbin_encode_bare",
-      "median_ns": 16468.413178034374,
-      "confidence_interval_ns": [15267.550766410459, 17475.167218925613],
+      "median_ns": 12303.538517852983,
+      "confidence_interval_ns": [12255.445338512764, 12370.741614255765],
       "sample_count": 50,
-      "sampled_time_ns": 3973093918
+      "sampled_time_ns": 5001143459
     },
     {
       "fixture": "diagram_document",
       "operation": "tdbin_encode_framed",
-      "median_ns": 13958.201267482516,
-      "confidence_interval_ns": [13514.264891562685, 15376.681784105258],
+      "median_ns": 12275.395630477118,
+      "confidence_interval_ns": [12244.286216596343, 12311.916442230002],
       "sample_count": 50,
-      "sampled_time_ns": 5476900039
+      "sampled_time_ns": 4944547753
     },
     {
       "fixture": "diagram_document",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 24274.09638554217,
-      "confidence_interval_ns": [23245.29059093517, 24469.05464716007],
+      "median_ns": 19568.948569082804,
+      "confidence_interval_ns": [19495.644532019705, 19615.32866845798],
       "sample_count": 50,
-      "sampled_time_ns": 5682131288
+      "sampled_time_ns": 5091890456
     },
     {
       "fixture": "diagram_document",
       "operation": "protobuf_encode",
-      "median_ns": 23293.14121825226,
-      "confidence_interval_ns": [21948.859618104667, 24437.80198019802],
+      "median_ns": 23470.591920731706,
+      "confidence_interval_ns": [23191.088059288755, 23758.10529446758],
       "sample_count": 50,
-      "sampled_time_ns": 2832264585
+      "sampled_time_ns": 4960373626
     },
     {
       "fixture": "diagram_document",
       "operation": "tdbin_decode_bare",
-      "median_ns": 74797.71759259258,
-      "confidence_interval_ns": [74476.04962962963, 75054.47592592593],
+      "median_ns": 70723.87240499648,
+      "confidence_interval_ns": [70433.0233493891, 71106.44327731093],
       "sample_count": 50,
-      "sampled_time_ns": 5183134501
+      "sampled_time_ns": 5069408751
     },
     {
       "fixture": "diagram_document",
       "operation": "tdbin_decode_framed",
-      "median_ns": 75938.81051463718,
-      "confidence_interval_ns": [75538.61046511628, 76333.85859973359],
+      "median_ns": 71217.77150023152,
+      "confidence_interval_ns": [70788.32794612795, 71583.15874125874],
       "sample_count": 50,
-      "sampled_time_ns": 5024830496
+      "sampled_time_ns": 5245726838
     },
     {
       "fixture": "diagram_document",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 84772.29507844402,
-      "confidence_interval_ns": [84151.99468085106, 85929.28039513677],
+      "median_ns": 80341.49526239067,
+      "confidence_interval_ns": [79553.77899452463, 80955.51020408163],
       "sample_count": 50,
-      "sampled_time_ns": 5079075627
+      "sampled_time_ns": 5079646127
     },
     {
       "fixture": "diagram_document",
       "operation": "protobuf_decode",
-      "median_ns": 120168.45172634271,
-      "confidence_interval_ns": [119515.8756684492, 120872.32037815126],
+      "median_ns": 112113.07058531746,
+      "confidence_interval_ns": [111145.54489795919, 113018.80571428571],
       "sample_count": 50,
-      "sampled_time_ns": 5248374578
+      "sampled_time_ns": 5055293581
     },
     {
       "fixture": "event_batch",
       "operation": "tdbin_encode_bare",
-      "median_ns": 40854.41593242901,
-      "confidence_interval_ns": [40522.44836317135, 41923.52321004159],
+      "median_ns": 36803.97532586858,
+      "confidence_interval_ns": [36442.88668224299, 37131.088360237896],
       "sample_count": 50,
-      "sampled_time_ns": 5159725958
+      "sampled_time_ns": 5085971289
     },
     {
       "fixture": "event_batch",
       "operation": "tdbin_encode_framed",
-      "median_ns": 39913.562568681315,
-      "confidence_interval_ns": [39642.669137761244, 40059.578889860146],
+      "median_ns": 35460.84059225658,
+      "confidence_interval_ns": [35390.77260760073, 35622.738213399505],
       "sample_count": 50,
-      "sampled_time_ns": 5226986670
+      "sampled_time_ns": 4730817414
     },
     {
       "fixture": "event_batch",
       "operation": "tdbin_encode_packed_framed",
-      "median_ns": 55970.928275599545,
-      "confidence_interval_ns": [55781.71908310115, 56181.00070422535],
+      "median_ns": 52131.32052310655,
+      "confidence_interval_ns": [51942.84539473684, 52407.82894736842],
       "sample_count": 50,
-      "sampled_time_ns": 5066256920
+      "sampled_time_ns": 5078327420
     },
     {
       "fixture": "event_batch",
       "operation": "protobuf_encode",
-      "median_ns": 79863.94954248366,
-      "confidence_interval_ns": [78118.58975141887, 81755.60055555555],
+      "median_ns": 56485.33028222731,
+      "confidence_interval_ns": [55341.329106280195, 56944.85186066337],
       "sample_count": 50,
-      "sampled_time_ns": 5017193506
+      "sampled_time_ns": 5012815130
     },
     {
       "fixture": "event_batch",
       "operation": "tdbin_decode_bare",
-      "median_ns": 202750.00983436854,
-      "confidence_interval_ns": [201498.01509872242, 203393.86091269844],
+      "median_ns": 178575.90052700922,
+      "confidence_interval_ns": [177347.93741765482, 178971.63602484472],
       "sample_count": 50,
-      "sampled_time_ns": 5454116957
+      "sampled_time_ns": 5231950164
     },
     {
       "fixture": "event_batch",
       "operation": "tdbin_decode_framed",
-      "median_ns": 205236.58258928574,
-      "confidence_interval_ns": [200798.04421768707, 206521.79277244495],
+      "median_ns": 178355.36883116883,
+      "confidence_interval_ns": [177243.006993007, 179310.74510579684],
       "sample_count": 50,
-      "sampled_time_ns": 5581533544
+      "sampled_time_ns": 5067338998
     },
     {
       "fixture": "event_batch",
       "operation": "tdbin_decode_packed_framed",
-      "median_ns": 227074.67709305946,
-      "confidence_interval_ns": [224506.687654321, 229686.21978557506],
+      "median_ns": 202789.675,
+      "confidence_interval_ns": [201010.69416666665, 204871.66666666666],
       "sample_count": 50,
-      "sampled_time_ns": 5164226039
+      "sampled_time_ns": 5253962004
     },
     {
       "fixture": "event_batch",
       "operation": "protobuf_decode",
-      "median_ns": 303783.7773556231,
-      "confidence_interval_ns": [297643.63354037266, 308790.9420849421],
+      "median_ns": 278907.4770164046,
+      "confidence_interval_ns": [277196.82857142854, 280066.96875],
       "sample_count": 50,
-      "sampled_time_ns": 5401235540
+      "sampled_time_ns": 5062289626
     }
   ]
 }
