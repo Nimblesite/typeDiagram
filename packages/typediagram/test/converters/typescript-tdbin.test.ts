@@ -11,7 +11,7 @@ import { parse } from "../../src/parser/index.js";
 import type { Model } from "../../src/model/types.js";
 import { ok } from "../../src/result.js";
 import * as tdbin from "../../src/tdbin/index.js";
-import { unwrap } from "./helpers.js";
+import { expectErrorMessages, unwrap } from "./helpers.js";
 
 const PERSON_TD = `type Address {
   street: String
@@ -174,11 +174,9 @@ describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
 
   it("rejects unsupported shapes loudly", () => {
     const result = emitTypeScriptCodec(modelFor("type R {\n  items: List<Int>\n}"));
-    expect(result.ok).toBe(false);
-    expect(result.ok ? "" : result.error[0]?.message).toContain("unsupported field type 'List<Int>'");
+    expectErrorMessages(result, ["unsupported field type 'List<Int>'"]);
     const moduleResult = generateTypeScriptModule(modelFor("type R {\n  items: List<Int>\n}"));
-    expect(moduleResult.ok).toBe(false);
-    expect(moduleResult.ok ? "" : moduleResult.error[0]?.message).toContain("unsupported field type 'List<Int>'");
+    expectErrorMessages(moduleResult, ["unsupported field type 'List<Int>'"]);
   });
 
   it("emits bytes, optional bytes, bare variants, and string-payload variants", () => {

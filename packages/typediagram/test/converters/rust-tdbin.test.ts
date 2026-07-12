@@ -11,7 +11,7 @@ import { fnv1a64, layoutHashLiteral, layoutManifest } from "../../src/converters
 import { buildModel } from "../../src/model/index.js";
 import { parse } from "../../src/parser/index.js";
 import type { Model } from "../../src/model/types.js";
-import { expectRustModuleReproduces, unwrap } from "./helpers.js";
+import { expectErrorMessages, expectRustModuleReproduces, unwrap } from "./helpers.js";
 
 const modelFor = (td: string): Model => unwrap(buildModel(unwrap(parse(td))));
 const codecFor = (td: string): string => unwrap(emitRustCodec(modelFor(td)));
@@ -271,8 +271,7 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
   it("rejects List<enum> when one-byte ordinals would overflow", () => {
     const variants = Array.from({ length: 257 }, (_, i) => `  V${String(i)}`).join("\n");
     const r = emitRustCodec(modelFor(`union Wide {\n${variants}\n}\ntype R {\n  values: List<Wide>\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("List<enum> 'Wide' has ordinals >= 256");
+    expectErrorMessages(r, ["List<enum> 'Wide' has ordinals >= 256"]);
   });
 });
 
@@ -293,14 +292,12 @@ describe("[CONV-RUST-TDBIN] generateRustModule assembles a deny-all-clean module
 describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)", () => {
   it("rejects an unsupported field type", () => {
     const r = emitRustCodec(modelFor(`type R {\n  items: List<Map<String, Int>>\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type");
+    expectErrorMessages(r, ["unsupported field type"]);
   });
 
   it("rejects an Option over an unsupported inner type", () => {
     const r = emitRustCodec(modelFor(`type R {\n  x: Option<Map<String, Int>>\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type");
+    expectErrorMessages(r, ["unsupported field type"]);
   });
 
   // review finding `map-any`: Map<K,V> and Any have no v0 wire encoding, so the
@@ -308,14 +305,12 @@ describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)
   // naming the exact type. No wire form is promised for these in v0.
   it("rejects a Map field with a typed error naming the type", () => {
     const r = emitRustCodec(modelFor(`type R {\n  m: Map<String, Int>\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type 'Map<String, Int>'");
+    expectErrorMessages(r, ["unsupported field type 'Map<String, Int>'"]);
   });
 
   it("rejects an Any field with a typed error naming the type", () => {
     const r = emitRustCodec(modelFor(`type R {\n  a: Any\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported field type 'Any'");
+    expectErrorMessages(r, ["unsupported field type 'Any'"]);
   });
 
   it("emits Option<empty-record> with null reserved for None", () => {
@@ -332,29 +327,23 @@ describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)
 
   it("rejects List<empty-record> before composite count would lose element identity", () => {
     const r = emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  values: List<Empty>\n}`));
-    expect(r.ok).toBe(false);
-    const message = r.ok ? "" : r.error[0]?.message;
-    expect(message).toContain("List<empty-record> 'Empty' has a zero-word composite stride");
-    expect(message).toContain("Holder.values");
+    expectErrorMessages(r, ["List<empty-record> 'Empty' has a zero-word composite stride", "Holder.values"]);
   });
 
   // [TDBIN-SCHEMA-MONO] [TDBIN-SCHEMA-ALIAS] [TDBIN-UNION-OVERLAP] traced here.
   it("rejects a generic decl that was not monomorphized", () => {
     const r = emitRustCodec(modelFor(`type Box<T> {\n  value: T\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("must be monomorphized");
+    expectErrorMessages(r, ["must be monomorphized"]);
   });
 
   it("rejects a variant that is neither bare nor a single tuple field", () => {
     const r = emitRustCodec(modelFor(`union U {\n  Multi(Int, String)\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("bare or a single tuple field");
+    expectErrorMessages(r, ["bare or a single tuple field"]);
   });
 
   it("rejects a variant payload that has no v0 wire encoding", () => {
     const r = emitRustCodec(modelFor(`union U {\n  Weird(Int)\n}`));
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("unsupported in v0");
+    expectErrorMessages(r, ["unsupported in v0"]);
   });
 
   it("propagates codec errors through generateRustModule", () => {
@@ -637,8 +626,7 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     const r = emitRustCodec(modelFor(`type Empty {\n}\ntype Row {\n  e: Empty\n}\ntype B {\n  rows: List<Row>\n}`), {
       layout: 2,
     });
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain("empty record 'Empty' cannot form a column group");
+    expectErrorMessages(r, ["empty record 'Empty' cannot form a column group"]);
   });
 
   it("defaults to layout 1 and keeps row-wise forms when no options are passed", () => {
@@ -662,26 +650,16 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
 
   it("rejects Option<List<String>> and Option<List<Bytes>> fields at layout 2 with loud diagnostics", () => {
     const strings = emitRustCodec(modelFor(`type R {\n  x: Option<List<String>>\n}`), { layout: 2 });
-    expect(strings.ok).toBe(false);
-    expect(strings.ok ? "" : strings.error[0]?.message).toContain(
-      "Option<List<String>> has no columnar encoding under layout 2"
-    );
-    expect(strings.ok ? "" : strings.error[0]?.message).toContain("R.x");
+    expectErrorMessages(strings, ["Option<List<String>> has no columnar encoding under layout 2", "R.x"]);
     const bytes = emitRustCodec(modelFor(`type R {\n  x: Option<List<Bytes>>\n}`), { layout: 2 });
-    expect(bytes.ok).toBe(false);
-    expect(bytes.ok ? "" : bytes.error[0]?.message).toContain(
-      "Option<List<Bytes>> has no columnar encoding under layout 2"
-    );
+    expectErrorMessages(bytes, ["Option<List<Bytes>> has no columnar encoding under layout 2"]);
   });
 
   it("rejects unsupported shapes inside a column group with loud diagnostics naming the type", () => {
     const optList = emitRustCodec(modelFor(`type Row {\n  x: Option<List<Int>>\n}\ntype B {\n  rows: List<Row>\n}`), {
       layout: 2,
     });
-    expect(optList.ok).toBe(false);
-    expect(optList.ok ? "" : optList.error[0]?.message).toContain(
-      "'Option<List<Int>>' has no columnar encoding under layout 2 in Row.x"
-    );
+    expectErrorMessages(optList, ["'Option<List<Int>>' has no columnar encoding under layout 2 in Row.x"]);
   });
 
   it("rejects a union with more than 256 variants reached by a columnar list", () => {
@@ -690,10 +668,7 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
       modelFor(`type P {\n  v: Int\n}\nunion Wide {\n${variants}\n}\ntype H {\n  items: List<Wide>\n}`),
       { layout: 2 }
     );
-    expect(r.ok).toBe(false);
-    expect(r.ok ? "" : r.error[0]?.message).toContain(
-      "union 'Wide' exceeds 256 variants, so layout 2 cannot encode its tag column"
-    );
+    expectErrorMessages(r, ["union 'Wide' exceeds 256 variants, so layout 2 cannot encode its tag column"]);
   });
 });
 

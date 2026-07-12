@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { csharp } from "../../src/converters/index.js";
 import {
   aliasTargetName,
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -103,12 +104,14 @@ public static int ComputeHash(string input) => input.GetHashCode();
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(6);
-    expect(chatFields.find((f) => f.name === "Message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "SessionId")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "ToolResults")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "Active")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "Score")?.type.name).toBe("Float");
-    expect(chatFields.find((f) => f.name === "Count")?.type.name).toBe("Int");
+    expectFieldTypes(chatFields, {
+      Message: "String",
+      SessionId: "String",
+      ToolResults: "List<ToolResult>",
+      Active: "Bool",
+      Score: "Float",
+      Count: "Int",
+    });
 
     // ToolResult — 4 fields
     expect(findDecl(model, "ToolResult")?.kind).toBe("record");

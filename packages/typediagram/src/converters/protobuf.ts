@@ -20,7 +20,15 @@ import { type Result, err } from "../result.js";
 import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { isList, isMap, isOption, mapBuiltinName, parseTypeRef, printTypeRef } from "./parse-typeref.js";
+import {
+  isList,
+  isMap,
+  isOption,
+  mapBuiltinName,
+  parseTypeRef,
+  printTypeRef,
+  resolveFieldTypes,
+} from "./parse-typeref.js";
 import { extractBalancedBlock } from "./brace-lang.js";
 import { emitDecls } from "./emit-decls.js";
 import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./scan-decls.js";
@@ -174,11 +182,15 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
       .filter((g) => g.length > 0);
   };
 
-  const toBlockDecl = (kind: "message" | "enum") => (b: { groups: ReadonlyArray<string | undefined>; body: string; offset: number }): PendingDecl[] => {
-    const [name] = b.groups;
-    /* v8 ignore next 3 — regex guarantees name is captured */
-    return name === undefined ? [] : [{ kind, name, body: b.body, generics: genericsBefore(b.offset), offset: b.offset }];
-  };
+  const toBlockDecl =
+    (kind: "message" | "enum") =>
+    (b: { groups: ReadonlyArray<string | undefined>; body: string; offset: number }): PendingDecl[] => {
+      const [name] = b.groups;
+      /* v8 ignore next 3 — regex guarantees name is captured */
+      return name === undefined
+        ? []
+        : [{ kind, name, body: b.body, generics: genericsBefore(b.offset), offset: b.offset }];
+    };
 
   const pending: PendingDecl[] = [
     ...scanBraceBlocks(source, MESSAGE_HEAD_RE, { skip: consumed, mark: consumed }).flatMap(toBlockDecl("message")),
@@ -199,7 +211,7 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
       // variants (nested messages). A message without `oneof` is a record.
       const hasOneof = /\boneof\s+\w+\s*\{/.test(p.body);
       if (!hasOneof) {
-        const fields = parseMessageFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+        const fields = resolveFieldTypes(parseMessageFields(p.body));
         builder.add(record(p.name, fields, p.generics));
         continue;
       }
@@ -216,10 +228,7 @@ const fromProto = (source: string): Result<Model, Diagnostic[]> => {
           // oneof.
           return { name: capitalise(voName), fields: [] };
         }
-        const fields = parseMessageFields(nested.body).map((f) => ({
-          name: f.name,
-          type: parseTypeRef(f.type),
-        }));
+        const fields = resolveFieldTypes(parseMessageFields(nested.body));
         return { name: nested.name, fields };
       });
       builder.add(union(p.name, variants, p.generics));

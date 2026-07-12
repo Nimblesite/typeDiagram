@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ok, type Result } from "../../src/result.js";
 import * as tdbin from "../../src/tdbin/index.js";
 import type { Reader, StructCodec, TdbinError, Writer } from "../../src/tdbin/index.js";
+import { expectOk } from "./helpers.js";
 
 interface Child {
   readonly count: number;
@@ -24,11 +25,6 @@ interface Maybe {
   readonly child: Child | undefined;
   readonly nums: readonly number[] | undefined;
 }
-
-const expectOk = <T>(result: Result<T, TdbinError>): T => {
-  expect(result.ok, result.ok ? "" : result.error.message).toBe(true);
-  return result.ok ? result.value : (undefined as never);
-};
 
 const expectErr = <T>(result: Result<T, TdbinError>, code: TdbinError["code"]) => {
   expect(result.ok ? "" : result.error.code).toBe(code);

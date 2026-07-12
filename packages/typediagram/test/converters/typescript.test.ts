@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { typescript } from "../../src/converters/index.js";
 import {
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -104,16 +105,16 @@ export interface NullableFields {
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(8);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
     // string[] syntax does map to List
-    expect(chatFields.find((f) => f.name === "tags")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tags")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "debug")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "timeout")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "payload")?.type.name).toBe("Bytes");
+    expectFieldTypes(chatFields, {
+      message: "String",
+      tool_results: "List<ToolResult>",
+      metadata: "Map<String, String>",
+      tags: "List<String>",
+      debug: "Bool",
+      timeout: "Int",
+      payload: "Bytes",
+    });
 
     // ToolResult — record with 5 fields
     expect(findDecl(model, "ToolResult")?.kind).toBe("record");
@@ -124,8 +125,7 @@ export interface NullableFields {
     expect(box?.kind).toBe("record");
     expect(box?.generics).toContain("T");
     const boxFields = recordFields(model, "GenericBox");
-    expect(boxFields.find((f) => f.name === "value")?.type.name).toBe("T");
-    expect(boxFields.find((f) => f.name === "label")?.type.name).toBe("String");
+    expectFieldTypes(boxFields, { value: "T", label: "String" });
 
     // Pair<A, B> — two generics
     const pair = model.decls.find((d) => d.name === "Pair");

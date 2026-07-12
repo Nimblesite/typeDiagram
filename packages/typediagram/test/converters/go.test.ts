@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { go } from "../../src/converters/index.js";
 import {
   aliasTargetName,
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -121,26 +122,23 @@ func (t ToolResult) Validate() bool {
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(15);
-    expect(chatFields.find((f) => f.name === "Message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "SessionID")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "ToolResults")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "ToolResults")?.type.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "Tags")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "Tags")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "Labels")?.type.name).toBe("Map");
-    expect(chatFields.find((f) => f.name === "Labels")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "Labels")?.type.args[1]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "Ptr")?.type.name).toBe("Option");
-    expect(chatFields.find((f) => f.name === "Ptr")?.type.args[0]?.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Active")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "Score")?.type.name).toBe("Float");
-    expect(chatFields.find((f) => f.name === "Count")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Small")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Medium")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Big")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Tiny")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Char")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "Raw")?.type.name).toBe("Int");
+    expectFieldTypes(chatFields, {
+      Message: "String",
+      SessionID: "String",
+      ToolResults: "List<ToolResult>",
+      Tags: "List<String>",
+      Labels: "Map<String, String>",
+      Ptr: "Option<Int>",
+      Active: "Bool",
+      Score: "Float",
+      Count: "Int",
+      Small: "Int",
+      Medium: "Int",
+      Big: "Int",
+      Tiny: "Int",
+      Char: "Int",
+      Raw: "Int",
+    });
 
     // ToolResult — 4 fields, struct tags stripped
     expect(findDecl(model, "ToolResult")?.kind).toBe("record");
@@ -381,9 +379,7 @@ alias Tag = String
     const cfgFields = recordFields(model2, "Config");
     expect(cfgFields).toHaveLength(3);
     // Field names are preserved verbatim (lowercase) for lossless round-trip.
-    expect(cfgFields.find((f) => f.name === "tags")?.type.name).toBe("List");
-    expect(cfgFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
-    expect(cfgFields.find((f) => f.name === "maybe")?.type.name).toBe("Option");
+    expectFieldTypes(cfgFields, { tags: "List<String>", metadata: "Map<String, String>", maybe: "Option<Int>" });
 
     expect(findDecl(model2, "Shape")?.kind).toBe("union");
 

@@ -19,7 +19,15 @@ import {
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter, PythonOpts } from "./types.js";
-import { isList, isMap, isOption, mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.js";
+import {
+  isList,
+  isMap,
+  isOption,
+  mapBuiltinName,
+  parseTypeRef,
+  resolveFieldTypes,
+  splitGenericArgs,
+} from "./parse-typeref.js";
 import { orderBySource, parseFields, scanAll } from "./scan-decls.js";
 
 // ── Type mapping ──
@@ -168,7 +176,11 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
   pending.push(
     ...scanAll(UNION_ALIAS_RE, source, (m): PendingDecl | null => {
       const [, name, rhs] = m;
-      return name === undefined || rhs === undefined || !rhs.includes("|") || classNames.has(name) || enumNames.has(name)
+      return name === undefined ||
+        rhs === undefined ||
+        !rhs.includes("|") ||
+        classNames.has(name) ||
+        enumNames.has(name)
         ? null
         : { kind: "union-alias", name, rhs, offset: m.index };
     })
@@ -195,7 +207,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
     })
   );
 
-  pending.sort((a, b) => a.offset - b.offset);
+  const ordered = orderBySource(pending);
 
   // Build a map of variant-class -> {union, variantName} so we can skip
   // emitting variant classes as standalone records. Union-alias RHS tells us
@@ -206,7 +218,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
   // fold-in or a bare literal.
   type VariantDef = { name: string; className: string | null };
   const unionVariants = new Map<string, VariantDef[]>();
-  for (const p of pending) {
+  for (const p of ordered) {
     if (p.kind !== "union-alias") {
       continue;
     }
@@ -231,7 +243,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
     unionVariants.set(p.name, variants);
   }
 
-  for (const p of pending) {
+  for (const p of ordered) {
     if (p.kind === "class" || p.kind === "typed-dict") {
       // If this class is a folded union variant, skip — it'll be emitted
       // under the union's variant list below.
@@ -239,7 +251,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
         continue;
       }
       found = true;
-      const fields = parsePyFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      const fields = resolveFieldTypes(parsePyFields(p.body));
       const generics = p.kind === "class" ? extractGenericsFromBases(p.bases) : [];
       builder.add(record(p.name, fields, generics));
       continue;
@@ -268,7 +280,7 @@ const fromPython = (source: string): Result<Model, Diagnostic[]> => {
         if (cls === undefined || (cls.kind !== "class" && cls.kind !== "typed-dict")) {
           return { name: v.name, fields: [] };
         }
-        const fields = parsePyFields(cls.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+        const fields = resolveFieldTypes(parsePyFields(cls.body));
         return { name: v.name, fields };
       });
       // Look for the first variant class's generics — generic unions (e.g.

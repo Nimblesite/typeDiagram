@@ -166,12 +166,13 @@ impl Writer {
         count: usize,
         values: impl Iterator<Item = i64>,
     ) -> Result<(), EncodeError> {
-        self.word_column(
+        self.scalar_column(
             group_at,
             data_words,
             slot,
             count,
-            values.map(crate::scalar::i64_bits),
+            values,
+            crate::scalar::i64_bits,
         )
     }
 
@@ -187,13 +188,29 @@ impl Writer {
         count: usize,
         values: impl Iterator<Item = f64>,
     ) -> Result<(), EncodeError> {
-        self.word_column(
+        self.scalar_column(
             group_at,
             data_words,
             slot,
             count,
-            values.map(crate::scalar::f64_bits),
+            values,
+            crate::scalar::f64_bits,
         )
+    }
+
+    /// Shared body for scalar word columns: map each element to its bit pattern
+    /// and store it as a word column. `i64_column`/`f64_column` differ only in the
+    /// per-element bit conversion ([TDBIN-COL-PLAN]).
+    fn scalar_column<T>(
+        &mut self,
+        group_at: usize,
+        data_words: u16,
+        slot: u16,
+        count: usize,
+        values: impl Iterator<Item = T>,
+        bits: impl Fn(T) -> u64,
+    ) -> Result<(), EncodeError> {
+        self.word_column(group_at, data_words, slot, count, values.map(bits))
     }
 
     /// Write a byte column: union tags and enum ordinals ([TDBIN-COL-UNION]).
@@ -259,17 +276,14 @@ impl Writer {
         payload_slot: u16,
         value: Option<&[String]>,
     ) -> Result<(), EncodeError> {
-        match value {
-            None | Some([]) => self.null_var_list(at, data_words, len_slot, payload_slot),
-            Some(items) => self.var_column(
-                at,
-                data_words,
-                len_slot,
-                payload_slot,
-                items.len(),
-                items.iter().map(String::as_bytes),
-            ),
-        }
+        self.var_list_slot(
+            at,
+            data_words,
+            len_slot,
+            payload_slot,
+            value,
+            String::as_bytes,
+        )
     }
 
     /// Write a required `List<Bytes>` field as a var column pair.
@@ -284,6 +298,24 @@ impl Writer {
         payload_slot: u16,
         value: Option<&[Vec<u8>]>,
     ) -> Result<(), EncodeError> {
+        self.var_list_slot(at, data_words, len_slot, payload_slot, value, |v| {
+            v.as_slice()
+        })
+    }
+
+    /// Shared body for var-column list pairs: an absent or empty list nulls both
+    /// slots, otherwise each element is mapped to bytes and written as a var
+    /// column. `string_var_list`/`bytes_var_list` differ only in the element
+    /// byte view ([TDBIN-COL-VAR]).
+    fn var_list_slot<T>(
+        &mut self,
+        at: usize,
+        data_words: u16,
+        len_slot: u16,
+        payload_slot: u16,
+        value: Option<&[T]>,
+        to_bytes: impl Fn(&T) -> &[u8] + Clone,
+    ) -> Result<(), EncodeError> {
         match value {
             None | Some([]) => self.null_var_list(at, data_words, len_slot, payload_slot),
             Some(items) => self.var_column(
@@ -292,7 +324,7 @@ impl Writer {
                 len_slot,
                 payload_slot,
                 items.len(),
-                items.iter().map(Vec::as_slice),
+                items.iter().map(to_bytes),
             ),
         }
     }

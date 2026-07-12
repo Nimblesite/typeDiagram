@@ -12,7 +12,7 @@ import { type Model, type ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { emitDecls } from "./emit-decls.js";
-import { isOption, mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { isOption, mapBuiltinName, parseTypeRef, resolveFieldTypes } from "./parse-typeref.js";
 import {
   extractTrailingNullable,
   formatGenericsDecl,
@@ -186,7 +186,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
   for (const p of orderBySource(pending)) {
     found = true;
     if (p.kind === "record") {
-      const fields = parseCsParams(p.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      const fields = resolveFieldTypes(parseCsParams(p.params));
       builder.add(record(p.name, fields, parseGenericParamList(p.gens)));
       continue;
     }
@@ -196,9 +196,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
           p.name,
           p.variants.map((v) => {
             const fields =
-              v.params === undefined || v.params.trim().length === 0
-                ? []
-                : parseCsParams(v.params).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+              v.params === undefined || v.params.trim().length === 0 ? [] : resolveFieldTypes(parseCsParams(v.params));
             return { name: v.name, fields };
           }),
           parseGenericParamList(p.gens)

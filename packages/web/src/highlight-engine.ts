@@ -8,7 +8,9 @@ export type Rule = { re: RegExp; cls: string; group?: number };
 
 type Span = { start: number; end: number; cls: string };
 
-const escHtml = (s: string): string => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+/** Escape text before including it in syntax-highlighted HTML. */
+export const escapeHtml = (text: string): string =>
+  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const collectSpans = (source: string, rules: readonly Rule[]): Span[] => {
   const spans: Span[] = [];
@@ -40,11 +42,11 @@ const renderSpans = (source: string, kept: readonly Span[]): string => {
   let out = "";
   let pos = 0;
   for (const s of kept) {
-    out += s.start > pos ? escHtml(source.slice(pos, s.start)) : "";
-    out += `<span class="${s.cls}">${escHtml(source.slice(s.start, s.end))}</span>`;
+    out += s.start > pos ? escapeHtml(source.slice(pos, s.start)) : "";
+    out += `<span class="${s.cls}">${escapeHtml(source.slice(s.start, s.end))}</span>`;
     pos = s.end;
   }
-  out += pos < source.length ? escHtml(source.slice(pos)) : "";
+  out += pos < source.length ? escapeHtml(source.slice(pos)) : "";
   return out.endsWith("\n") ? `${out} ` : `${out}\n `;
 };
 

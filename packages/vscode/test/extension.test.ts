@@ -5,6 +5,16 @@ import { activateExtension, makeDoc, mdTargetUri } from "./helpers.js";
 
 vi.mock("vscode", () => mock);
 
+const mockSimpleMarkdownIo = () => {
+  mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
+  mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
+};
+
+const installMarkdownExtension = async () => {
+  const { extendMarkdownIt } = await import("../src/extension.js");
+  extendMarkdownIt({ renderer: { rules: {} } });
+};
+
 describe("[VSCODE-EXT] activate", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -311,9 +321,7 @@ describe("[VSCODE-EXT] activate", () => {
       isSyncRenderReady: () => ready,
       renderToStringSync: () => ({ ok: true, value: "<svg></svg>" }),
     }));
-    const { extendMarkdownIt } = await import("../src/extension.js");
-    const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md);
+    await installMarkdownExtension();
     // Wait for the warmup microtask chain. Warmup calls into elk which takes ~30-200ms.
     // We give it a reasonable window.
     await new Promise((r) => setTimeout(r, 400));
@@ -347,9 +355,7 @@ describe("[VSCODE-EXT] activate", () => {
 
   it("[VSCODE-MD-EXTEND-LOG] extendMarkdownIt writes lifecycle logs to the Output Channel", async () => {
     mock.mockOutputChannel.appendLine.mockClear();
-    const { extendMarkdownIt } = await import("../src/extension.js");
-    const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md);
+    await installMarkdownExtension();
     const initialLines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     // Must have logged that VS Code called us
     expect(initialLines.some((l) => l.includes("called by VS Code markdown preview"))).toBe(true);
@@ -375,9 +381,7 @@ describe("[VSCODE-EXT] activate", () => {
     }));
     mock.mockOutputChannel.appendLine.mockClear();
     mock.commands.executeCommand.mockRejectedValueOnce(new Error("refresh boom"));
-    const { extendMarkdownIt } = await import("../src/extension.js");
-    const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md);
+    await installMarkdownExtension();
     await new Promise((r) => setTimeout(r, 400));
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("markdown.preview.refresh failed") && l.includes("refresh boom"))).toBe(true);
@@ -396,9 +400,7 @@ describe("[VSCODE-EXT] activate", () => {
       isSyncRenderReady: () => false,
       renderToStringSync: () => ({ ok: false, error: [] }),
     }));
-    const { extendMarkdownIt } = await import("../src/extension.js");
-    const md = { renderer: { rules: {} as Record<string, unknown> } };
-    extendMarkdownIt(md);
+    await installMarkdownExtension();
     await new Promise((r) => setTimeout(r, 300));
     const lines = mock.mockOutputChannel.appendLine.mock.calls.map((c) => c[0] as string);
     expect(lines.some((l) => l.includes("warmup failed") && l.includes("elk blew up"))).toBe(true);
@@ -444,8 +446,7 @@ describe("[VSCODE-EXT] activate", () => {
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
     const activeUri = mdTargetUri("/tmp/active.md");
     mock.window.activeTextEditor = { document: { uri: activeUri } };
-    mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
-    mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
+    mockSimpleMarkdownIo();
     await exportHandler?.();
     expect(mock.workspace.fs.readFile).toHaveBeenCalledWith(activeUri);
   });
@@ -453,8 +454,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] Open PDF action wires openExternal on the saved URI", async () => {
     await activateExtension();
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
-    mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
-    mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
+    mockSimpleMarkdownIo();
     mock.window.showInformationMessage.mockImplementationOnce(() => Promise.resolve("Open PDF"));
     mock.env.openExternal.mockClear();
     const targetUri = mdTargetUri("/tmp/openpdf.md");
@@ -466,8 +466,7 @@ describe("[VSCODE-EXT] activate", () => {
   it("[PDF-COMMAND] Reveal action wires revealFileInOS via executeCommand", async () => {
     await activateExtension();
     const exportHandler = mock.commands._handlers.get("typediagram.exportMarkdownPdf");
-    mock.workspace.fs.readFile = vi.fn(() => Promise.resolve(new TextEncoder().encode("# hi")));
-    mock.workspace.fs.writeFile = vi.fn(() => Promise.resolve());
+    mockSimpleMarkdownIo();
     mock.window.showInformationMessage.mockImplementationOnce(() => Promise.resolve("Reveal in File Explorer"));
     const execSpy = vi.spyOn(mock.commands, "executeCommand");
     execSpy.mockClear();

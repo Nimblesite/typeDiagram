@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { renderMarkdown } from "../src/markdown.js";
 import { SMALL_EXAMPLE } from "./fixtures.js";
-import { unwrap } from "./helpers.js";
+import { svgCount, unwrap } from "./helpers.js";
 
 /** Render markdown and unwrap the ok Result to its spliced output string. */
 const renderMd = async (md: string): Promise<string> => unwrap(await renderMarkdown(md));
@@ -32,7 +32,7 @@ describe("markdown — renderMarkdown", () => {
   it("handles multiple typeDiagram fences in one doc", async () => {
     const md = "```typeDiagram\ntype A { x: Int }\n```\n\n```typeDiagram\ntype B { y: Int }\n```";
     const out = await renderMd(md);
-    expect((out.match(/<svg/g) ?? []).length).toBe(2);
+    expect(svgCount(out)).toBe(2);
   });
 
   it("emits HTML-comment diagnostics on a bad fence (still returns Result.err)", async () => {
@@ -132,7 +132,7 @@ describe("markdown — renderMarkdown", () => {
     expect(out).toContain("```js\nconst x = 1;\n```");
     expect(out).toContain("```python\nx = 1\n```");
     expect(out).toContain("<svg");
-    expect((out.match(/<svg/g) ?? []).length).toBe(1);
+    expect(svgCount(out)).toBe(1);
     // The js fence must appear BEFORE the SVG which must appear BEFORE the python fence.
     const iJs = out.indexOf("```js");
     const iSvg = out.indexOf("<svg");
@@ -156,7 +156,7 @@ describe("markdown — renderMarkdown", () => {
       "```",
     ].join("\n");
     const out = await renderMd(md);
-    expect((out.match(/<svg/g) ?? []).length).toBe(2);
+    expect(svgCount(out)).toBe(2);
     expect(out).toContain("console.log('untouched')");
     expect(out).toContain("```js");
     // js block stays exactly between the two SVGs.

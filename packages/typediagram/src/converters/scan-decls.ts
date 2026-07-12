@@ -20,11 +20,7 @@ export interface HasOffset {
  * (which may return null to skip). Resets `re.lastIndex` first so callers can
  * reuse module-level regexes. Matches are returned in source order.
  */
-export const scanAll = <T>(
-  re: RegExp,
-  source: string,
-  project: (m: RegExpExecArray) => T | null
-): T[] => {
+export const scanAll = <T>(re: RegExp, source: string, project: (m: RegExpExecArray) => T | null): T[] => {
   re.lastIndex = 0;
   const out: T[] = [];
   let m: RegExpExecArray | null;

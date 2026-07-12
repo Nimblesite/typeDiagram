@@ -2,6 +2,7 @@
 import { describe, expect, it } from "vitest";
 import { python } from "../../src/converters/index.js";
 import {
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -112,19 +113,16 @@ CONSTANT = 42
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(8);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "session_id")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("Option");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.args[1]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tags")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tags")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "active")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "score")?.type.name).toBe("Float");
-    expect(chatFields.find((f) => f.name === "raw")?.type.name).toBe("Bytes");
+    expectFieldTypes(chatFields, {
+      message: "String",
+      session_id: "String",
+      tool_results: "Option<List<ToolResult>>",
+      metadata: "Map<String, String>",
+      tags: "List<String>",
+      active: "Bool",
+      score: "Float",
+      raw: "Bytes",
+    });
 
     // ToolResult — record, defaults/comments stripped
     expect(findDecl(model, "ToolResult")?.kind).toBe("record");
@@ -142,21 +140,17 @@ CONSTANT = 42
     // Config — TypedDict parsed as record
     expect(findDecl(model, "Config")?.kind).toBe("record");
     const cfgFields = recordFields(model, "Config");
-    expect(cfgFields).toHaveLength(3);
-    expect(cfgFields.find((f) => f.name === "host")?.type.name).toBe("String");
-    expect(cfgFields.find((f) => f.name === "port")?.type.name).toBe("Int");
-    expect(cfgFields.find((f) => f.name === "debug")?.type.name).toBe("Bool");
+    expectFieldTypes(cfgFields, { host: "String", port: "Int", debug: "Bool" });
 
     // GenericContainer — capital List, Dict, Set, Tuple
     expect(findDecl(model, "GenericContainer")?.kind).toBe("record");
     const gcFields = recordFields(model, "GenericContainer");
-    expect(gcFields.find((f) => f.name === "items")?.type.name).toBe("List");
-    expect(gcFields.find((f) => f.name === "items")?.type.args[0]?.name).toBe("String");
-    expect(gcFields.find((f) => f.name === "lookup")?.type.name).toBe("Map");
-    expect(gcFields.find((f) => f.name === "lookup")?.type.args[0]?.name).toBe("String");
-    expect(gcFields.find((f) => f.name === "lookup")?.type.args[1]?.name).toBe("Int");
-    expect(gcFields.find((f) => f.name === "unique")?.type.name).toBe("List");
-    expect(gcFields.find((f) => f.name === "pair")?.type.name).toBe("List");
+    expectFieldTypes(gcFields, {
+      items: "List<String>",
+      lookup: "Map<String, Int>",
+      unique: "List<String>",
+      pair: "List<Int, String>",
+    });
 
     // HttpStatus — Enum without str mixin
     expect(findDecl(model, "HttpStatus")?.kind).toBe("union");

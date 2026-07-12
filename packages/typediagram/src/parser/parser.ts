@@ -17,6 +17,13 @@ import { type Result, err, ok } from "../result.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { withDiscriminant } from "../variant.js";
 
+/** The keyword, name token, and generic parameters shared by every decl form. */
+interface DeclHeader {
+  kw: Token;
+  nameTok: Token;
+  generics: string[];
+}
+
 class Cursor {
   private i = 0;
   constructor(private readonly tokens: Token[]) {}
@@ -98,26 +105,19 @@ class Parser {
     if (t.kind === "UntaggedKw") {
       const next = this.cur.peek(1);
       if (next.kind !== "UnionKw") {
-        this.diags.error(
-          `expected 'union' after 'untagged', got ${describe(next)}`,
-          next.line,
-          next.col,
-          next.length || 1
-        );
-        this.recoverToTopLevel();
-        return null;
+        return this.errorAndRecover(`expected 'union' after 'untagged', got ${describe(next)}`, next);
       }
       return this.parseUnion(true, targeting);
     }
     if (t.kind === "AliasKw") {
       return this.parseAlias(targeting);
     }
-    this.diags.error(
-      `expected 'type', 'union', 'untagged union', or 'alias', got ${describe(t)}`,
-      t.line,
-      t.col,
-      t.length || 1
-    );
+    return this.errorAndRecover(`expected 'type', 'union', 'untagged union', or 'alias', got ${describe(t)}`, t);
+  }
+
+  /** Emit an error diagnostic anchored at `tok`, recover to the next decl, return null. */
+  private errorAndRecover(message: string, tok: Token): null {
+    this.diags.error(message, tok.line, tok.col, tok.length || 1);
     this.recoverToTopLevel();
     return null;
   }
@@ -149,14 +149,22 @@ class Parser {
     return targeting;
   }
 
-  private parseRecord(targeting?: DeclTargeting): RecordDecl | null {
-    const kw = this.cur.next(); // TypeKw
-    const nameTok = this.expect("Ident", "type name");
+  /** Consume a decl keyword's name + generics, recovering on a missing name.
+   * Shared opening of parseRecord/parseUnion/parseAlias. */
+  private parseDeclHeader(kw: Token, nameLabel: string): DeclHeader | null {
+    const nameTok = this.expect("Ident", nameLabel);
     if (nameTok === null) {
       this.recoverToTopLevel();
       return null;
     }
-    const generics = this.parseGenericParams();
+    return { kw, nameTok, generics: this.parseGenericParams() };
+  }
+
+  private parseRecord(targeting?: DeclTargeting): RecordDecl | null {
+    const header = this.parseDeclHeader(this.cur.next(), "type name");
+    if (header === null) {
+      return null;
+    }
     if (this.expect("LBrace", "'{'") === null) {
       this.recoverToTopLevel();
       return null;
@@ -165,23 +173,20 @@ class Parser {
     const closeTok = this.expect("RBrace", "'}'");
     return {
       kind: "record",
-      name: nameTok.value,
-      generics,
+      name: header.nameTok.value,
+      generics: header.generics,
       fields,
       ...(targeting === undefined ? {} : { targeting }),
-      span: spanBetween(kw, closeTok ?? kw),
+      span: spanBetween(header.kw, closeTok ?? header.kw),
     };
   }
 
   private parseUnion(untagged = false, targeting?: DeclTargeting): UnionDecl | null {
     const start = untagged ? this.cur.next() : this.cur.peek();
-    const kw = this.cur.next();
-    const nameTok = this.expect("Ident", "union name");
-    if (nameTok === null) {
-      this.recoverToTopLevel();
+    const header = this.parseDeclHeader(this.cur.next(), "union name");
+    if (header === null) {
       return null;
     }
-    const generics = this.parseGenericParams();
     if (this.expect("LBrace", "'{'") === null) {
       this.recoverToTopLevel();
       return null;
@@ -190,23 +195,20 @@ class Parser {
     const closeTok = this.expect("RBrace", "'}'");
     return {
       kind: "union",
-      name: nameTok.value,
-      generics,
+      name: header.nameTok.value,
+      generics: header.generics,
       ...(untagged ? { untagged: true as const } : {}),
       variants,
       ...(targeting === undefined ? {} : { targeting }),
-      span: spanBetween(start, closeTok ?? kw),
+      span: spanBetween(start, closeTok ?? header.kw),
     };
   }
 
   private parseAlias(targeting?: DeclTargeting): AliasDecl | null {
-    const kw = this.cur.next();
-    const nameTok = this.expect("Ident", "alias name");
-    if (nameTok === null) {
-      this.recoverToTopLevel();
+    const header = this.parseDeclHeader(this.cur.next(), "alias name");
+    if (header === null) {
       return null;
     }
-    const generics = this.parseGenericParams();
     if (this.expect("Equals", "'='") === null) {
       this.recoverToTopLevel();
       return null;
@@ -218,11 +220,11 @@ class Parser {
     }
     return {
       kind: "alias",
-      name: nameTok.value,
-      generics,
+      name: header.nameTok.value,
+      generics: header.generics,
       target,
       ...(targeting === undefined ? {} : { targeting }),
-      span: spanBetween(kw, this.cur.peek()),
+      span: spanBetween(header.kw, this.cur.peek()),
     };
   }
 
@@ -459,10 +461,15 @@ export function parsePartial(source: string): { ast: Diagram; diagnostics: Diagn
   return { ast, diagnostics: bag.items };
 }
 
+/** Lift a parsed value + its diagnostics into a Result: `err` iff any diagnostic
+ * has error severity. Shared by `parse` and `tokenizeResult`. */
+function toResult<T>(value: T, diagnostics: Diagnostic[]): Result<T, Diagnostic[]> {
+  return diagnostics.some((d) => d.severity === "error") ? err(diagnostics) : ok(value);
+}
+
 export function parse(source: string): Result<Diagram, Diagnostic[]> {
   const { ast, diagnostics } = parsePartial(source);
-  const errors = diagnostics.filter((d) => d.severity === "error");
-  return errors.length === 0 ? ok(ast) : err(diagnostics);
+  return toResult(ast, diagnostics);
 }
 
 export function tokenizePartial(source: string): { tokens: Token[]; diagnostics: Diagnostic[] } {
@@ -473,6 +480,5 @@ export function tokenizePartial(source: string): { tokens: Token[]; diagnostics:
 
 export function tokenizeResult(source: string): Result<Token[], Diagnostic[]> {
   const { tokens, diagnostics } = tokenizePartial(source);
-  const errors = diagnostics.filter((d) => d.severity === "error");
-  return errors.length === 0 ? ok(tokens) : err(diagnostics);
+  return toResult(tokens, diagnostics);
 }

@@ -12,7 +12,7 @@ import { type Model, type ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { emitDecls } from "./emit-decls.js";
-import { isOption, mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { isOption, mapBuiltinName, parseTypeRef, resolveFieldTypes } from "./parse-typeref.js";
 import {
   extractTrailingNullable,
   formatGenericsDecl,
@@ -201,7 +201,7 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
           p.name,
           variants.map((v) => ({
             name: v.name,
-            fields: parseDartFields(v.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) })),
+            fields: resolveFieldTypes(parseDartFields(v.body)),
           })),
           p.generics
         )
@@ -209,7 +209,7 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
       continue;
     }
     if (p.kind === "record") {
-      const fields = parseDartFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      const fields = resolveFieldTypes(parseDartFields(p.body));
       builder.add(record(p.name, fields, p.generics));
       continue;
     }

@@ -13,6 +13,24 @@ use crate::Struct;
 const BITS_PER_WORD: usize = WORD_BYTES * 8;
 
 impl Writer {
+    /// Resolve pointer `slot`, writing the null pointer for `None` and otherwise
+    /// delegating to `write_some` with the resolved pointer word. Every public
+    /// `*_list` method shares this null-vs-body framing ([TDBIN-LIST-ELEM]).
+    fn write_list_slot<T>(
+        &mut self,
+        at: usize,
+        data_words: u16,
+        slot: u16,
+        value: Option<T>,
+        write_some: impl FnOnce(&mut Self, usize, T) -> Result<(), EncodeError>,
+    ) -> Result<(), EncodeError> {
+        let ptr_word = Self::ptr_index(at, data_words, slot)?;
+        match value {
+            None => self.set(ptr_word, 0),
+            Some(v) => write_some(self, ptr_word, v),
+        }
+    }
+
     /// Write an optional raw byte list into pointer `slot` ([TDBIN-LIST-ELEM]).
     ///
     /// # Errors
@@ -24,11 +42,7 @@ impl Writer {
         slot: u16,
         value: Option<&[u8]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(raw) => self.write_byte_list(ptr_word, raw),
-        }
+        self.write_list_slot(at, data_words, slot, value, Self::write_byte_list)
     }
 
     /// Write an optional bit-packed Bool list into pointer `slot`.
@@ -42,11 +56,7 @@ impl Writer {
         slot: u16,
         value: Option<&[bool]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(bits) => self.write_bool_list(ptr_word, bits),
-        }
+        self.write_list_slot(at, data_words, slot, value, Self::write_bool_list)
     }
 
     /// Write an optional raw 64-bit word list into pointer `slot`.
@@ -60,11 +70,9 @@ impl Writer {
         slot: u16,
         value: Option<&[u64]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(words) => self.write_words(ptr_word, words.len(), words.iter().copied()),
-        }
+        self.write_list_slot(at, data_words, slot, value, |w, ptr, words| {
+            w.write_words(ptr, words.len(), words.iter().copied())
+        })
     }
 
     /// Write an optional `i64` list into pointer `slot` ([TDBIN-LIST-ELEM]).
@@ -78,15 +86,7 @@ impl Writer {
         slot: u16,
         value: Option<&[i64]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(values) => self.write_words(
-                ptr_word,
-                values.len(),
-                values.iter().map(|v| crate::scalar::i64_bits(*v)),
-            ),
-        }
+        self.write_scalar_list(at, data_words, slot, value, crate::scalar::i64_bits)
     }
 
     /// Write an optional `f64` list into pointer `slot` ([TDBIN-LIST-ELEM]).
@@ -100,15 +100,23 @@ impl Writer {
         slot: u16,
         value: Option<&[f64]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(values) => self.write_words(
-                ptr_word,
-                values.len(),
-                values.iter().map(|v| crate::scalar::f64_bits(*v)),
-            ),
-        }
+        self.write_scalar_list(at, data_words, slot, value, crate::scalar::f64_bits)
+    }
+
+    /// Shared body for the scalar word lists: a list is `bits`-mapped words, an
+    /// empty option is the null pointer. `i64_list`/`f64_list` differ only in the
+    /// per-element bit conversion.
+    fn write_scalar_list<T: Copy>(
+        &mut self,
+        at: usize,
+        data_words: u16,
+        slot: u16,
+        value: Option<&[T]>,
+        bits: impl Fn(T) -> u64,
+    ) -> Result<(), EncodeError> {
+        self.write_list_slot(at, data_words, slot, value, |w, ptr, values| {
+            w.write_words(ptr, values.len(), values.iter().map(|v| bits(*v)))
+        })
     }
 
     /// Write an optional list of 16-byte scalar values into pointer `slot`.
@@ -122,11 +130,7 @@ impl Writer {
         slot: u16,
         value: Option<&[(u64, u64)]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(words) => self.write_bytes16_list(ptr_word, words),
-        }
+        self.write_list_slot(at, data_words, slot, value, Self::write_bytes16_list)
     }
 
     /// Write an optional list of strings into pointer `slot`.
@@ -140,14 +144,12 @@ impl Writer {
         slot: u16,
         value: Option<&[String]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(items) => self.write_pointer_list(ptr_word, items.len(), |writer, idx, i| {
+        self.write_list_slot(at, data_words, slot, value, |w, ptr, items| {
+            w.write_pointer_list(ptr, items.len(), |writer, idx, i| {
                 let text = items.get(i).ok_or(EncodeError::LimitExceeded)?;
                 writer.write_byte_list(idx, text.as_bytes())
-            }),
-        }
+            })
+        })
     }
 
     /// Write an optional list of byte arrays into pointer `slot`.
@@ -161,14 +163,12 @@ impl Writer {
         slot: u16,
         value: Option<&[Vec<u8>]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(items) => self.write_pointer_list(ptr_word, items.len(), |writer, idx, i| {
+        self.write_list_slot(at, data_words, slot, value, |w, ptr, items| {
+            w.write_pointer_list(ptr, items.len(), |writer, idx, i| {
                 let raw = items.get(i).ok_or(EncodeError::LimitExceeded)?;
                 writer.write_byte_list(idx, raw)
-            }),
-        }
+            })
+        })
     }
 
     /// Write an optional composite list of child structs into pointer `slot`.
@@ -182,11 +182,7 @@ impl Writer {
         slot: u16,
         value: Option<&[C]>,
     ) -> Result<(), EncodeError> {
-        let ptr_word = Self::ptr_index(at, data_words, slot)?;
-        match value {
-            None => self.set(ptr_word, 0),
-            Some(items) => self.write_composite_list(ptr_word, items),
-        }
+        self.write_list_slot(at, data_words, slot, value, Self::write_composite_list)
     }
 
     /// Append a bit-packed Bool list body and patch its list pointer word.

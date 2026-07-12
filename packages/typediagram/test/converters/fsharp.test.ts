@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { fsharp } from "../../src/converters/index.js";
 import {
   aliasTargetName,
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -74,14 +75,13 @@ type Email = string
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(7);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("Option");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "tags")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tags")?.type.args[0]?.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "active")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "score")?.type.name).toBe("Float");
+    expectFieldTypes(chatFields, {
+      message: "String",
+      tool_results: "Option<List<ToolResult>>",
+      tags: "List<String>",
+      active: "Bool",
+      score: "Float",
+    });
 
     // ToolResult — record with 5 fields
     expect(findDecl(model, "ToolResult")?.kind).toBe("record");

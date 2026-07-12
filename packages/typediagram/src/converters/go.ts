@@ -12,7 +12,7 @@ import { type Result, err } from "../result.js";
 import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
-import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
+import { mapBuiltinName, parseTypeRef, resolveFieldTypes } from "./parse-typeref.js";
 import { orderBySource, parseFields, scanAll, scanBraceBlocks } from "./scan-decls.js";
 
 // ── Type mapping ──
@@ -148,7 +148,11 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
   // First pass: collect all structs, interfaces, aliases, and marker-methods.
   type Struct = { name: string; generics: string[]; body: string; offset: number };
   type Iface = { name: string; generics: string[]; body: string; offset: number };
-  const toHeadDecl = (b: { groups: ReadonlyArray<string | undefined>; body: string; offset: number }): Struct | null => {
+  const toHeadDecl = (b: {
+    groups: ReadonlyArray<string | undefined>;
+    body: string;
+    offset: number;
+  }): Struct | null => {
     const [name, gens] = b.groups;
     return name === undefined ? null : { name, generics: parseGenericParams(gens), body: b.body, offset: b.offset };
   };
@@ -163,7 +167,9 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
   const unionToVariants = new Map<string, Array<{ structName: string; offset: number }>>();
   for (const marker of scanAll(MARKER_METHOD_RE, source, (m) => {
     const [, variantStruct, unionName] = m;
-    return variantStruct === undefined || unionName === undefined ? null : { variantStruct, unionName, offset: m.index };
+    return variantStruct === undefined || unionName === undefined
+      ? null
+      : { variantStruct, unionName, offset: m.index };
   })) {
     variantToUnion.set(marker.variantStruct, marker.unionName);
     const list = unionToVariants.get(marker.unionName) ?? [];
@@ -216,7 +222,7 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
   for (const p of orderBySource(pending)) {
     found = true;
     if (p.kind === "record") {
-      const fields = parseGoFields(p.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+      const fields = resolveFieldTypes(parseGoFields(p.body));
       builder.add(record(p.name, fields, p.generics));
       continue;
     }
@@ -231,7 +237,7 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
           if (cls === undefined || cls.body.trim().length === 0) {
             return { name: variantName, fields: [] };
           }
-          const fields = parseGoFields(cls.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+          const fields = resolveFieldTypes(parseGoFields(cls.body));
           return { name: variantName, fields };
         });
       } else {
@@ -254,7 +260,7 @@ const fromGo = (source: string): Result<Model, Diagnostic[]> => {
           if (cls === undefined || cls.body.trim().length === 0) {
             return { name: vname, fields: [] };
           }
-          const fields = parseGoFields(cls.body).map((f) => ({ name: f.name, type: parseTypeRef(f.type) }));
+          const fields = resolveFieldTypes(parseGoFields(cls.body));
           return { name: vname, fields };
         });
         // Legacy behaviour: empty interface -> one "Unknown" variant.

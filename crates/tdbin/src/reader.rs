@@ -309,29 +309,27 @@ impl<'a> Reader<'a> {
         })
     }
 
-    /// Charge traversed words to the amplification budget ([TDBIN-SAFE-AMPLIFY]).
-    pub(crate) fn charge(&self, words: usize) -> Result<(), DecodeError> {
-        let cost = u64::try_from(words).map_err(|_| DecodeError::LimitExceeded)?;
-        let left = self
-            .budget
+    /// Deduct `amount` from a budget cell, failing once it would go negative.
+    /// Shared by the amplification and materialization budgets.
+    fn charge_cell(cell: &Cell<u64>, amount: usize) -> Result<(), DecodeError> {
+        let cost = u64::try_from(amount).map_err(|_| DecodeError::LimitExceeded)?;
+        let left = cell
             .get()
             .checked_sub(cost)
             .ok_or(DecodeError::AmplificationExceeded)?;
-        self.budget.set(left);
+        cell.set(left);
         Ok(())
+    }
+
+    /// Charge traversed words to the amplification budget ([TDBIN-SAFE-AMPLIFY]).
+    pub(crate) fn charge(&self, words: usize) -> Result<(), DecodeError> {
+        Self::charge_cell(self.budget, words)
     }
 
     /// Charge decoded rows or block values against the absolute
     /// materialization budget ([TDBIN-COL-SAFE]).
     pub(crate) fn charge_materialized(&self, rows: usize) -> Result<(), DecodeError> {
-        let cost = u64::try_from(rows).map_err(|_| DecodeError::LimitExceeded)?;
-        let left = self
-            .materialize
-            .get()
-            .checked_sub(cost)
-            .ok_or(DecodeError::AmplificationExceeded)?;
-        self.materialize.set(left);
-        Ok(())
+        Self::charge_cell(self.materialize, rows)
     }
 
     /// The message bytes this reader validates against.

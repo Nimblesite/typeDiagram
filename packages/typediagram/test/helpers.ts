@@ -28,7 +28,21 @@ export function declCounts(decls: readonly { readonly kind: string }[]): Record<
   }, {});
 }
 
+/** Find a named field on a named union variant. */
+export function findVariantField<Field extends { readonly name: string }>(
+  variants: readonly { readonly name: string; readonly fields: readonly Field[] }[],
+  variantName: string,
+  fieldName: string
+) {
+  return variants.find((variant) => variant.name === variantName)?.fields.find((field) => field.name === fieldName);
+}
+
 /** Whether any diagnostic in the bag has `severity: "error"`. */
 export function hasError(diagnostics: readonly Diagnostic[]): boolean {
   return diagnostics.some((d) => d.severity === "error");
+}
+
+/** Count rendered SVG opening tags in markdown output. */
+export function svgCount(markdown: string) {
+  return markdown.split("<svg").length - 1;
 }

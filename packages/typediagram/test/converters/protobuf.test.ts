@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { protobuf } from "../../src/converters/index.js";
 import {
   aliasTargetName,
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -57,10 +58,7 @@ message ContentItem {
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(4);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "nickname")?.type.name).toBe("Option");
+    expectFieldTypes(chatFields, { message: "String", tool_results: "List<ToolResult>", nickname: "Option<String>" });
 
     expect(findDecl(model, "UriKind")?.kind).toBe("union");
     const ukVariants = unionVariants(model, "UriKind");

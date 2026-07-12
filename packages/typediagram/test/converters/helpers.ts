@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 import { generateRustModule, type RustCodecOptions } from "../../src/converters/rust-tdbin.js";
+import { printTypeRef } from "../../src/converters/parse-typeref.js";
 import type { Converter } from "../../src/converters/types.js";
 import { buildModel, printSource } from "../../src/model/index.js";
 import type { CSharpOpts, PythonOpts } from "../../src/converters/types.js";
@@ -34,6 +35,27 @@ export function findDecl(model: Model, name: string) {
 export function recordFields(model: Model, name: string): ResolvedField[] {
   const decl = findDecl(model, name);
   return decl?.kind === "record" ? decl.fields : [];
+}
+
+/** Assert named field types for a parsed record or variant. */
+export function expectFieldTypes(fields: readonly ResolvedField[], expected: Readonly<Record<string, string>>) {
+  for (const [name, type] of Object.entries(expected)) {
+    const fieldType = fields.find((field) => field.name === name)?.type;
+    expect(fieldType).toBeDefined();
+    expect(fieldType === undefined ? "" : printTypeRef(fieldType)).toBe(type);
+  }
+}
+
+/** Assert a diagnostic-producing result fails with every expected message part. */
+export function expectErrorMessages(
+  result: { readonly ok: boolean; readonly error?: readonly { readonly message?: string }[] },
+  expected: readonly string[]
+) {
+  expect(result.ok).toBe(false);
+  const message = result.ok ? "" : (result.error?.[0]?.message ?? "");
+  for (const part of expected) {
+    expect(message).toContain(part);
+  }
 }
 
 /** Variants of the named union decl, or `[]` when it is missing or not a union. */

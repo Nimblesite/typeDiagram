@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ok, type Result } from "../../src/result.js";
 import * as tdbin from "../../src/tdbin/index.js";
 import type { Reader, StructCodec, TdbinError, Writer } from "../../src/tdbin/index.js";
+import { expectOk } from "./helpers.js";
 
 interface Address {
   readonly street: string;
@@ -219,11 +220,6 @@ const CONTACT_EMAIL = {
 const CONTACT_PHONE = {
   value: { kind: "Phone", _0: { number: 1815, country: 44 } } satisfies Contact,
   hex: "00000000010001000100000000000000000000000200000017070000000000002c00000000000000",
-};
-
-const expectOk = <T>(result: Result<T, TdbinError>): T => {
-  expect(result.ok, result.ok ? "" : result.error.message).toBe(true);
-  return result.ok ? result.value : (undefined as never);
 };
 
 const assertGolden = <T>(codec: StructCodec<T>, value: T, hex: string) => {

@@ -13,21 +13,25 @@ export type ConvertResult = {
 
 const escapeHtml = (text: string) => text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
+const loadConverterPipeline = async () => {
+  const core = await import("typediagram-core");
+  const converterMap = {
+    typescript: core.converters.typescript,
+    python: core.converters.python,
+    rust: core.converters.rust,
+    go: core.converters.go,
+    csharp: core.converters.csharp,
+    fsharp: core.converters.fsharp,
+    dart: core.converters.dart,
+    protobuf: core.converters.protobuf,
+    php: core.converters.php,
+  } as const;
+  return { ...core, converterMap };
+};
+
 /** Language source → typeDiagram + SVG */
 export const convertSource = async (source: string, lang: SupportedLang): Promise<ConvertResult> => {
-  const { converters, model: modelLayer, renderToString, parser } = await import("typediagram-core");
-
-  const converterMap = {
-    typescript: converters.typescript,
-    python: converters.python,
-    rust: converters.rust,
-    go: converters.go,
-    csharp: converters.csharp,
-    fsharp: converters.fsharp,
-    dart: converters.dart,
-    protobuf: converters.protobuf,
-    php: converters.php,
-  } as const;
+  const { converterMap, model: modelLayer, renderToString, parser } = await loadConverterPipeline();
 
   const conv = converterMap[lang];
   const modelResult = conv.fromSource(source);
@@ -50,19 +54,7 @@ export const convertSource = async (source: string, lang: SupportedLang): Promis
 
 /** typeDiagram source → language source + SVG */
 export const convertFromTd = async (tdSource: string, lang: SupportedLang): Promise<ConvertResult> => {
-  const { converters, parser, model: modelLayer, renderToString } = await import("typediagram-core");
-
-  const converterMap = {
-    typescript: converters.typescript,
-    python: converters.python,
-    rust: converters.rust,
-    go: converters.go,
-    csharp: converters.csharp,
-    fsharp: converters.fsharp,
-    dart: converters.dart,
-    protobuf: converters.protobuf,
-    php: converters.php,
-  } as const;
+  const { converterMap, parser, model: modelLayer, renderToString } = await loadConverterPipeline();
 
   const parsed = parser.parse(tdSource);
   if (!parsed.ok) {

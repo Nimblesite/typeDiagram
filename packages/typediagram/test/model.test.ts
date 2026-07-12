@@ -15,7 +15,7 @@ import {
 } from "../src/model/index.js";
 import { shouldEmitDeclToTarget, visibleDeclsForTarget } from "../src/model/types.js";
 import { CHAT_EXAMPLE, SMALL_EXAMPLE } from "./fixtures.js";
-import { declCounts, modelFromTd, unwrap } from "./helpers.js";
+import { declCounts, findVariantField, modelFromTd, unwrap } from "./helpers.js";
 
 describe("model — buildModel from AST", () => {
   it("small example: 2 records, 2 unions, 1 alias", () => {
@@ -31,8 +31,7 @@ describe("model — buildModel from AST", () => {
     if (trc?.kind !== "union") {
       throw new Error("expected union");
     }
-    const list = trc.variants.find((v) => v.name === "List");
-    const items = list?.fields.find((f) => f.name === "items");
+    const items = findVariantField(trc.variants, "List", "items");
     expect(items?.type.name).toBe("List");
     expect(items?.type.resolution.kind).toBe("external"); // List is external
     expect(items?.type.args[0]?.name).toBe("ContentItem");

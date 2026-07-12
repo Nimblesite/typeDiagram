@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { dart } from "../../src/converters/index.js";
 import {
   aliasTargetName,
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -69,9 +70,7 @@ class UriPart {
     const model = modelFromSource(dart, src);
     expect(findDecl(model, "UriPart")?.kind).toBe("record");
     const fields = recordFields(model, "UriPart");
-    expect(fields.find((f) => f.name === "url")?.type.name).toBe("String");
-    expect(fields.find((f) => f.name === "mediaType")?.type.name).toBe("Option");
-    expect(fields.find((f) => f.name === "mediaType")?.type.args[0]?.name).toBe("String");
+    expectFieldTypes(fields, { url: "String", mediaType: "Option<String>" });
   });
 
   it("returns error on Dart with only functions", () => {

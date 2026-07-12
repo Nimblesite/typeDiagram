@@ -4,6 +4,7 @@ import { rust } from "../../src/converters/index.js";
 import { printSource } from "../../src/model/index.js";
 import {
   aliasTargetName,
+  expectFieldTypes,
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
@@ -102,17 +103,17 @@ impl Processor for ChatRequest {
     expect(findDecl(model, "ChatRequest")?.kind).toBe("record");
     const chatFields = recordFields(model, "ChatRequest");
     expect(chatFields).toHaveLength(9);
-    expect(chatFields.find((f) => f.name === "message")?.type.name).toBe("String");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.name).toBe("Option");
     // mapRsType recursively maps inner generics: Vec -> List
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.name).toBe("List");
-    expect(chatFields.find((f) => f.name === "tool_results")?.type.args[0]?.args[0]?.name).toBe("ToolResult");
-    expect(chatFields.find((f) => f.name === "metadata")?.type.name).toBe("Map");
-    expect(chatFields.find((f) => f.name === "active")?.type.name).toBe("Bool");
-    expect(chatFields.find((f) => f.name === "score")?.type.name).toBe("Float");
-    expect(chatFields.find((f) => f.name === "count")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "tiny")?.type.name).toBe("Int");
-    expect(chatFields.find((f) => f.name === "medium")?.type.name).toBe("Int");
+    expectFieldTypes(chatFields, {
+      message: "String",
+      tool_results: "Option<List<ToolResult>>",
+      metadata: "Map<String, String>",
+      active: "Bool",
+      score: "Float",
+      count: "Int",
+      tiny: "Int",
+      medium: "Int",
+    });
 
     // ToolResult — 5 fields, f32 maps to Float
     expect(findDecl(model, "ToolResult")?.kind).toBe("record");
