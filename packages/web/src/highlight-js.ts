@@ -20,8 +20,13 @@ const RULES: readonly Rule[] = [
   },
   // numbers
   { re: /\b\d+(?:\.\d+)?\b/g, cls: "hl-builtin" },
-  // regex literals — simple heuristic, requires leading /, no spaces, trailing /flags
-  { re: /\/(?![\s/*])(?:\\.|\[[^\]\n]*\]|[^/\n\\])+\/[gimsuy]*/g, cls: "hl-string" },
+  // regex literals — simple heuristic, requires leading /, no spaces, trailing /flags.
+  // Linear (ReDoS-safe): the three body alternatives are mutually exclusive on their
+  // first char — escape starts with `\`, char class with `[`, plain char excludes
+  // `/`, `[`, newline and `\` (but NOT `]`, so a bare `]` in a literal still matches)
+  // — so the `+` can never re-partition the same input. The class-inner also consumes
+  // escapes so `[\]]` stays one span. Matches the prior behaviour without backtracking.
+  { re: /\/(?![\s/*])(?:\\.|\[(?:\\.|[^\]\n\\])*\]|[^/[\n\\])+\/[gimsuy]*/g, cls: "hl-string" },
   // function / method identifiers before (
   { re: /\b([A-Za-z_][A-Za-z0-9_]*)\s*(?=\()/g, cls: "hl-field", group: 1 },
   // property after . — basic

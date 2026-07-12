@@ -8,7 +8,16 @@ export function printSource(model: Model): string {
     out.push(printDecl(d));
     out.push("");
   }
-  return out.join("\n").replace(/\n+$/, "\n");
+  const joined = out.join("\n");
+  return collapseTrailingNewlines(joined);
+}
+
+function collapseTrailingNewlines(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 10) {
+    end -= 1;
+  }
+  return end === s.length ? s : `${s.slice(0, end)}\n`;
 }
 
 function printTargeting(d: ResolvedDecl): string[] {

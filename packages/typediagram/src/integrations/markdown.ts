@@ -3,7 +3,7 @@ import { type Result, ok } from "../result.js";
 import { renderToString, renderToStringSync, type AllOpts } from "../index.js";
 
 // [MD-FENCE-REGEX] Matches ```typediagram or ```typeDiagram fences (case-insensitive).
-const FENCE_RE = /^(```+)\s*typeDiagram\s*\n([\s\S]*?)\n\1\s*$/gim;
+const FENCE_RE = /^(```+)[ \t]*typeDiagram[ \t\r]*\n([\s\S]*?)\n\1[ \t\r]*$/gim;
 
 interface Fence {
   start: number;
