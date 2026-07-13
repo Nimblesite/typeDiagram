@@ -1,8 +1,27 @@
 {% set currentDocSlug = activeSlug | default("") %}
+{# [WEB-DOCS-NAV] Hierarchical sidebar: ungrouped docs render at the top level;
+   docs sharing a `group` collapse under one <details> parent, opened when the
+   active page lives inside it. #}
 <ul class="docs-nav">
   {% for d in docs %}
     {% if "api/" not in d.slug %}
-      <li><a href="/docs/{{ d.slug }}.html" class="{% if d.slug == currentDocSlug %}active{% endif %}">{{ d.label }}</a></li>
+      {% if not d.group %}
+        <li><a href="/docs/{{ d.slug }}.html" class="{% if d.slug == currentDocSlug %}active{% endif %}">{{ d.label }}</a></li>
+      {% elif d.group and (docs | selectattr("group", "equalto", d.group) | first).slug == d.slug %}
+        {% set groupDocs = docs | selectattr("group", "equalto", d.group) | list %}
+        {% set groupActive = false %}
+        {% for g in groupDocs %}{% if g.slug == currentDocSlug %}{% set groupActive = true %}{% endif %}{% endfor %}
+        <li class="docs-nav-group">
+          <details{% if groupActive %} open{% endif %}>
+            <summary class="{% if groupActive %}active-group{% endif %}">{{ d.group }}</summary>
+            <ul class="docs-nav docs-nav-sub">
+              {% for g in groupDocs %}
+                <li><a href="/docs/{{ g.slug }}.html" class="{% if g.slug == currentDocSlug %}active{% endif %}">{{ g.label }}</a></li>
+              {% endfor %}
+            </ul>
+          </details>
+        </li>
+      {% endif %}
     {% endif %}
   {% endfor %}
 </ul>

@@ -10,20 +10,30 @@ const TYPEDOC_DIR = resolve(__dirname, "../../.typedoc-out");
 
 const toPosix = (p: string): string => p.split(sep).join("/");
 
-type DocEntry = { slug: string; label: string; title: string; html: string; isTopLevel: boolean };
+// [WEB-DOCS-NAV] `group` nests an entry under a collapsible parent in the docs
+// sidebar; entries without a group render at the top level in listed order.
+type DocEntry = {
+  slug: string;
+  label: string;
+  title: string;
+  html: string;
+  isTopLevel: boolean;
+  group?: string;
+};
 
-const handwritten: ReadonlyArray<{ slug: string; label: string }> = [
+const handwritten: ReadonlyArray<{ slug: string; label: string; group?: string }> = [
   { slug: "getting-started", label: "Getting Started" },
   { slug: "language-reference", label: "Language Reference" },
   { slug: "cli", label: "CLI" },
   { slug: "multi-language-pipeline", label: "Multi-Language Pipeline" },
   { slug: "converters", label: "Converters" },
   { slug: "render-hooks", label: "Render Hooks" },
-  { slug: "tdbin", label: "TDBIN Binary Codec" },
-  { slug: "tdbin-wire-format", label: "TDBIN Wire Format" },
-  { slug: "tdbin-rust-api", label: "TDBIN Rust API" },
-  { slug: "tdbin-future-typescript", label: "TDBIN TypeScript Roadmap" },
-  { slug: "tdbin-future-reader", label: "TDBIN Reader Roadmap" },
+  { slug: "tdbin", label: "Binary Codec", group: "TDBIN" },
+  { slug: "tdbin-benchmarks", label: "Benchmarks", group: "TDBIN" },
+  { slug: "tdbin-wire-format", label: "Wire Format", group: "TDBIN" },
+  { slug: "tdbin-rust-api", label: "Rust API", group: "TDBIN" },
+  { slug: "tdbin-future-typescript", label: "TypeScript Roadmap", group: "TDBIN" },
+  { slug: "tdbin-future-reader", label: "Reader Roadmap", group: "TDBIN" },
   { slug: "api", label: "Node.js API" },
 ];
 
@@ -38,11 +48,12 @@ const introEntry: DocEntry = {
   html: mdToHtml(`# Introduction\n\n${SHARED_INTRO_MD}`),
 };
 
-const loadHandwritten = (slug: string, label: string): DocEntry => ({
+const loadHandwritten = (slug: string, label: string, group?: string): DocEntry => ({
   slug,
   label,
-  title: label,
+  title: group ? `${group} — ${label}` : label,
   isTopLevel: true,
+  ...(group ? { group } : {}),
   html: mdToHtml(readFileSync(resolve(DOCS_DIR, `${slug}.md`), "utf-8")),
 });
 
@@ -83,4 +94,4 @@ const loadApiEntries = (): DocEntry[] => {
   });
 };
 
-export default [introEntry, ...handwritten.map((d) => loadHandwritten(d.slug, d.label)), ...loadApiEntries()];
+export default [introEntry, ...handwritten.map((d) => loadHandwritten(d.slug, d.label, d.group)), ...loadApiEntries()];

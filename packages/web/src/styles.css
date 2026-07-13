@@ -1188,8 +1188,9 @@ body {
   flex-direction: column;
   gap: 2px;
 }
-
-.docs-nav a {
+/* [WEB-DOCS-NAV] Nav links and collapsible group summaries share one base. */
+.docs-nav a,
+.docs-nav-group summary {
   display: block;
   padding: var(--td-space-sm) var(--td-space-lg);
   font-family: var(--td-font-mono);
@@ -1197,25 +1198,46 @@ body {
   font-weight: 500;
   color: #64748b;
   text-decoration: none;
+  cursor: pointer;
+  list-style: none;
   border-radius: var(--td-radius-sm);
   border-left: 4px solid transparent;
   transition:
     background var(--td-ease),
     color var(--td-ease);
 }
-
-.docs-nav a:hover {
+.docs-nav a:hover,
+.docs-nav-group summary:hover {
   background: rgba(34, 42, 61, 0.5);
   color: var(--td-on-surface-variant);
 }
-
 .docs-nav a.active {
   background: var(--td-surface-high);
   color: var(--td-primary);
   border-left-color: var(--td-primary);
   font-weight: 700;
 }
-
+.docs-nav-group summary::-webkit-details-marker {
+  display: none;
+}
+.docs-nav-group summary::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  margin-right: 0.25em;
+  font-size: 0.8em;
+  transition: transform var(--td-ease);
+}
+.docs-nav-group details[open] > summary::before {
+  transform: rotate(90deg);
+}
+.docs-nav-group summary.active-group {
+  color: var(--td-on-surface-variant);
+  font-weight: 700;
+}
+.docs-nav-sub {
+  margin-left: var(--td-space-lg);
+}
 .docs-nav-heading {
   font-family: var(--td-font-mono);
   font-size: var(--td-size-label);
@@ -1229,18 +1251,15 @@ body {
   border-top: 1px solid var(--td-surface-high);
   margin-bottom: var(--td-space-lg);
 }
-
 .docs-mobile-nav {
   display: none;
 }
-
 .docs-content {
   padding: var(--td-space-3xl) var(--td-space-4xl);
   line-height: 1.7;
   color: var(--td-on-surface);
   background: var(--td-surface);
 }
-
 .docs-content h1 {
   font-family: var(--td-font-headline);
   font-size: clamp(2rem, 4vw, 3rem);
@@ -1250,7 +1269,6 @@ body {
   margin-bottom: var(--td-space-xl);
   color: var(--td-on-surface);
 }
-
 .docs-content h2 {
   font-family: var(--td-font-headline);
   font-size: 1.5rem;
@@ -1262,11 +1280,9 @@ body {
   border-left: 4px solid var(--td-tertiary);
   color: var(--td-on-surface);
 }
-
 .docs-content h2:nth-of-type(even) {
   border-left-color: var(--td-primary);
 }
-
 .docs-content h3 {
   font-family: var(--td-font-headline);
   font-size: 1.15rem;
@@ -1275,19 +1291,16 @@ body {
   margin-bottom: var(--td-space-sm);
   color: var(--td-on-surface);
 }
-
 .docs-content > p:first-of-type {
   font-size: 1.05rem;
   color: var(--td-on-surface-variant);
   line-height: 1.7;
   max-width: 640px;
 }
-
 .docs-content p {
   margin-bottom: var(--td-space-lg);
   color: var(--td-on-surface-variant);
 }
-
 .docs-content code {
   font-family: var(--td-font-mono);
   font-size: 0.85em;
@@ -1296,7 +1309,6 @@ body {
   padding: 2px 6px;
   border-radius: 4px;
 }
-
 .docs-content pre {
   background: #060e20;
   border: 1px solid var(--td-surface-high);
@@ -1307,14 +1319,12 @@ body {
   line-height: 1.6;
   font-family: var(--td-font-mono);
 }
-
 .docs-content pre code {
   background: none;
   color: var(--td-on-surface);
   padding: 0;
   font-size: var(--td-size-code);
 }
-
 .docs-content table {
   width: 100%;
   border-collapse: collapse;
@@ -1324,14 +1334,12 @@ body {
   border-radius: var(--td-radius-sm);
   overflow: hidden;
 }
-
 .docs-content th,
 .docs-content td {
   text-align: left;
   padding: var(--td-space-md) var(--td-space-lg);
   border-bottom: 1px solid var(--td-surface-highest);
 }
-
 .docs-content th {
   font-family: var(--td-font-mono);
   font-size: var(--td-size-label);
@@ -1341,29 +1349,24 @@ body {
   color: var(--td-primary);
   background: var(--td-surface-container);
 }
-
 .docs-content ul,
 .docs-content ol {
   padding-left: var(--td-space-xl);
   margin-bottom: var(--td-space-lg);
   color: var(--td-on-surface-variant);
 }
-
 .docs-content li {
   margin-bottom: var(--td-space-sm);
 }
-
 .docs-content strong {
   font-weight: 600;
   color: var(--td-on-surface);
 }
-
 .docs-content a {
   color: var(--td-primary);
   text-decoration: none;
   transition: color var(--td-ease);
 }
-
 .docs-content a:hover {
   color: var(--td-tertiary);
   text-decoration: underline;

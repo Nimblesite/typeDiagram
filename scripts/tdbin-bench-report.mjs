@@ -134,7 +134,12 @@ const median = (fixture, operation) => estimate(fixture, operation).median_ns;
 const sizeVsPb = (bytes, protobuf) =>
   bytes === protobuf ? "same" : `${bytes < protobuf ? "" : "+"}${percent(bytes, protobuf)}`;
 const protocols = [
-  { label: "tdbin (framed)", size: (f) => f.tdbin_framed, encode: "tdbin_encode_framed", decode: "tdbin_decode_framed" },
+  {
+    label: "tdbin (framed)",
+    size: (f) => f.tdbin_framed,
+    encode: "tdbin_encode_framed",
+    decode: "tdbin_decode_framed",
+  },
   { label: "protobuf", size: (f) => f.protobuf, encode: "protobuf_encode", decode: "protobuf_decode" },
   { label: "msgpack", size: (f) => f.msgpack, encode: "msgpack_encode", decode: "msgpack_decode" },
 ];
@@ -255,4 +260,78 @@ ${data.corpus_schemas.map((path) => `- \`${path}\``).join("\n")}
 `;
 
 writeFileSync(reportPath, await format(report, { ...prettierOptions, filepath: reportPath }));
-process.stdout.write(`wrote ${dataPath}\nwrote ${reportPath}\n`);
+
+// [TDBIN-BENCH-WEBSITE] Simplified, reader-facing benchmark page for the docs
+// site. Same measured JSON as the full report — never hand-typed — but reduced
+// to the committed corpus workloads and framed to give a non-expert a sense of
+// each format's strengths. `x` columns are multiples of the best value in the
+// row group (1.00x = winner; higher = larger/slower).
+const websitePath = join(root, "docs/specs/tdbin-benchmarks.md");
+const corpusFixtures = sizes.fixtures.filter((fixture) => fixture.corpus);
+const relSize = (bytes, best) => `${(bytes / best).toFixed(2)}x`;
+const relTime = (ns, best) => `${(ns / best).toFixed(2)}x`;
+const websiteTables = corpusFixtures
+  .map((fixture) => {
+    const sizeValues = protocols.map((p) => p.size(fixture));
+    const encodeValues = protocols.map((p) => median(fixture.name, p.encode));
+    const decodeValues = protocols.map((p) => median(fixture.name, p.decode));
+    const bestSize = Math.min(...sizeValues);
+    const bestEncode = Math.min(...encodeValues);
+    const bestDecode = Math.min(...decodeValues);
+    const rows = protocols
+      .map((p, i) => {
+        const bytes = sizeValues[i];
+        return `| ${p.label} | ${bytes.toLocaleString()} | ${relSize(bytes, bestSize)} | ${relTime(encodeValues[i], bestEncode)} | ${relTime(decodeValues[i], bestDecode)} |`;
+      })
+      .join("\n");
+    return `### ${fixture.shape}
+
+${fixture.logical_items.toLocaleString()} items. Lower is better in every column; **1.00x** marks the winner of that column.
+
+| Format | Size (bytes) | Size | Encode | Decode |
+| --- | ---: | ---: | ---: | ---: |
+${rows}`;
+  })
+  .join("\n\n");
+
+const website = `# TDBIN Benchmarks
+
+TDBIN is the compact binary codec typeDiagram generates for algebraic data types. This page compares it against two widely used serialization formats — **Protocol Buffers** and **MessagePack** — on realistic workloads, so you can judge what the format buys you.
+
+Numbers below are measured, not estimated: they are produced by \`scripts/tdbin-bench-report.mjs\` from Criterion timings and exact encoder output, and regenerate whenever the benchmark runs. For the full breakdown — all wire modes, every fixture, confidence intervals — see the generated benchmark report at \`docs/reports/tdbin-bench-report.md\`.
+
+## What each format is for
+
+- **TDBIN (framed)** — a self-describing frame around typeDiagram's columnar layout. It shines on *batches of the same shape* (telemetry rows, event streams, repeated records): the columnar layout lets it skip the per-field tags every other format repeats, so it is both the smallest and the fastest here. Reach for it when you control both ends and your data is list- or record-heavy.
+- **Protocol Buffers** — schema-driven, tag-per-field. Extremely compact and fast on *small, sparse messages* (a single record with optional fields), and the industry default for cross-language RPC with a shared \`.proto\`. Reach for it when messages are small, schemas are shared, and you need the broadest ecosystem.
+- **MessagePack** — schemaless, self-describing (\`struct-as-map\`, via \`rmp-serde\`). It carries field names on the wire, so it is the largest and slowest of the three, but it needs *no schema at all* and any language can read it. Reach for it for loosely-typed interchange, config blobs, or when a schema is impractical.
+
+## Results
+
+The tables use typeDiagram's committed **corpus** workloads — the realistic schemas the release gate is defined on. TDBIN is shown in its **framed** production mode, the self-describing peer of the other two.
+
+${websiteTables}
+
+## Methodology
+
+- **Same values, three encoders.** Every fixture builds one logical value; the exact same value is fed to the TDBIN codec, to a hand-written Protobuf mirror (\`prost\`), and — via \`serde\` derives on that same mirror — to MessagePack (\`rmp-serde\`). No format gets a different or more favorable input.
+- **Self-describing modes compared.** TDBIN *framed*, Protobuf, and MessagePack *struct-as-map* are all self-describing, so the comparison is like-for-like. (TDBIN's smaller *packed* mode and the tiny single-message stress fixtures appear in the full report, not here.)
+- **Sizes are exact byte counts** from each encoder — not estimates.
+- **Timings are Criterion medians** over ${data.benchmarks[0]?.sample_count ?? 50} samples per operation on the environment below; each measured value flows through \`black_box\` so the optimizer cannot elide the work.
+- **Reproduce it yourself** with the commands below; the page and its numbers regenerate together.
+
+### Environment
+
+| Field | Value |
+| --- | --- |
+| Platform | ${data.environment.platform} ${data.environment.release} (${data.environment.architecture}) |
+| CPU | ${data.environment.cpu} |
+| Rust | ${data.environment.rustc} |
+
+### Reproduce
+
+${data.commands.map((command) => `- \`${command}\``).join("\n")}
+`;
+
+writeFileSync(websitePath, await format(website, { ...prettierOptions, filepath: websitePath }));
+process.stdout.write(`wrote ${dataPath}\nwrote ${reportPath}\nwrote ${websitePath}\n`);
