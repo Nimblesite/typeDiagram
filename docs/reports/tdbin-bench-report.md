@@ -3,77 +3,31 @@
 > GENERATED FILE. Source: `scripts/tdbin-bench-report.mjs` and `docs/reports/tdbin-bench-data.json`.
 > Every value and verdict is computed from machine-readable Criterion and encoder output. No benchmark result is entered manually.
 
-Generated: 2026-07-12T11:07:21.191Z
+Generated: 2026-07-13T22:00:16.855Z
 
-Raw data SHA-256: `20ace5953e08d909efb3b6cebd65b8a0111e05a727b72687af594ba1e225e843`
+Raw data SHA-256: `134d351db228a6f2338f73f6682333eaa671b8aa6d688c8c074285126819f5fe`
 
 ## Result
 
-**Specification gate ([TDBIN-BENCH-CORPUS] committed workloads): FAIL.** 2 of 3 corpus fixtures have a production wire mode that is simultaneously smaller than Protobuf AND at least 1.50x faster on both encode and decode. Stress rows: 1 of 4 pass the same bar.
+**Specification gate ([TDBIN-BENCH-CORPUS] committed workloads): FAIL.** 2 of 3 corpus fixtures have a production wire mode that is simultaneously smaller than Protobuf AND at least 1.50x faster on both encode and decode. Stress rows: 2 of 4 pass the same bar.
 
-Qualifying modes: `with_address` = none, `without_address` = none, `metric_batch` = framed, `person_batch` = none, `contact_batch` = framed & packed framed, `diagram_document` = framed, `event_batch` = none.
+Qualifying modes: `with_address` = none, `without_address` = none, `metric_batch` = framed, `person_batch` = framed, `contact_batch` = framed & packed framed, `diagram_document` = framed, `event_batch` = none.
 
 The release gate ([TDBIN-BENCH-GATE]) requires, for every corpus entry — the committed realistic schemas in `docs/benchmarks/tdbin-corpus.{td,proto}` (record-heavy document, union-heavy event stream, list-heavy dataset) — that at least one self-describing production wire mode (framed, or packed framed; the frame's PACKED flag makes the two interchangeable to every decoder) beats Protobuf on size and by 1.50x on both encode and decode simultaneously. Both modes are always measured and published below. Stress rows (marked) are reported against the identical bar; the tiny single-message rows carry a fixed 12-byte frame plus pointer-per-string overhead that no fixed-layout format recovers at sub-100-byte payloads (research §2.2), so they are not corpus entries.
 
-## At a Glance
+## Size and Speed
 
-One table per fixture. Rows are the three protocols; columns are the bench types (size, encode speed, decode speed). `tdbin` is the **framed** wire mode — the self-describing production peer of `msgpack` (struct-as-map, via `rmp-serde`) and `protobuf`. Lower is better everywhere. The full multi-mode breakdown (TDBIN bare/framed/packed and every Criterion statistic) is in the detailed tables further down.
+The headline comparison — one row per test, all three self-describing formats side by side. TDBIN is its **framed** production mode; MessagePack is struct-as-map (via `rmp-serde`). Sizes are bytes; serialize is the full ADT→binary conversion, deserialize the full binary→ADT conversion. Lower is better everywhere.
 
-### `with_address` — tiny nested record and union (stress, 1 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |          172 |     +117.7% |        94.85 ns |       166.09 ns |
-| protobuf       |           79 |        same |        48.14 ns |       157.46 ns |
-| msgpack        |          142 |      +79.7% |       269.46 ns |       219.07 ns |
-
-### `without_address` — tiny sparse record and union (stress, 1 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |          124 |     +300.0% |        66.26 ns |        70.88 ns |
-| protobuf       |           31 |        same |        37.65 ns |        59.88 ns |
-| msgpack        |          100 |     +222.6% |       343.28 ns |       112.99 ns |
-
-### `metric_batch` — list-heavy telemetry (corpus, 4,096 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |       43,788 |      -48.0% |       11.884 us |       10.621 us |
-| protobuf       |       84,149 |        same |       45.933 us |       37.773 us |
-| msgpack        |       90,440 |       +7.5% |       55.673 us |       51.039 us |
-
-### `person_batch` — repeated records (stress, 512 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |       22,988 |      -21.2% |       11.869 us |       46.003 us |
-| protobuf       |       29,184 |        same |       19.272 us |       61.638 us |
-| msgpack        |       61,963 |     +112.3% |       51.123 us |       89.633 us |
-
-### `contact_batch` — repeated unions (stress, 2,048 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |       23,156 |      -34.3% |        9.235 us |       31.003 us |
-| protobuf       |       35,221 |        same |       32.441 us |       80.232 us |
-| msgpack        |       80,162 |     +127.6% |       87.267 us |      126.634 us |
-
-### `diagram_document` — record-heavy diagram document (corpus, 768 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |       45,172 |      -11.1% |       15.390 us |       86.173 us |
-| protobuf       |       50,788 |        same |       23.327 us |      144.501 us |
-| msgpack        |       77,410 |      +52.4% |       56.192 us |      141.899 us |
-
-### `event_batch` — union-heavy event stream (corpus, 2,048 items)
-
-| Protocol       | Size (bytes) | vs Protobuf | Encode (median) | Decode (median) |
-| -------------- | -----------: | ----------: | --------------: | --------------: |
-| tdbin (framed) |      116,372 |      -11.7% |       36.348 us |      229.887 us |
-| protobuf       |      131,744 |        same |       81.632 us |      282.271 us |
-| msgpack        |      230,620 |      +75.1% |      174.450 us |      389.899 us |
+| Test               | typeDiagram Size | Protobuf Size | MessagePack Size | typeDiagram Serialize | Protobuf Serialize | MessagePack Serialize | typeDiagram Deserialize | Protobuf Deserialize | MessagePack Deserialize |
+| ------------------ | ---------------: | ------------: | ---------------: | --------------------: | -----------------: | --------------------: | ----------------------: | -------------------: | ----------------------: |
+| `with_address`     |              172 |            79 |              142 |              87.51 ns |           46.84 ns |             252.33 ns |               153.21 ns |            152.49 ns |               195.31 ns |
+| `without_address`  |              124 |            31 |              100 |              65.76 ns |           32.68 ns |             228.84 ns |                71.52 ns |             50.66 ns |               109.68 ns |
+| `metric_batch`     |           43,788 |        84,149 |           90,440 |             11.637 us |          45.467 us |             43.944 us |                6.251 us |            31.317 us |               50.870 us |
+| `person_batch`     |           22,988 |        29,184 |           61,963 |             11.587 us |          18.195 us |             48.224 us |               36.786 us |            57.952 us |               87.828 us |
+| `contact_batch`    |           23,156 |        35,221 |           80,162 |              9.025 us |          24.957 us |             69.630 us |               31.045 us |            61.434 us |               95.623 us |
+| `diagram_document` |           45,172 |        50,788 |           77,410 |             12.340 us |          21.809 us |             55.735 us |               71.705 us |           110.587 us |              134.250 us |
+| `event_batch`      |          116,372 |       131,744 |          230,620 |             35.490 us |          66.930 us |            138.809 us |              201.602 us |           279.422 us |              387.002 us |
 
 ## Environment
 
@@ -113,78 +67,80 @@ All sizes are bytes. Percentage columns are relative to Protobuf; negative is sm
 
 ## Criterion Medians
 
+Each row is one **individual** operation — a complete serialize _or_ deserialize, not a round-trip. The operation name encodes the direction (`encode` = ADT→binary, `decode` = binary→ADT) and the wire mode (`bare`, `framed`, or `packed_framed` for TDBIN). "Median" is the per-call time (what to compare); "Sampled time" is only Criterion's total measurement budget for that row. Sum a fixture's `encode` and `decode` rows to get the round-trip totals above.
+
 | Fixture            | Operation                    | Samples | Sampled time |     Median |   CI lower |   CI upper |
 | ------------------ | ---------------------------- | ------: | -----------: | ---------: | ---------: | ---------: |
-| `with_address`     | `tdbin_encode_bare`          |      50 |  4708.488 ms |   90.06 ns |   87.32 ns |  101.16 ns |
-| `with_address`     | `tdbin_encode_framed`        |      50 |  4164.282 ms |   94.85 ns |   91.56 ns |  105.54 ns |
-| `with_address`     | `tdbin_encode_packed_framed` |      50 |  3260.576 ms |  185.09 ns |  181.68 ns |  189.35 ns |
-| `with_address`     | `protobuf_encode`            |      50 |  3512.653 ms |   48.14 ns |   47.51 ns |   48.83 ns |
-| `with_address`     | `msgpack_encode`             |      50 |  4988.903 ms |  269.46 ns |  267.69 ns |  271.46 ns |
-| `with_address`     | `tdbin_decode_bare`          |      50 |  4914.774 ms |  154.58 ns |  154.04 ns |  155.69 ns |
-| `with_address`     | `tdbin_decode_framed`        |      50 |  5029.047 ms |  166.09 ns |  159.90 ns |  188.14 ns |
-| `with_address`     | `tdbin_decode_packed_framed` |      50 |  6760.547 ms |  622.64 ns |  589.33 ns |  699.50 ns |
-| `with_address`     | `protobuf_decode`            |      50 |  5433.692 ms |  157.46 ns |  155.60 ns |  165.73 ns |
-| `with_address`     | `msgpack_decode`             |      50 |  5022.274 ms |  219.07 ns |  209.53 ns |  242.46 ns |
-| `without_address`  | `tdbin_encode_bare`          |      50 |  3879.383 ms |   71.24 ns |   68.64 ns |   76.57 ns |
-| `without_address`  | `tdbin_encode_framed`        |      50 |  3292.059 ms |   66.26 ns |   65.80 ns |   67.19 ns |
-| `without_address`  | `tdbin_encode_packed_framed` |      50 |  5970.711 ms |  177.18 ns |  164.10 ns |  203.00 ns |
-| `without_address`  | `protobuf_encode`            |      50 |  5080.760 ms |   37.65 ns |   35.14 ns |   41.79 ns |
-| `without_address`  | `msgpack_encode`             |      50 |  5402.275 ms |  343.28 ns |  302.47 ns |  362.57 ns |
-| `without_address`  | `tdbin_decode_bare`          |      50 |  6711.175 ms |   76.80 ns |   71.65 ns |   89.58 ns |
-| `without_address`  | `tdbin_decode_framed`        |      50 |  5069.349 ms |   70.88 ns |   70.60 ns |   71.67 ns |
-| `without_address`  | `tdbin_decode_packed_framed` |      50 |  7010.312 ms |  503.92 ns |  492.48 ns |  563.76 ns |
-| `without_address`  | `protobuf_decode`            |      50 |  3556.800 ms |   59.88 ns |   55.95 ns |   72.98 ns |
-| `without_address`  | `msgpack_decode`             |      50 |  3502.351 ms |  112.99 ns |  112.02 ns |  113.97 ns |
-| `metric_batch`     | `tdbin_encode_bare`          |      50 |  5056.393 ms |  11.589 us |  11.445 us |  11.739 us |
-| `metric_batch`     | `tdbin_encode_framed`        |      50 |  5063.613 ms |  11.884 us |  11.632 us |  12.106 us |
-| `metric_batch`     | `tdbin_encode_packed_framed` |      50 |  4999.250 ms |  22.957 us |  22.783 us |  23.149 us |
-| `metric_batch`     | `protobuf_encode`            |      50 |  5910.333 ms |  45.933 us |  45.139 us |  46.773 us |
-| `metric_batch`     | `msgpack_encode`             |      50 |  6259.996 ms |  55.673 us |  52.643 us |  67.791 us |
-| `metric_batch`     | `tdbin_decode_bare`          |      50 |  3685.052 ms |   6.471 us |   6.401 us |   7.546 us |
-| `metric_batch`     | `tdbin_decode_framed`        |      50 |  7127.277 ms |  10.621 us |   8.261 us |  13.678 us |
-| `metric_batch`     | `tdbin_decode_packed_framed` |      50 |  4056.282 ms |  39.008 us |  37.517 us |  43.444 us |
-| `metric_batch`     | `protobuf_decode`            |      50 |  2731.351 ms |  37.773 us |  35.668 us |  40.497 us |
-| `metric_batch`     | `msgpack_decode`             |      50 |  5559.500 ms |  51.039 us |  50.881 us |  51.328 us |
-| `person_batch`     | `tdbin_encode_bare`          |      50 |  6342.107 ms |  15.291 us |  13.818 us |  20.269 us |
-| `person_batch`     | `tdbin_encode_framed`        |      50 |  3470.387 ms |  11.869 us |  11.735 us |  11.973 us |
-| `person_batch`     | `tdbin_encode_packed_framed` |      50 |  6760.689 ms |  19.653 us |  18.662 us |  27.379 us |
-| `person_batch`     | `protobuf_encode`            |      50 |  3617.596 ms |  19.272 us |  18.868 us |  19.450 us |
-| `person_batch`     | `msgpack_encode`             |      50 |  4209.904 ms |  51.123 us |  49.244 us |  60.303 us |
-| `person_batch`     | `tdbin_decode_bare`          |      50 |  5816.982 ms |  36.895 us |  36.679 us |  37.989 us |
-| `person_batch`     | `tdbin_decode_framed`        |      50 |  4643.515 ms |  46.003 us |  44.473 us |  49.309 us |
-| `person_batch`     | `tdbin_decode_packed_framed` |      50 |  2513.662 ms |  41.894 us |  41.423 us |  42.698 us |
-| `person_batch`     | `protobuf_decode`            |      50 |  4309.452 ms |  61.638 us |  59.351 us |  64.847 us |
-| `person_batch`     | `msgpack_decode`             |      50 |  3926.919 ms |  89.633 us |  89.045 us |  91.727 us |
-| `contact_batch`    | `tdbin_encode_bare`          |      50 |  3857.292 ms |   9.267 us |   9.140 us |   9.452 us |
-| `contact_batch`    | `tdbin_encode_framed`        |      50 |  3977.619 ms |   9.235 us |   9.169 us |   9.298 us |
-| `contact_batch`    | `tdbin_encode_packed_framed` |      50 |  4533.762 ms |  14.903 us |  14.181 us |  16.108 us |
-| `contact_batch`    | `protobuf_encode`            |      50 |  3809.607 ms |  32.441 us |  29.305 us |  36.746 us |
-| `contact_batch`    | `msgpack_encode`             |      50 |  6489.779 ms |  87.267 us |  80.904 us | 106.058 us |
-| `contact_batch`    | `tdbin_decode_bare`          |      50 |  4708.315 ms |  33.601 us |  31.363 us |  38.208 us |
-| `contact_batch`    | `tdbin_decode_framed`        |      50 |  4892.352 ms |  31.003 us |  30.748 us |  31.164 us |
-| `contact_batch`    | `tdbin_decode_packed_framed` |      50 |  5169.716 ms |  33.539 us |  33.424 us |  33.742 us |
-| `contact_batch`    | `protobuf_decode`            |      50 |  5430.856 ms |  80.232 us |  75.231 us |  96.771 us |
-| `contact_batch`    | `msgpack_decode`             |      50 |  4300.871 ms | 126.634 us | 112.108 us | 139.731 us |
-| `diagram_document` | `tdbin_encode_bare`          |      50 |  5535.814 ms |  16.328 us |  15.172 us |  21.075 us |
-| `diagram_document` | `tdbin_encode_framed`        |      50 |  5265.309 ms |  15.390 us |  14.422 us |  17.625 us |
-| `diagram_document` | `tdbin_encode_packed_framed` |      50 |  5193.875 ms |  19.981 us |  19.799 us |  20.305 us |
-| `diagram_document` | `protobuf_encode`            |      50 |  3087.903 ms |  23.327 us |  22.851 us |  23.895 us |
-| `diagram_document` | `msgpack_encode`             |      50 |  5022.687 ms |  56.192 us |  55.766 us |  56.472 us |
-| `diagram_document` | `tdbin_decode_bare`          |      50 |  5034.613 ms |  71.630 us |  71.195 us |  72.027 us |
-| `diagram_document` | `tdbin_decode_framed`        |      50 |  6169.790 ms |  86.173 us |  80.225 us |  94.685 us |
-| `diagram_document` | `tdbin_decode_packed_framed` |      50 |  5425.883 ms | 100.677 us |  95.733 us | 105.803 us |
-| `diagram_document` | `protobuf_decode`            |      50 |  3193.202 ms | 144.501 us | 122.209 us | 156.522 us |
-| `diagram_document` | `msgpack_decode`             |      50 |  3682.530 ms | 141.899 us | 136.312 us | 152.191 us |
-| `event_batch`      | `tdbin_encode_bare`          |      50 |  5842.968 ms |  39.326 us |  38.628 us |  40.455 us |
-| `event_batch`      | `tdbin_encode_framed`        |      50 |  3370.017 ms |  36.348 us |  36.063 us |  36.593 us |
-| `event_batch`      | `tdbin_encode_packed_framed` |      50 |  5031.737 ms |  52.324 us |  52.166 us |  52.561 us |
-| `event_batch`      | `protobuf_encode`            |      50 |  6664.293 ms |  81.632 us |  79.430 us |  86.327 us |
-| `event_batch`      | `msgpack_encode`             |      50 |  5853.691 ms | 174.450 us | 161.878 us | 197.442 us |
-| `event_batch`      | `tdbin_decode_bare`          |      50 |  5652.191 ms | 262.857 us | 239.518 us | 319.617 us |
-| `event_batch`      | `tdbin_decode_framed`        |      50 |  3370.821 ms | 229.887 us | 216.825 us | 282.880 us |
-| `event_batch`      | `tdbin_decode_packed_framed` |      50 |  5315.300 ms | 207.471 us | 206.503 us | 208.507 us |
-| `event_batch`      | `protobuf_decode`            |      50 |  5034.757 ms | 282.271 us | 279.410 us | 283.316 us |
-| `event_batch`      | `msgpack_decode`             |      50 |  6327.182 ms | 389.899 us | 387.274 us | 413.054 us |
+| `with_address`     | `tdbin_encode_bare`          |      50 |  4979.331 ms |   83.62 ns |   83.24 ns |   84.05 ns |
+| `with_address`     | `tdbin_encode_framed`        |      50 |  4680.046 ms |   87.51 ns |   87.22 ns |   88.42 ns |
+| `with_address`     | `tdbin_encode_packed_framed` |      50 |  5033.556 ms |  184.41 ns |  183.63 ns |  185.68 ns |
+| `with_address`     | `protobuf_encode`            |      50 |  4875.876 ms |   46.84 ns |   46.66 ns |   47.05 ns |
+| `with_address`     | `msgpack_encode`             |      50 |  4900.558 ms |  252.33 ns |  250.67 ns |  254.03 ns |
+| `with_address`     | `tdbin_decode_bare`          |      50 |  5004.358 ms |  151.84 ns |  151.29 ns |  153.13 ns |
+| `with_address`     | `tdbin_decode_framed`        |      50 |  5015.032 ms |  153.21 ns |  152.62 ns |  153.56 ns |
+| `with_address`     | `tdbin_decode_packed_framed` |      50 |  5018.607 ms |  571.43 ns |  570.17 ns |  573.83 ns |
+| `with_address`     | `protobuf_decode`            |      50 |  5014.850 ms |  152.49 ns |  151.72 ns |  153.26 ns |
+| `with_address`     | `msgpack_decode`             |      50 |  5300.693 ms |  195.31 ns |  194.47 ns |  196.07 ns |
+| `without_address`  | `tdbin_encode_bare`          |      50 |  4706.953 ms |   61.10 ns |   60.79 ns |   61.43 ns |
+| `without_address`  | `tdbin_encode_framed`        |      50 |  4976.057 ms |   65.76 ns |   65.49 ns |   66.17 ns |
+| `without_address`  | `tdbin_encode_packed_framed` |      50 |  4880.894 ms |  141.92 ns |  141.35 ns |  142.94 ns |
+| `without_address`  | `protobuf_encode`            |      50 |  4975.979 ms |   32.68 ns |   32.60 ns |   32.86 ns |
+| `without_address`  | `msgpack_encode`             |      50 |  4988.960 ms |  228.84 ns |  228.13 ns |  230.06 ns |
+| `without_address`  | `tdbin_decode_bare`          |      50 |  4982.202 ms |   69.07 ns |   68.85 ns |   69.64 ns |
+| `without_address`  | `tdbin_decode_framed`        |      50 |  4985.774 ms |   71.52 ns |   71.36 ns |   71.80 ns |
+| `without_address`  | `tdbin_decode_packed_framed` |      50 |  5005.363 ms |  482.70 ns |  481.61 ns |  485.38 ns |
+| `without_address`  | `protobuf_decode`            |      50 |  4982.155 ms |   50.66 ns |   50.47 ns |   50.90 ns |
+| `without_address`  | `msgpack_decode`             |      50 |  5011.579 ms |  109.68 ns |  108.40 ns |  110.71 ns |
+| `metric_batch`     | `tdbin_encode_bare`          |      50 |  4895.851 ms |  11.344 us |  11.198 us |  11.548 us |
+| `metric_batch`     | `tdbin_encode_framed`        |      50 |  5053.565 ms |  11.637 us |  11.442 us |  11.790 us |
+| `metric_batch`     | `tdbin_encode_packed_framed` |      50 |  5027.355 ms |  23.042 us |  22.954 us |  23.098 us |
+| `metric_batch`     | `protobuf_encode`            |      50 |  5015.356 ms |  45.467 us |  45.165 us |  46.030 us |
+| `metric_batch`     | `msgpack_encode`             |      50 |  5058.800 ms |  43.944 us |  43.876 us |  44.050 us |
+| `metric_batch`     | `tdbin_decode_bare`          |      50 |  4999.074 ms |   6.263 us |   6.237 us |   6.276 us |
+| `metric_batch`     | `tdbin_decode_framed`        |      50 |  4963.736 ms |   6.251 us |   6.238 us |   6.260 us |
+| `metric_batch`     | `tdbin_decode_packed_framed` |      50 |  4985.412 ms |  29.942 us |  29.837 us |  30.012 us |
+| `metric_batch`     | `protobuf_decode`            |      50 |  5056.750 ms |  31.317 us |  30.982 us |  31.566 us |
+| `metric_batch`     | `msgpack_decode`             |      50 |  5055.012 ms |  50.870 us |  50.667 us |  50.999 us |
+| `person_batch`     | `tdbin_encode_bare`          |      50 |  5018.668 ms |  11.593 us |  11.550 us |  11.662 us |
+| `person_batch`     | `tdbin_encode_framed`        |      50 |  5040.314 ms |  11.587 us |  11.552 us |  11.624 us |
+| `person_batch`     | `tdbin_encode_packed_framed` |      50 |  5023.851 ms |  15.048 us |  14.982 us |  15.099 us |
+| `person_batch`     | `protobuf_encode`            |      50 |  5011.984 ms |  18.195 us |  18.039 us |  18.356 us |
+| `person_batch`     | `msgpack_encode`             |      50 |  5034.277 ms |  48.224 us |  48.004 us |  48.297 us |
+| `person_batch`     | `tdbin_decode_bare`          |      50 |  4953.236 ms |  37.127 us |  36.968 us |  37.348 us |
+| `person_batch`     | `tdbin_decode_framed`        |      50 |  4999.731 ms |  36.786 us |  36.716 us |  36.994 us |
+| `person_batch`     | `tdbin_decode_packed_framed` |      50 |  5002.427 ms |  41.346 us |  41.171 us |  41.454 us |
+| `person_batch`     | `protobuf_decode`            |      50 |  5043.928 ms |  57.952 us |  57.728 us |  58.289 us |
+| `person_batch`     | `msgpack_decode`             |      50 |  5043.933 ms |  87.828 us |  87.503 us |  88.481 us |
+| `contact_batch`    | `tdbin_encode_bare`          |      50 |  4979.172 ms |   9.008 us |   8.979 us |   9.036 us |
+| `contact_batch`    | `tdbin_encode_framed`        |      50 |  5001.161 ms |   9.025 us |   8.979 us |   9.050 us |
+| `contact_batch`    | `tdbin_encode_packed_framed` |      50 |  4967.120 ms |  11.986 us |  11.966 us |  12.028 us |
+| `contact_batch`    | `protobuf_encode`            |      50 |  4944.458 ms |  24.957 us |  24.746 us |  25.115 us |
+| `contact_batch`    | `msgpack_encode`             |      50 |  4982.157 ms |  69.630 us |  69.408 us |  69.994 us |
+| `contact_batch`    | `tdbin_decode_bare`          |      50 |  5058.549 ms |  31.083 us |  30.977 us |  31.205 us |
+| `contact_batch`    | `tdbin_decode_framed`        |      50 |  4989.842 ms |  31.045 us |  30.865 us |  31.138 us |
+| `contact_batch`    | `tdbin_decode_packed_framed` |      50 |  5039.519 ms |  33.270 us |  33.134 us |  33.520 us |
+| `contact_batch`    | `protobuf_decode`            |      50 |  5049.477 ms |  61.434 us |  61.210 us |  61.662 us |
+| `contact_batch`    | `msgpack_decode`             |      50 |  5005.630 ms |  95.623 us |  95.163 us |  96.003 us |
+| `diagram_document` | `tdbin_encode_bare`          |      50 |  5027.731 ms |  12.352 us |  12.307 us |  12.392 us |
+| `diagram_document` | `tdbin_encode_framed`        |      50 |  5002.334 ms |  12.340 us |  12.320 us |  12.387 us |
+| `diagram_document` | `tdbin_encode_packed_framed` |      50 |  5016.868 ms |  19.374 us |  19.309 us |  19.404 us |
+| `diagram_document` | `protobuf_encode`            |      50 |  5003.104 ms |  21.809 us |  21.677 us |  21.980 us |
+| `diagram_document` | `msgpack_encode`             |      50 |  4975.532 ms |  55.735 us |  55.357 us |  55.915 us |
+| `diagram_document` | `tdbin_decode_bare`          |      50 |  5022.721 ms |  71.659 us |  71.302 us |  72.031 us |
+| `diagram_document` | `tdbin_decode_framed`        |      50 |  5033.499 ms |  71.705 us |  71.323 us |  71.949 us |
+| `diagram_document` | `tdbin_decode_packed_framed` |      50 |  5018.654 ms |  80.233 us |  79.981 us |  80.513 us |
+| `diagram_document` | `protobuf_decode`            |      50 |  5078.462 ms | 110.587 us | 110.145 us | 110.848 us |
+| `diagram_document` | `msgpack_decode`             |      50 |  5147.939 ms | 134.250 us | 133.630 us | 134.904 us |
+| `event_batch`      | `tdbin_encode_bare`          |      50 |  5035.724 ms |  35.478 us |  35.418 us |  35.511 us |
+| `event_batch`      | `tdbin_encode_framed`        |      50 |  5039.177 ms |  35.490 us |  35.371 us |  35.636 us |
+| `event_batch`      | `tdbin_encode_packed_framed` |      50 |  5034.663 ms |  51.961 us |  51.840 us |  52.082 us |
+| `event_batch`      | `protobuf_encode`            |      50 |  5040.797 ms |  66.930 us |  66.714 us |  67.227 us |
+| `event_batch`      | `msgpack_encode`             |      50 |  5148.309 ms | 138.809 us | 138.563 us | 139.068 us |
+| `event_batch`      | `tdbin_decode_bare`          |      50 |  5649.776 ms | 201.638 us | 199.727 us | 202.658 us |
+| `event_batch`      | `tdbin_decode_framed`        |      50 |  5636.486 ms | 201.602 us | 200.463 us | 202.969 us |
+| `event_batch`      | `tdbin_decode_packed_framed` |      50 |  5281.911 ms | 207.267 us | 206.925 us | 207.595 us |
+| `event_batch`      | `protobuf_decode`            |      50 |  5343.110 ms | 279.422 us | 277.027 us | 281.490 us |
+| `event_batch`      | `msgpack_decode`             |      50 |  5426.403 ms | 387.002 us | 385.202 us | 388.430 us |
 
 ## Same-Mode Comparison
 
@@ -192,29 +148,29 @@ Ratios are Protobuf median / TDBIN median; values above 1.00x favor TDBIN. The g
 
 | Fixture            | TDBIN mode    | Size winner | Encode ratio | Decode ratio | Gate |
 | ------------------ | ------------- | ----------- | -----------: | -----------: | ---- |
-| `with_address`     | bare          | Protobuf    |        0.53x |        1.02x | FAIL |
-| `with_address`     | framed        | Protobuf    |        0.51x |        0.95x | FAIL |
-| `with_address`     | packed framed | Protobuf    |        0.26x |        0.25x | FAIL |
-| `without_address`  | bare          | Protobuf    |        0.53x |        0.78x | FAIL |
-| `without_address`  | framed        | Protobuf    |        0.57x |        0.84x | FAIL |
-| `without_address`  | packed framed | Protobuf    |        0.21x |        0.12x | FAIL |
-| `metric_batch`     | bare          | TDBIN       |        3.96x |        5.84x | PASS |
-| `metric_batch`     | framed        | TDBIN       |        3.87x |        3.56x | PASS |
-| `metric_batch`     | packed framed | TDBIN       |        2.00x |        0.97x | FAIL |
-| `person_batch`     | bare          | TDBIN       |        1.26x |        1.67x | FAIL |
-| `person_batch`     | framed        | TDBIN       |        1.62x |        1.34x | FAIL |
-| `person_batch`     | packed framed | TDBIN       |        0.98x |        1.47x | FAIL |
-| `contact_batch`    | bare          | TDBIN       |        3.50x |        2.39x | PASS |
-| `contact_batch`    | framed        | TDBIN       |        3.51x |        2.59x | PASS |
-| `contact_batch`    | packed framed | TDBIN       |        2.18x |        2.39x | PASS |
-| `diagram_document` | bare          | TDBIN       |        1.43x |        2.02x | FAIL |
-| `diagram_document` | framed        | TDBIN       |        1.52x |        1.68x | PASS |
-| `diagram_document` | packed framed | TDBIN       |        1.17x |        1.44x | FAIL |
-| `event_batch`      | bare          | TDBIN       |        2.08x |        1.07x | FAIL |
-| `event_batch`      | framed        | TDBIN       |        2.25x |        1.23x | FAIL |
-| `event_batch`      | packed framed | TDBIN       |        1.56x |        1.36x | FAIL |
+| `with_address`     | bare          | Protobuf    |        0.56x |        1.00x | FAIL |
+| `with_address`     | framed        | Protobuf    |        0.54x |        1.00x | FAIL |
+| `with_address`     | packed framed | Protobuf    |        0.25x |        0.27x | FAIL |
+| `without_address`  | bare          | Protobuf    |        0.53x |        0.73x | FAIL |
+| `without_address`  | framed        | Protobuf    |        0.50x |        0.71x | FAIL |
+| `without_address`  | packed framed | Protobuf    |        0.23x |        0.10x | FAIL |
+| `metric_batch`     | bare          | TDBIN       |        4.01x |        5.00x | PASS |
+| `metric_batch`     | framed        | TDBIN       |        3.91x |        5.01x | PASS |
+| `metric_batch`     | packed framed | TDBIN       |        1.97x |        1.05x | FAIL |
+| `person_batch`     | bare          | TDBIN       |        1.57x |        1.56x | PASS |
+| `person_batch`     | framed        | TDBIN       |        1.57x |        1.58x | PASS |
+| `person_batch`     | packed framed | TDBIN       |        1.21x |        1.40x | FAIL |
+| `contact_batch`    | bare          | TDBIN       |        2.77x |        1.98x | PASS |
+| `contact_batch`    | framed        | TDBIN       |        2.77x |        1.98x | PASS |
+| `contact_batch`    | packed framed | TDBIN       |        2.08x |        1.85x | PASS |
+| `diagram_document` | bare          | TDBIN       |        1.77x |        1.54x | PASS |
+| `diagram_document` | framed        | TDBIN       |        1.77x |        1.54x | PASS |
+| `diagram_document` | packed framed | TDBIN       |        1.13x |        1.38x | FAIL |
+| `event_batch`      | bare          | TDBIN       |        1.89x |        1.39x | FAIL |
+| `event_batch`      | framed        | TDBIN       |        1.89x |        1.39x | FAIL |
+| `event_batch`      | packed framed | TDBIN       |        1.29x |        1.35x | FAIL |
 
-Passing fixture/mode combinations: 6 of 21.
+Passing fixture/mode combinations: 9 of 21.
 
 This secondary table exposes unpacked tradeoffs; it does not replace the packed-framed specification gate above.
 
