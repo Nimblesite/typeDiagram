@@ -57,17 +57,11 @@ pub fn encode_into(body: &[u8], out: &mut Vec<u8>) -> Result<(), EncodeError> {
         .is_multiple_of(WORD_BYTES)
         .then_some(())
         .ok_or(EncodeError::BadLength)?;
-    let base = out.len();
-    let worst = base
-        .checked_add(encode_capacity(body.len())?)
-        .ok_or(EncodeError::LimitExceeded)?;
-    out.resize(worst, 0);
+    out.reserve(encode_capacity(body.len())?);
     let mut offset = 0;
-    let mut cursor = base;
     while let Some(word) = read_word(body, offset) {
-        (offset, cursor) = encode_word(body, offset, word, out, cursor)?;
+        offset = encode_word(body, offset, word, out)?;
     }
-    out.truncate(cursor);
     Ok(())
 }
 
@@ -142,20 +136,20 @@ fn decode_chunk(
     Ok((cursor, written))
 }
 
-/// Branchless sparse expansion: a constant eight-lane pass selects each
-/// output byte from the compacted source, so the loop never carries a
-/// data-dependent branch (the variable-trip alternative mispredicts once per
-/// word on mixed tags).
+/// Branchless sparse expansion: each lane independently locates its source
+/// byte by prefix-popcount, so the eight lanes carry no data-dependent branch
+/// and no serial register dependency (the previous shift-chain version
+/// serialized every lane on the compacted source register).
 fn expand_word(tag: u8, src: u64) -> u64 {
     let mut word = 0_u64;
-    let mut rest = src;
     let mut lane = 0_u32;
     while lane < 8 {
-        let take = (u64::from(tag) >> lane) & 1;
-        word |= (rest & 0xFF)
-            .wrapping_mul(take)
+        let present = u64::from(tag).wrapping_shr(lane) & 1;
+        let below = u32::from(tag) & 1_u32.wrapping_shl(lane).wrapping_sub(1);
+        let byte = src.wrapping_shr(below.count_ones().wrapping_mul(8)) & 0xFF;
+        word |= byte
+            .wrapping_mul(present)
             .wrapping_shl(lane.wrapping_mul(8));
-        rest = rest.wrapping_shr(u32::try_from(take.wrapping_mul(8)).unwrap_or(0));
         lane = lane.wrapping_add(1);
     }
     word
@@ -169,39 +163,30 @@ fn encode_capacity(body_len: usize) -> Result<usize, EncodeError> {
         .ok_or(EncodeError::LimitExceeded)
 }
 
-/// Encode one word, returning the next input offset and output cursor.
+/// Encode one word, appending to `out` and returning the next input offset.
 fn encode_word(
     body: &[u8],
     offset: usize,
     word: u64,
-    out: &mut [u8],
-    cursor: usize,
-) -> Result<(usize, usize), EncodeError> {
+    out: &mut Vec<u8>,
+) -> Result<usize, EncodeError> {
     match tag_of(word) {
-        ZERO_RUN_TAG => encode_zero_run(body, offset, out, cursor),
-        DENSE_RUN_TAG => encode_dense_run(body, offset, word, out, cursor),
-        sparse => encode_sparse_word(offset, word, sparse, out, cursor),
+        ZERO_RUN_TAG => encode_zero_run(body, offset, out),
+        DENSE_RUN_TAG => encode_dense_run(body, offset, word, out),
+        sparse => encode_sparse_word(offset, word, sparse, out),
     }
 }
 
 /// Encode a run of all-zero words.
-fn encode_zero_run(
-    body: &[u8],
-    offset: usize,
-    out: &mut [u8],
-    cursor: usize,
-) -> Result<(usize, usize), EncodeError> {
+fn encode_zero_run(body: &[u8], offset: usize, out: &mut Vec<u8>) -> Result<usize, EncodeError> {
     let first_extra = advance_encode(offset, WORD_BYTES)?;
     let extra = run_extras(body, first_extra, |word| word == 0)?;
     let count = u8::try_from(extra).map_err(|_| EncodeError::LimitExceeded)?;
-    store(out, cursor, &[ZERO_RUN_TAG, count])?;
+    out.extend_from_slice(&[ZERO_RUN_TAG, count]);
     let extra_bytes = extra
         .checked_mul(WORD_BYTES)
         .ok_or(EncodeError::LimitExceeded)?;
-    Ok((
-        advance_encode(first_extra, extra_bytes)?,
-        advance_encode(cursor, 2)?,
-    ))
+    advance_encode(first_extra, extra_bytes)
 }
 
 /// Encode a dense passthrough run beginning with `word`.
@@ -209,56 +194,59 @@ fn encode_dense_run(
     body: &[u8],
     offset: usize,
     word: u64,
-    out: &mut [u8],
-    cursor: usize,
-) -> Result<(usize, usize), EncodeError> {
+    out: &mut Vec<u8>,
+) -> Result<usize, EncodeError> {
     let start = advance_encode(offset, WORD_BYTES)?;
     let extra = run_extras(body, start, |word| {
         tag_of(word).count_ones() >= DENSE_NONZERO_BYTES
     })?;
     let count = u8::try_from(extra).map_err(|_| EncodeError::LimitExceeded)?;
-    store(out, cursor, &[DENSE_RUN_TAG])?;
-    store(out, advance_encode(cursor, 1)?, &word.to_le_bytes())?;
-    store(out, advance_encode(cursor, 9)?, &[count])?;
     let extra_bytes = extra
         .checked_mul(WORD_BYTES)
         .ok_or(EncodeError::LimitExceeded)?;
     let end = advance_encode(start, extra_bytes)?;
     let raw = body.get(start..end).ok_or(EncodeError::LimitExceeded)?;
-    store(out, advance_encode(cursor, FAST_WINDOW)?, raw)?;
-    Ok((
-        end,
-        advance_encode(cursor, FAST_WINDOW.wrapping_add(raw.len()))?,
-    ))
+    out.extend_from_slice(&[DENSE_RUN_TAG]);
+    out.extend_from_slice(&word.to_le_bytes());
+    out.extend_from_slice(&[count]);
+    out.extend_from_slice(raw);
+    Ok(end)
 }
 
-/// Encode a sparse word: the tag byte then only its nonzero bytes.
+/// Encode a sparse word: the tag byte then only its nonzero bytes, gathered
+/// into one register and appended with a single bounded copy (the previous
+/// per-byte stores paid a bounds check per nonzero byte).
 fn encode_sparse_word(
     offset: usize,
     word: u64,
     tag: u8,
-    out: &mut [u8],
-    cursor: usize,
-) -> Result<(usize, usize), EncodeError> {
-    let end = advance_encode(cursor, 9)?;
-    let dst = out.get_mut(cursor..end).ok_or(EncodeError::LimitExceeded)?;
-    if let Some(cell) = dst.first_mut() {
-        *cell = tag;
-    }
-    let mut len = 1_usize;
+    out: &mut Vec<u8>,
+) -> Result<usize, EncodeError> {
+    let mut buf = [0_u8; 9];
+    let (head, tail) = buf.split_first_mut().ok_or(EncodeError::LimitExceeded)?;
+    *head = tag;
+    tail.copy_from_slice(&compact_word(word, tag).to_le_bytes());
+    let len = usize::try_from(tag.count_ones())
+        .map_err(|_| EncodeError::LimitExceeded)?
+        .wrapping_add(1);
+    let bytes = buf.get(..len).ok_or(EncodeError::LimitExceeded)?;
+    out.extend_from_slice(bytes);
+    advance_encode(offset, WORD_BYTES)
+}
+
+/// Gather the nonzero bytes of `word` (selected by `tag`) into the low lanes
+/// of one register, in ascending lane order.
+fn compact_word(word: u64, tag: u8) -> u64 {
+    let mut packed = 0_u64;
+    let mut shift = 0_u32;
     let mut bits = tag;
     while bits != 0 {
         let lane = bits.trailing_zeros();
-        if let Some(cell) = dst.get_mut(len) {
-            *cell = extract_lane(word, lane);
-        }
-        len = len.wrapping_add(1);
+        packed |= (word.wrapping_shr(lane.wrapping_mul(8)) & 0xFF).wrapping_shl(shift);
+        shift = shift.wrapping_add(8);
         bits &= bits.wrapping_sub(1);
     }
-    Ok((
-        advance_encode(offset, WORD_BYTES)?,
-        advance_encode(cursor, len)?,
-    ))
+    packed
 }
 
 /// Count extra words matching `predicate`, capped by the one-byte run count.
@@ -432,22 +420,6 @@ fn tag_of(word: u64) -> u8 {
     let nonzero = (word & LANE_LOW).wrapping_add(LANE_LOW) | word;
     let lanes = (nonzero >> 7) & LANE_ONES;
     u8::try_from(lanes.wrapping_mul(LANE_GATHER).wrapping_shr(56)).unwrap_or(0)
-}
-
-/// Extract byte `lane` (0-7) of a word.
-fn extract_lane(word: u64, lane: u32) -> u8 {
-    u8::try_from(word.wrapping_shr(lane.wrapping_mul(8)) & 0xFF).unwrap_or(0)
-}
-
-/// Copy `src` into `dst` at `offset` (encode-side store).
-fn store(dst: &mut [u8], offset: usize, src: &[u8]) -> Result<(), EncodeError> {
-    let end = offset
-        .checked_add(src.len())
-        .ok_or(EncodeError::LimitExceeded)?;
-    dst.get_mut(offset..end)
-        .ok_or(EncodeError::LimitExceeded)?
-        .copy_from_slice(src);
-    Ok(())
 }
 
 /// Append bytes while enforcing the unpacked output cap.

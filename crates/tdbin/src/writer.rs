@@ -145,10 +145,11 @@ impl Writer {
     }
 
     /// Grow capacity ahead of `end` aggressively so bulk encodes do not pay
-    /// repeated doubling copies.
+    /// repeated doubling copies: ×8 keeps total growth-copy traffic under a
+    /// seventh of the final body instead of a third at ×4.
     fn grow_for(&mut self, end: usize) {
         if end > self.body.capacity() {
-            let ahead = end.max(self.body.capacity().wrapping_mul(4));
+            let ahead = end.max(self.body.capacity().wrapping_mul(8));
             self.body.reserve(ahead.saturating_sub(self.body.len()));
         }
     }
@@ -303,7 +304,9 @@ impl Writer {
         self.set(ptr_word, ptr)
     }
 
-    /// Pack bits little-endian into already-reserved words at `start`.
+    /// Pack bits little-endian into already-reserved words at `start`: one
+    /// 64-bit accumulator flush per word instead of a bounds-checked
+    /// read-modify-write per bit.
     pub(crate) fn pack_bits(
         &mut self,
         start: usize,
@@ -317,12 +320,23 @@ impl Writer {
             .body
             .get_mut(byte_start..)
             .ok_or(EncodeError::LimitExceeded)?;
-        for (i, value) in values.enumerate() {
-            let cell = dst.get_mut(i / 8).ok_or(EncodeError::LimitExceeded)?;
-            let mask = 1_u8.wrapping_shl(u32::try_from(i % 8).unwrap_or(0));
-            *cell |= mask & u8::from(value).wrapping_neg();
+        let mut words = dst.chunks_exact_mut(WORD_BYTES);
+        let (mut acc, mut filled) = (0_u64, 0_u32);
+        for value in values {
+            acc |= u64::from(value).wrapping_shl(filled);
+            filled = filled.wrapping_add(1);
+            (acc, filled) = match filled {
+                64 => {
+                    flush_bit_word(&mut words, acc)?;
+                    (0, 0)
+                }
+                _ => (acc, filled),
+            };
         }
-        Ok(())
+        match filled {
+            0 => Ok(()),
+            _ => flush_bit_word(&mut words, acc),
+        }
     }
 
     /// Run one nested struct write with the pointer-depth budget decremented.
@@ -336,6 +350,17 @@ impl Writer {
         self.depth = previous;
         result
     }
+}
+
+/// Write one packed bit word into the next reserved 8-byte chunk.
+fn flush_bit_word(
+    words: &mut core::slice::ChunksExactMut<'_, u8>,
+    acc: u64,
+) -> Result<(), EncodeError> {
+    words
+        .next()
+        .ok_or(EncodeError::LimitExceeded)
+        .map(|chunk| chunk.copy_from_slice(&acc.to_le_bytes()))
 }
 
 /// Read a word back out of a mutable cell.

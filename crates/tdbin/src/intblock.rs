@@ -36,20 +36,25 @@ fn unzigzag(value: u64) -> i64 {
 pub(crate) fn encode(values: &[i64]) -> Result<Vec<u8>, EncodeError> {
     let count = u32::try_from(values.len()).map_err(|_| EncodeError::LimitExceeded)?;
     let first = values.first().copied().unwrap_or_default();
-    let deltas = zigzag_deltas(values);
-    let floor = deltas.iter().copied().min().unwrap_or_default();
-    let width = deltas
-        .iter()
-        .map(|delta| WORD_BITS.wrapping_sub(delta.wrapping_sub(floor).leading_zeros()))
-        .max()
-        .unwrap_or_default();
+    let (floor, width) = delta_stats(values);
     let mut out = Vec::with_capacity(block_len(values.len(), width)?);
     out.extend_from_slice(&count.to_le_bytes());
     out.extend_from_slice(&first.to_le_bytes());
     out.extend_from_slice(&floor.to_le_bytes());
     out.push(u8::try_from(width).map_err(|_| EncodeError::LimitExceeded)?);
-    pack_bits(&deltas, floor, width, &mut out);
+    pack_deltas(values, floor, width, &mut out);
     Ok(out)
+}
+
+/// The minimum zigzag delta and the minimal bit width covering the range,
+/// computed in two streaming passes with no intermediate buffer.
+fn delta_stats(values: &[i64]) -> (u64, u32) {
+    let floor = deltas(values).min().unwrap_or_default();
+    let width = deltas(values)
+        .map(|delta| WORD_BITS.wrapping_sub(delta.wrapping_sub(floor).leading_zeros()))
+        .max()
+        .unwrap_or_default();
+    (floor, width)
 }
 
 /// Read a block's declared logical count without decoding it.
@@ -103,40 +108,38 @@ pub(crate) fn decode(block: &[u8]) -> Result<Vec<i64>, DecodeError> {
 }
 
 /// Zigzagged wrapping deltas between consecutive values.
-fn zigzag_deltas(values: &[i64]) -> Vec<u64> {
-    values
-        .windows(2)
-        .map(|pair| {
-            let previous = pair.first().copied().unwrap_or_default();
-            let next = pair.get(1).copied().unwrap_or_default();
-            zigzag(next.wrapping_sub(previous))
-        })
-        .collect()
+fn deltas(values: &[i64]) -> impl Iterator<Item = u64> + '_ {
+    values.windows(2).map(|pair| {
+        let previous = pair.first().copied().unwrap_or_default();
+        let next = pair.get(1).copied().unwrap_or_default();
+        zigzag(next.wrapping_sub(previous))
+    })
 }
 
-/// Append `width`-bit values (relative to `floor`) as a little-endian stream.
-fn pack_bits(deltas: &[u64], floor: u64, width: u32, out: &mut Vec<u8>) {
+/// Append `width`-bit deltas (relative to `floor`) as a little-endian stream,
+/// flushing whole 64-bit words instead of single bytes.
+fn pack_deltas(values: &[i64], floor: u64, width: u32, out: &mut Vec<u8>) {
     let mut acc = 0_u64;
     let mut filled = 0_u32;
-    for delta in deltas {
-        let mut value = delta.wrapping_sub(floor);
-        let mut remaining = width;
-        while remaining > 0 {
-            let take = remaining.min(WORD_BITS.wrapping_sub(filled));
-            acc |= (value & mask_of(take)).wrapping_shl(filled);
-            filled = filled.wrapping_add(take);
-            value = shr_full(value, take);
-            remaining = remaining.wrapping_sub(take);
-            while filled >= 8 {
-                out.push(u8::try_from(acc & 0xFF).unwrap_or(0));
-                acc = acc.wrapping_shr(8);
-                filled = filled.wrapping_sub(8);
+    for delta in deltas(values) {
+        let value = delta.wrapping_sub(floor) & mask_of(width);
+        acc |= value.wrapping_shl(filled);
+        match filled.checked_add(width) {
+            Some(next) if next < WORD_BITS => filled = next,
+            _ => {
+                out.extend_from_slice(&acc.to_le_bytes());
+                acc = shr_full(value, WORD_BITS.wrapping_sub(filled));
+                filled = filled.wrapping_add(width).wrapping_sub(WORD_BITS);
             }
         }
     }
-    if filled > 0 {
-        out.push(u8::try_from(acc & 0xFF).unwrap_or(0));
-    }
+    flush_partial(acc, filled, out);
+}
+
+/// Flush the trailing partial word: only the bytes carrying `filled` bits.
+fn flush_partial(acc: u64, filled: u32, out: &mut Vec<u8>) {
+    let bytes = usize::try_from(filled.div_ceil(8)).unwrap_or(8);
+    out.extend_from_slice(acc.to_le_bytes().get(..bytes).unwrap_or_default());
 }
 
 /// Shift right by up to 64 bits (a 64-bit shift yields zero).
@@ -161,23 +164,41 @@ impl<'a> BitReader<'a> {
         Self { bytes, bit: 0 }
     }
 
-    /// Read the next `width` bits (little-endian), zero-padded past the end.
+    /// Read the next `width` bits (little-endian), zero-padded past the end:
+    /// one unaligned word load covers every width up to 57 bits, and a second
+    /// load stitches the rare wide read that crosses the first word's end.
     fn read(&mut self, width: u32) -> u64 {
-        let mut value = 0_u64;
-        let mut got = 0_u32;
-        while got < width {
-            let byte_index = self.bit / 8;
-            let bit_offset = u32::try_from(self.bit % 8).unwrap_or(0);
-            let available = 8_u32.wrapping_sub(bit_offset);
-            let take = available.min(width.wrapping_sub(got));
-            let byte = u64::from(self.bytes.get(byte_index).copied().unwrap_or(0));
-            let mask = mask_of(take);
-            value |= (byte.wrapping_shr(bit_offset) & mask).wrapping_shl(got);
-            got = got.wrapping_add(take);
-            self.bit = self.bit.wrapping_add(usize::try_from(take).unwrap_or(0));
-        }
+        let index = self.bit / 8;
+        let shift = u32::try_from(self.bit % 8).unwrap_or(0);
+        let have = WORD_BITS.wrapping_sub(shift);
+        let lo = load_padded(self.bytes, index).wrapping_shr(shift);
+        let value = if width <= have {
+            lo & mask_of(width)
+        } else {
+            let hi = load_padded(self.bytes, index.wrapping_add(8));
+            (lo | hi.wrapping_shl(have)) & mask_of(width)
+        };
+        self.bit = self.bit.wrapping_add(usize::try_from(width).unwrap_or(0));
         value
     }
+}
+
+/// Load the little-endian word at byte `index`, zero-padded past the end.
+fn load_padded(bytes: &[u8], index: usize) -> u64 {
+    bytes
+        .get(index..index.wrapping_add(8))
+        .and_then(|slice| <[u8; 8]>::try_from(slice).ok())
+        .map_or_else(|| tail_word(bytes, index), u64::from_le_bytes)
+}
+
+/// Little-endian fold of the partial tail starting at `index`.
+fn tail_word(bytes: &[u8], index: usize) -> u64 {
+    bytes
+        .get(index..)
+        .unwrap_or_default()
+        .iter()
+        .rev()
+        .fold(0_u64, |acc, byte| acc.wrapping_shl(8) | u64::from(*byte))
 }
 
 /// Read a little-endian u64 at `offset`.

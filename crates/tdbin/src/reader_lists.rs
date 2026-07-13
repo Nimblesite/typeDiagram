@@ -408,13 +408,12 @@ impl<'a> Reader<'a> {
     }
 }
 
-/// Append the requested low bits from one packed Bool word.
+/// Append the requested low bits from one packed Bool word: an exact-size
+/// range extend, so the reserve and per-element capacity checks vanish and
+/// each lane's shift is independent of the previous one.
 fn append_bool_word(out: &mut Vec<bool>, word: u64, count: usize) {
-    let mut mask = 1_u64;
-    for _ in 0..count {
-        out.push(word & mask != 0);
-        mask = mask.rotate_left(1);
-    }
+    let take = u32::try_from(count).unwrap_or(64).min(64);
+    out.extend((0..take).map(|bit| word.wrapping_shr(bit) & 1 != 0));
 }
 
 /// Convert an exact 8-byte chunk to an array (total for `chunks_exact` output).

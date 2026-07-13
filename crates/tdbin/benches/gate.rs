@@ -120,13 +120,9 @@ where
             });
         },
     );
-    let _ = group.bench_with_input(
-        BenchmarkId::new("msgpack_encode", label),
-        pb,
-        |b, value| {
-            b.iter(|| rmp_serde::to_vec_named(black_box(value)));
-        },
-    );
+    let _ = group.bench_with_input(BenchmarkId::new("msgpack_encode", label), pb, |b, value| {
+        b.iter(|| rmp_serde::to_vec_named(black_box(value)));
+    });
     let _ = group.bench_with_input(
         BenchmarkId::new("tdbin_decode_bare", label),
         &bare,

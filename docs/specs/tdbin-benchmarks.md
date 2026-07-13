@@ -2,6 +2,8 @@
 
 TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [`scripts/tdbin-bench-report.mjs`](https://github.com/Nimblesite/typeDiagram/blob/main/scripts/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
 
+> **Scope: these figures are for the Rust implementation only.** Both the encoded sizes and the speeds are measured against the Rust `tdbin` codec crate ([`crates/tdbin`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin)), the Rust `prost` Protobuf encoder, and the Rust `rmp-serde` MessagePack encoder. The TDBIN **wire format** and its byte sizes are language-neutral, but serialize/deserialize **speeds** depend on each language's implementation — typeDiagram's other codec targets, and other Protobuf/MessagePack libraries, will differ, sometimes substantially.
+
 ## Size and Speed
 
 One row per test. Sizes are exact encoded bytes; "Serialize" is the whole ADT→binary conversion and "Deserialize" the whole binary→ADT conversion, each a Criterion median. typeDiagram is its **framed** production wire mode; MessagePack is struct-as-map (via `rmp-serde`). Lower is better in every column.
@@ -30,6 +32,7 @@ The following are read directly off the table above — each is a comparison of 
 
 ## Methodology
 
+- **Rust implementations.** Every timing is for a Rust codec: typeDiagram's [`tdbin`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin) crate, Protobuf via `prost`, and MessagePack via `rmp-serde`. Encoded sizes are a property of the wire format and hold across languages; speeds do not — typeDiagram's other language targets and other Protobuf/MessagePack libraries will produce different timings.
 - **Same values, three encoders.** Every test builds one logical value and feeds the identical value to the typeDiagram codec, to a hand-written Protobuf mirror (`prost`), and — via `serde` derives on that same mirror — to MessagePack (`rmp-serde`). No format receives a different input. See the fixtures in [`crates/tdbin/tests/support/bench_corpus.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/tests/support/bench_corpus.rs).
 - **Self-describing modes only.** typeDiagram _framed_, Protobuf, and MessagePack _struct-as-map_ all carry enough structure to be decoded without an external schema, so the comparison is like-for-like.
 - **Sizes are exact byte counts** emitted by each encoder (see [`crates/tdbin/examples/bench_data.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/examples/bench_data.rs)) — not estimates.
