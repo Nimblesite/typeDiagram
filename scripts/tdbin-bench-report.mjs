@@ -265,61 +265,86 @@ writeFileSync(reportPath, await format(report, { ...prettierOptions, filepath: r
 // ratios. Serialize = the full ADT→binary encode; deserialize = the full
 // binary→ADT decode; round-trip = the two summed (encode + decode).
 const websitePath = join(root, "docs/specs/tdbin-benchmarks.md");
-const corpusFixtures = sizes.fixtures.filter((fixture) => fixture.corpus);
-const websiteTables = corpusFixtures
+const repo = "https://github.com/Nimblesite/typeDiagram";
+const ref = "blob/main";
+
+// [TDBIN-BENCH-WEBSITE-FACTS] Story lines derived strictly from the measured
+// data — every claim is a comparison the table already prints, never a guess.
+const round1 = (x) => Math.round(x * 10) / 10;
+const compareSize = (fixture) => ({
+  tdVsPb: round1(fixture.protobuf / fixture.tdbin_framed),
+  tdVsMp: round1(fixture.msgpack / fixture.tdbin_framed),
+});
+const roundTrip = (fixture, p) => median(fixture.name, p.encode) + median(fixture.name, p.decode);
+const [td, pb, mp] = protocols;
+const factLines = sizes.fixtures.map((fixture) => {
+  const s = compareSize(fixture);
+  const rtTd = roundTrip(fixture, td);
+  const rtPb = roundTrip(fixture, pb);
+  const rtMp = roundTrip(fixture, mp);
+  const smallest = [
+    ["typeDiagram", fixture.tdbin_framed],
+    ["Protobuf", fixture.protobuf],
+    ["MessagePack", fixture.msgpack],
+  ].sort((a, b) => a[1] - b[1])[0][0];
+  const fastest = [
+    ["typeDiagram", rtTd],
+    ["Protobuf", rtPb],
+    ["MessagePack", rtMp],
+  ].sort((a, b) => a[1] - b[1])[0][0];
+  const items = `${fixture.logical_items.toLocaleString()} item${fixture.logical_items === 1 ? "" : "s"}`;
+  return `- **\`${fixture.name}\`** (${fixture.shape}, ${items}): smallest encoding is **${smallest}**; fastest round-trip is **${fastest}**. typeDiagram's encoding is ${s.tdVsPb}× the size of Protobuf and ${s.tdVsMp}× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).`;
+});
+
+const mainRows = sizes.fixtures
   .map((fixture) => {
-    const rows = protocols
-      .map((p) => {
-        const serialize = median(fixture.name, p.encode);
-        const deserialize = median(fixture.name, p.decode);
-        return `| ${p.label} | ${p.size(fixture).toLocaleString()} | ${duration(serialize)} | ${duration(deserialize)} | ${duration(serialize + deserialize)} |`;
-      })
-      .join("\n");
-    return `### ${fixture.shape}
-
-${fixture.logical_items.toLocaleString()} items. Lower is better in every column. "Serialize" is the whole ADT→binary conversion, "Deserialize" the whole binary→ADT conversion, and "Round-trip" the two summed.
-
-| Format | Size (bytes) | Serialize | Deserialize | Round-trip |
-| --- | ---: | ---: | ---: | ---: |
-${rows}`;
+    const size = (p) => p.size(fixture).toLocaleString();
+    const enc = (p) => duration(median(fixture.name, p.encode));
+    const dec = (p) => duration(median(fixture.name, p.decode));
+    return `| \`${fixture.name}\` | ${size(td)} | ${size(pb)} | ${size(mp)} | ${enc(td)} | ${enc(pb)} | ${enc(mp)} | ${dec(td)} | ${dec(pb)} | ${dec(mp)} |`;
   })
-  .join("\n\n");
+  .join("\n");
 
 const website = `# TDBIN Benchmarks
 
-TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack** on realistic workloads. Every number is data-derived — produced by \`scripts/tdbin-bench-report.mjs\` from Criterion timings and exact encoder output — and regenerates on each benchmark run.
+TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [\`scripts/tdbin-bench-report.mjs\`](${repo}/${ref}/scripts/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
 
-## The three formats
+## Size and Speed
 
-**TDBIN (framed)** is a self-describing frame around typeDiagram's columnar layout; it drops the per-field tags the others repeat on every record, so on batches of the same shape — telemetry, event streams, repeated records — it is both the smallest and the fastest here, and it is the format to reach for when you control both ends and your data is list- or record-heavy.
+One row per test. Sizes are exact encoded bytes; "Serialize" is the whole ADT→binary conversion and "Deserialize" the whole binary→ADT conversion, each a Criterion median. typeDiagram is its **framed** production wire mode; MessagePack is struct-as-map (via \`rmp-serde\`). Lower is better in every column.
 
-**Protocol Buffers** is schema-driven with a tag per field, extremely compact and fast on small sparse messages and the industry default for cross-language RPC over a shared \`.proto\`, so reach for it when messages are small, schemas are shared, and you need the broadest ecosystem.
+| Test | typeDiagram Size | Protobuf Size | MessagePack Size | typeDiagram Serialize | Protobuf Serialize | MessagePack Serialize | typeDiagram Deserialize | Protobuf Deserialize | MessagePack Deserialize |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+${mainRows}
 
-**MessagePack** is schemaless and self-describing (\`struct-as-map\`, via \`rmp-serde\`); it carries field names on the wire so it is the largest and slowest of the three, but it needs no schema at all and any language can read it, which makes it the pick for loosely-typed interchange, config blobs, or wherever a schema is impractical.
+## What the numbers show
 
-## Results
+The following are read directly off the table above — each is a comparison of the measured values, nothing more:
 
-Each table is one committed **corpus** workload. Rows are the three formats; columns are the encoded size and the whole-operation timings. TDBIN is shown in its **framed** production mode — the self-describing peer of the other two.
-
-${websiteTables}
+${factLines.join("\n")}
 
 ## Methodology
 
-- **Same values, three encoders.** Every fixture builds one logical value; the exact same value is fed to the TDBIN codec, to a hand-written Protobuf mirror (\`prost\`), and — via \`serde\` derives on that same mirror — to MessagePack (\`rmp-serde\`). No format gets a different or more favorable input.
-- **Self-describing modes compared.** TDBIN *framed*, Protobuf, and MessagePack *struct-as-map* are all self-describing, so the comparison is like-for-like. (TDBIN's smaller *packed* mode and the tiny single-message stress fixtures appear in the full report, not here.)
-- **Sizes are exact byte counts** from each encoder — not estimates.
-- **Timings are Criterion medians** over ${data.benchmarks[0]?.sample_count ?? 50} samples per operation on the environment below; each measured value flows through \`black_box\` so the optimizer cannot elide the work. Round-trip is the encode median plus the decode median.
-- **Reproduce it yourself** with the commands below; the page and its numbers regenerate together.
+- **Same values, three encoders.** Every test builds one logical value and feeds the identical value to the typeDiagram codec, to a hand-written Protobuf mirror (\`prost\`), and — via \`serde\` derives on that same mirror — to MessagePack (\`rmp-serde\`). No format receives a different input. See the fixtures in [\`crates/tdbin/tests/support/bench_corpus.rs\`](${repo}/${ref}/crates/tdbin/tests/support/bench_corpus.rs).
+- **Self-describing modes only.** typeDiagram *framed*, Protobuf, and MessagePack *struct-as-map* all carry enough structure to be decoded without an external schema, so the comparison is like-for-like.
+- **Sizes are exact byte counts** emitted by each encoder (see [\`crates/tdbin/examples/bench_data.rs\`](${repo}/${ref}/crates/tdbin/examples/bench_data.rs)) — not estimates.
+- **Timings are Criterion medians** over ${data.benchmarks[0]?.sample_count ?? 50} samples per operation; each measured value flows through \`black_box\` so the optimizer cannot elide the work. The benchmark harness is [\`crates/tdbin/benches/gate.rs\`](${repo}/${ref}/crates/tdbin/benches/gate.rs).
+- **Corpus schemas** are committed at [\`docs/benchmarks/tdbin-corpus.td\`](${repo}/${ref}/docs/benchmarks/tdbin-corpus.td) and [\`docs/benchmarks/tdbin-corpus.proto\`](${repo}/${ref}/docs/benchmarks/tdbin-corpus.proto).
 
-### Environment
+## Test machine
 
 | Field | Value |
 | --- | --- |
 | Platform | ${data.environment.platform} ${data.environment.release} (${data.environment.architecture}) |
 | CPU | ${data.environment.cpu} |
+| Logical CPUs | ${data.environment.logical_cpus} |
+| Memory | ${(data.environment.memory_bytes / 1_073_741_824).toFixed(1)} GiB |
 | Rust | ${data.environment.rustc} |
+| Cargo | ${data.environment.cargo} |
 
-### Reproduce
+## Reproduce
+
+Run the benchmark, then regenerate this page:
 
 ${data.commands.map((command) => `- \`${command}\``).join("\n")}
 `;

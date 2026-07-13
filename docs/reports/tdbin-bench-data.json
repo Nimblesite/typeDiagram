@@ -1,6 +1,6 @@
 {
   "format_version": 1,
-  "generated_at": "2026-07-13T22:00:16.855Z",
+  "generated_at": "2026-07-13T22:05:40.298Z",
   "commands": ["cargo bench -p tdbin --bench gate -- --noplot", "node scripts/tdbin-bench-report.mjs"],
   "corpus_schemas": ["docs/benchmarks/tdbin-corpus.td", "docs/benchmarks/tdbin-corpus.proto"],
   "gate": {

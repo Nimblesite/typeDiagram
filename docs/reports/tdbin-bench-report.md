@@ -3,9 +3,9 @@
 > GENERATED FILE. Source: `scripts/tdbin-bench-report.mjs` and `docs/reports/tdbin-bench-data.json`.
 > Every value and verdict is computed from machine-readable Criterion and encoder output. No benchmark result is entered manually.
 
-Generated: 2026-07-13T22:00:16.855Z
+Generated: 2026-07-13T22:05:40.298Z
 
-Raw data SHA-256: `134d351db228a6f2338f73f6682333eaa671b8aa6d688c8c074285126819f5fe`
+Raw data SHA-256: `c8d15f8911c0ec857d5e9d4c8950fd8b01095e8c22ba5828b57c8308666000c0`
 
 ## Result
 
