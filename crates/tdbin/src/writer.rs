@@ -18,6 +18,9 @@ use crate::{Struct, MAX_DEPTH};
 const MAX_WORDS: usize = 1 << 26;
 /// Initial arena capacity: covers small messages with one allocation.
 const INITIAL_CAPACITY: usize = 256;
+/// Capacity knee above which arena growth falls back from ×8 to ×4, bounding
+/// worst-case retained overshoot for large messages at the pre-knee level.
+const GROWTH_KNEE_BYTES: usize = 1 << 22;
 
 /// Accumulates message body words while encoding a value tree.
 #[derive(Debug)]
@@ -145,11 +148,17 @@ impl Writer {
     }
 
     /// Grow capacity ahead of `end` aggressively so bulk encodes do not pay
-    /// repeated doubling copies: ×8 keeps total growth-copy traffic under a
-    /// seventh of the final body instead of a third at ×4.
+    /// repeated doubling copies: ×8 below the knee keeps growth-copy traffic
+    /// under a seventh of the final body, and ×4 above it caps the retained
+    /// overshoot for large messages at the historical bound.
     fn grow_for(&mut self, end: usize) {
         if end > self.body.capacity() {
-            let ahead = end.max(self.body.capacity().wrapping_mul(8));
+            let factor = if self.body.capacity() < GROWTH_KNEE_BYTES {
+                8
+            } else {
+                4
+            };
+            let ahead = end.max(self.body.capacity().wrapping_mul(factor));
             self.body.reserve(ahead.saturating_sub(self.body.len()));
         }
     }

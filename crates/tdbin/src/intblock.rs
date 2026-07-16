@@ -36,25 +36,20 @@ fn unzigzag(value: u64) -> i64 {
 pub(crate) fn encode(values: &[i64]) -> Result<Vec<u8>, EncodeError> {
     let count = u32::try_from(values.len()).map_err(|_| EncodeError::LimitExceeded)?;
     let first = values.first().copied().unwrap_or_default();
-    let (floor, width) = delta_stats(values);
+    let deltas = zigzag_deltas(values);
+    let floor = deltas.iter().copied().min().unwrap_or_default();
+    let width = deltas
+        .iter()
+        .map(|delta| WORD_BITS.wrapping_sub(delta.wrapping_sub(floor).leading_zeros()))
+        .max()
+        .unwrap_or_default();
     let mut out = Vec::with_capacity(block_len(values.len(), width)?);
     out.extend_from_slice(&count.to_le_bytes());
     out.extend_from_slice(&first.to_le_bytes());
     out.extend_from_slice(&floor.to_le_bytes());
     out.push(u8::try_from(width).map_err(|_| EncodeError::LimitExceeded)?);
-    pack_deltas(values, floor, width, &mut out);
+    pack_deltas(&deltas, floor, width, &mut out);
     Ok(out)
-}
-
-/// The minimum zigzag delta and the minimal bit width covering the range,
-/// computed in two streaming passes with no intermediate buffer.
-fn delta_stats(values: &[i64]) -> (u64, u32) {
-    let floor = deltas(values).min().unwrap_or_default();
-    let width = deltas(values)
-        .map(|delta| WORD_BITS.wrapping_sub(delta.wrapping_sub(floor).leading_zeros()))
-        .max()
-        .unwrap_or_default();
-    (floor, width)
 }
 
 /// Read a block's declared logical count without decoding it.
@@ -96,40 +91,78 @@ pub(crate) fn decode(block: &[u8]) -> Result<Vec<i64>, DecodeError> {
         return Err(DecodeError::MalformedColumn);
     }
     let mut out = Vec::with_capacity(count);
-    let mut acc = i64::from_le_bytes(first.to_le_bytes());
+    let acc = i64::from_le_bytes(first.to_le_bytes());
     out.push(acc);
+    match width {
+        0 => fill_constant(&mut out, acc, unzigzag(floor), count),
+        _ => read_deltas(&mut out, block, acc, floor, width, count),
+    }
+    Ok(out)
+}
+
+/// Accumulate the remaining values from a constant `step` delta: a width of
+/// zero packs no bits at all, so monotonic columns skip the bit reader.
+fn fill_constant(out: &mut Vec<i64>, mut acc: i64, step: i64, count: usize) {
+    for _ in 1..count {
+        acc = acc.wrapping_add(step);
+        out.push(acc);
+    }
+}
+
+/// Accumulate the remaining values from the packed delta stream.
+fn read_deltas(
+    out: &mut Vec<i64>,
+    block: &[u8],
+    mut acc: i64,
+    floor: u64,
+    width: u32,
+    count: usize,
+) {
     let mut bits = BitReader::new(block.get(HEADER_BYTES..).unwrap_or_default());
     for _ in 1..count {
         let delta = unzigzag(bits.read(width).wrapping_add(floor));
         acc = acc.wrapping_add(delta);
         out.push(acc);
     }
-    Ok(out)
 }
 
-/// Zigzagged wrapping deltas between consecutive values.
-fn deltas(values: &[i64]) -> impl Iterator<Item = u64> + '_ {
-    values.windows(2).map(|pair| {
-        let previous = pair.first().copied().unwrap_or_default();
-        let next = pair.get(1).copied().unwrap_or_default();
-        zigzag(next.wrapping_sub(previous))
-    })
+/// Zigzagged wrapping deltas between consecutive values, materialized once:
+/// the floor scan, width scan, and packing pass all reuse this buffer instead
+/// of re-deriving deltas per pass.
+fn zigzag_deltas(values: &[i64]) -> Vec<u64> {
+    values
+        .windows(2)
+        .map(|pair| {
+            let previous = pair.first().copied().unwrap_or_default();
+            let next = pair.get(1).copied().unwrap_or_default();
+            zigzag(next.wrapping_sub(previous))
+        })
+        .collect()
 }
 
-/// Append `width`-bit deltas (relative to `floor`) as a little-endian stream,
-/// flushing whole 64-bit words instead of single bytes.
-fn pack_deltas(values: &[i64], floor: u64, width: u32, out: &mut Vec<u8>) {
+/// Append `width`-bit deltas (relative to `floor`) as a little-endian stream.
+///
+/// Keep the byte-at-a-time pusher: a manual 64-bit-accumulator variant that
+/// flushed whole words measured 20-30% SLOWER on the metric and contact
+/// corpora (Apple Silicon, criterion vs pinned baseline) — LLVM optimizes
+/// this shape better than the hand-rolled word flush with its
+/// data-dependent flush branch.
+fn pack_deltas(deltas: &[u64], floor: u64, width: u32, out: &mut Vec<u8>) {
     let mut acc = 0_u64;
     let mut filled = 0_u32;
-    for delta in deltas(values) {
-        let value = delta.wrapping_sub(floor) & mask_of(width);
-        acc |= value.wrapping_shl(filled);
-        match filled.checked_add(width) {
-            Some(next) if next < WORD_BITS => filled = next,
-            _ => {
-                out.extend_from_slice(&acc.to_le_bytes());
-                acc = shr_full(value, WORD_BITS.wrapping_sub(filled));
-                filled = filled.wrapping_add(width).wrapping_sub(WORD_BITS);
+    for delta in deltas {
+        let mut value = delta.wrapping_sub(floor);
+        let mut remaining = width;
+        while remaining > 0 {
+            let take = remaining.min(WORD_BITS.wrapping_sub(filled));
+            acc |= (value & mask_of(take)).wrapping_shl(filled);
+            filled = filled.wrapping_add(take);
+            value = shr_full(value, take);
+            remaining = remaining.wrapping_sub(take);
+            while filled >= 8 {
+                out.push(u8::try_from(acc & 0xFF).unwrap_or(0));
+                acc = acc.wrapping_shr(8);
+                filled = filled.wrapping_sub(8);
             }
         }
     }

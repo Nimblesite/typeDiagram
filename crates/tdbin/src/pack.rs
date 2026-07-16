@@ -1,13 +1,14 @@
 //! Cap'n Proto word packing for TDBIN bodies ([TDBIN-PACK]).
 //!
 //! Hot-path shape ([TDBIN-PACK-WORD], [TDBIN-PACK-RUNS]): whole words are
-//! classified with a branch-free SWAR nonzero-byte mask, both directions
-//! write through cursors into preallocated buffers (no per-byte growth
-//! checks), zero runs cost two bytes to emit and a cursor bump to consume
-//! (the output arrives pre-zeroed), and sparse words touch only their
-//! nonzero bytes. Output is byte-identical to the reference algorithm: a
-//! zero run starts on an all-zero word, a dense run starts on an all-nonzero
-//! word and extends over words with at least seven nonzero bytes.
+//! classified with a branch-free SWAR nonzero-byte mask, the encoder appends
+//! constant-size chunks onto a capacity-reserved vector (no zero-fill pass,
+//! no per-byte stores), the decoder writes through cursors into a pre-zeroed
+//! buffer, zero runs cost two bytes to emit and a cursor bump to consume,
+//! and sparse words touch only their nonzero bytes. Output is byte-identical
+//! to the reference algorithm: a zero run starts on an all-zero word, a
+//! dense run starts on an all-nonzero word and extends over words with at
+//! least seven nonzero bytes.
 
 use crate::error::{DecodeError, EncodeError};
 
@@ -100,8 +101,9 @@ fn grow_chunk(out: &mut Vec<u8>, written: usize) -> bool {
 }
 
 /// Decode fast elements into the pre-zeroed slice until the headroom or the
-/// input window runs out; the sparse path is fully inlined with no per-word
-/// slice construction, so the loop is bounded by the tag-load/popcount chain.
+/// input window runs out; `cursor <= fast_end` guarantees a full window at
+/// every iteration, so the per-element helpers read whole words unchecked by
+/// construction. The caller guarantees `ELEMENT_ROOM` headroom.
 fn decode_chunk(
     packed: &[u8],
     mut cursor: usize,
@@ -113,43 +115,69 @@ fn decode_chunk(
     let dst = out.as_mut_slice();
     while cursor <= fast_end && written <= limit {
         let tag = packed.get(cursor).copied().unwrap_or(0);
-        if tag == ZERO_RUN_TAG || tag == DENSE_RUN_TAG {
-            let Some(window) = window_at(packed, cursor) else {
-                break;
-            };
-            (cursor, written) = decode_fast_element(packed, window, cursor, dst, written)?;
-        } else {
-            let end = cursor.wrapping_add(9);
-            let src = packed
-                .get(cursor.wrapping_add(1)..end)
-                .and_then(|slice| <[u8; WORD_BYTES]>::try_from(slice).ok())
-                .ok_or(DecodeError::PackedTruncated)?;
-            let word = expand_word(tag, u64::from_le_bytes(src));
-            if let Some(cell) = dst.get_mut(written..written.wrapping_add(WORD_BYTES)) {
-                cell.copy_from_slice(&word.to_le_bytes());
-            }
-            let taken = usize::try_from(tag.count_ones()).unwrap_or(WORD_BYTES);
-            cursor = cursor.wrapping_add(taken.wrapping_add(1));
-            written = written.wrapping_add(WORD_BYTES);
-        }
+        (cursor, written) = match tag {
+            ZERO_RUN_TAG => decode_fast_zero(packed, cursor, written)?,
+            DENSE_RUN_TAG => decode_fast_dense(packed, cursor, dst, written)?,
+            sparse => decode_fast_sparse(sparse, packed, cursor, dst, written)?,
+        };
     }
     Ok((cursor, written))
 }
 
-/// Branchless sparse expansion: each lane independently locates its source
-/// byte by prefix-popcount, so the eight lanes carry no data-dependent branch
-/// and no serial register dependency (the previous shift-chain version
-/// serialized every lane on the compacted source register).
+/// Skip a zero-word run in the fast path: the output is pre-zeroed, so the
+/// run costs one count load and two cursor bumps.
+fn decode_fast_zero(
+    packed: &[u8],
+    cursor: usize,
+    written: usize,
+) -> Result<(usize, usize), DecodeError> {
+    let extra = usize::from(packed.get(cursor.wrapping_add(1)).copied().unwrap_or(0));
+    let bytes = extra
+        .wrapping_add(1)
+        .checked_mul(WORD_BYTES)
+        .ok_or(DecodeError::LimitExceeded)?;
+    Ok((advance(cursor, 2)?, advance(written, bytes)?))
+}
+
+/// Expand one sparse word in the fast path with unconditional whole-word
+/// reads and writes.
+fn decode_fast_sparse(
+    tag: u8,
+    packed: &[u8],
+    cursor: usize,
+    dst: &mut [u8],
+    written: usize,
+) -> Result<(usize, usize), DecodeError> {
+    let src = packed
+        .get(cursor.wrapping_add(1)..cursor.wrapping_add(9))
+        .and_then(|slice| <[u8; WORD_BYTES]>::try_from(slice).ok())
+        .ok_or(DecodeError::PackedTruncated)?;
+    let word = expand_word(tag, u64::from_le_bytes(src));
+    if let Some(cell) = dst.get_mut(written..written.wrapping_add(WORD_BYTES)) {
+        cell.copy_from_slice(&word.to_le_bytes());
+    }
+    let taken = usize::try_from(tag.count_ones()).unwrap_or(WORD_BYTES);
+    Ok((
+        advance(cursor, taken.wrapping_add(1))?,
+        advance(written, WORD_BYTES)?,
+    ))
+}
+
+/// Branchless sparse expansion: a constant eight-lane pass selects each
+/// output byte from the compacted source. The serial shift-chain beats a
+/// prefix-popcount lane-independent variant here: expansions of consecutive
+/// words are already independent, so the CPU overlaps their chains, and this
+/// shape is fewer ops per lane (measured on Apple Silicon).
 fn expand_word(tag: u8, src: u64) -> u64 {
     let mut word = 0_u64;
+    let mut rest = src;
     let mut lane = 0_u32;
     while lane < 8 {
-        let present = u64::from(tag).wrapping_shr(lane) & 1;
-        let below = u32::from(tag) & 1_u32.wrapping_shl(lane).wrapping_sub(1);
-        let byte = src.wrapping_shr(below.count_ones().wrapping_mul(8)) & 0xFF;
-        word |= byte
-            .wrapping_mul(present)
+        let take = u64::from(tag).wrapping_shr(lane) & 1;
+        word |= (rest & 0xFF)
+            .wrapping_mul(take)
             .wrapping_shl(lane.wrapping_mul(8));
+        rest = rest.wrapping_shr(u32::try_from(take.wrapping_mul(8)).unwrap_or(0));
         lane = lane.wrapping_add(1);
     }
     word
@@ -214,8 +242,10 @@ fn encode_dense_run(
 }
 
 /// Encode a sparse word: the tag byte then only its nonzero bytes, gathered
-/// into one register and appended with a single bounded copy (the previous
-/// per-byte stores paid a bounds check per nonzero byte).
+/// into one register. The whole 9-byte buffer is appended as one
+/// constant-size copy (which the compiler inlines, unlike a variable-length
+/// copy that lowers to a `memcpy` call per word) and the garbage tail is
+/// truncated off — a sparse tag has 1-7 set bits, so the tag byte survives.
 fn encode_sparse_word(
     offset: usize,
     word: u64,
@@ -226,11 +256,10 @@ fn encode_sparse_word(
     let (head, tail) = buf.split_first_mut().ok_or(EncodeError::LimitExceeded)?;
     *head = tag;
     tail.copy_from_slice(&compact_word(word, tag).to_le_bytes());
-    let len = usize::try_from(tag.count_ones())
-        .map_err(|_| EncodeError::LimitExceeded)?
-        .wrapping_add(1);
-    let bytes = buf.get(..len).ok_or(EncodeError::LimitExceeded)?;
-    out.extend_from_slice(bytes);
+    out.extend_from_slice(&buf);
+    let garbage = 8_usize
+        .wrapping_sub(usize::try_from(tag.count_ones()).map_err(|_| EncodeError::LimitExceeded)?);
+    out.truncate(out.len().wrapping_sub(garbage));
     advance_encode(offset, WORD_BYTES)
 }
 
@@ -269,57 +298,20 @@ fn run_extras(
     Ok(count)
 }
 
-/// Decode one element with unconditional whole-word reads: zero runs bump the
-/// cursor over pre-zeroed output, dense runs bulk-copy, sparse words write
-/// only their nonzero bytes. The caller guarantees `ELEMENT_ROOM` headroom.
-fn decode_fast_element(
-    packed: &[u8],
-    window: &[u8],
-    cursor: usize,
-    dst: &mut [u8],
-    written: usize,
-) -> Result<(usize, usize), DecodeError> {
-    let tag = window.first().copied().unwrap_or(0);
-    match tag {
-        ZERO_RUN_TAG => {
-            let extra = usize::from(window.get(1).copied().unwrap_or(0));
-            let bytes = extra
-                .wrapping_add(1)
-                .checked_mul(WORD_BYTES)
-                .ok_or(DecodeError::LimitExceeded)?;
-            Ok((advance(cursor, 2)?, advance(written, bytes)?))
-        }
-        DENSE_RUN_TAG => decode_fast_dense(packed, window, cursor, dst, written),
-        sparse => {
-            let src = window
-                .get(1..1 + WORD_BYTES)
-                .and_then(|slice| <[u8; WORD_BYTES]>::try_from(slice).ok())
-                .ok_or(DecodeError::PackedTruncated)?;
-            let word = expand_word(sparse, u64::from_le_bytes(src));
-            copy_at(dst, written, &word.to_le_bytes())?;
-            let taken =
-                usize::try_from(sparse.count_ones()).map_err(|_| DecodeError::LimitExceeded)?;
-            Ok((
-                advance(cursor, taken.wrapping_add(1))?,
-                advance(written, WORD_BYTES)?,
-            ))
-        }
-    }
-}
-
 /// Decode a dense passthrough run in the fast path.
 fn decode_fast_dense(
     packed: &[u8],
-    window: &[u8],
     cursor: usize,
     dst: &mut [u8],
     written: usize,
 ) -> Result<(usize, usize), DecodeError> {
-    let extra = usize::from(window.get(9).copied().unwrap_or(0));
+    let extra = usize::from(packed.get(cursor.wrapping_add(9)).copied().unwrap_or(0));
     let raw_bytes = extra
         .checked_mul(WORD_BYTES)
         .ok_or(DecodeError::LimitExceeded)?;
-    let word = window.get(1..9).ok_or(DecodeError::PackedTruncated)?;
+    let word = packed
+        .get(cursor.wrapping_add(1)..cursor.wrapping_add(9))
+        .ok_or(DecodeError::PackedTruncated)?;
     copy_at(dst, written, word)?;
     let raw_start = advance(cursor, FAST_WINDOW)?;
     let raw_end = advance(raw_start, raw_bytes)?;

@@ -10,13 +10,13 @@ One row per test. Sizes are exact encoded bytes; "Serialize" is the whole ADT→
 
 | Test               | typeDiagram Size | Protobuf Size | MessagePack Size | typeDiagram Serialize | Protobuf Serialize | MessagePack Serialize | typeDiagram Deserialize | Protobuf Deserialize | MessagePack Deserialize |
 | ------------------ | ---------------: | ------------: | ---------------: | --------------------: | -----------------: | --------------------: | ----------------------: | -------------------: | ----------------------: |
-| `with_address`     |              172 |            79 |              142 |              87.51 ns |           46.84 ns |             252.33 ns |               153.21 ns |            152.49 ns |               195.31 ns |
-| `without_address`  |              124 |            31 |              100 |              65.76 ns |           32.68 ns |             228.84 ns |                71.52 ns |             50.66 ns |               109.68 ns |
-| `metric_batch`     |           43,788 |        84,149 |           90,440 |             11.637 us |          45.467 us |             43.944 us |                6.251 us |            31.317 us |               50.870 us |
-| `person_batch`     |           22,988 |        29,184 |           61,963 |             11.587 us |          18.195 us |             48.224 us |               36.786 us |            57.952 us |               87.828 us |
-| `contact_batch`    |           23,156 |        35,221 |           80,162 |              9.025 us |          24.957 us |             69.630 us |               31.045 us |            61.434 us |               95.623 us |
-| `diagram_document` |           45,172 |        50,788 |           77,410 |             12.340 us |          21.809 us |             55.735 us |               71.705 us |           110.587 us |              134.250 us |
-| `event_batch`      |          116,372 |       131,744 |          230,620 |             35.490 us |          66.930 us |            138.809 us |              201.602 us |           279.422 us |              387.002 us |
+| `with_address`     |              172 |            79 |              142 |              86.21 ns |           46.82 ns |             240.50 ns |               157.32 ns |            150.50 ns |               192.39 ns |
+| `without_address`  |              124 |            31 |              100 |              63.80 ns |           32.86 ns |             227.40 ns |                76.85 ns |             50.06 ns |               108.75 ns |
+| `metric_batch`     |           43,788 |        84,149 |           90,440 |              6.557 us |          45.616 us |             43.619 us |                5.198 us |            29.664 us |               52.304 us |
+| `person_batch`     |           22,988 |        29,184 |           61,963 |              9.728 us |          17.986 us |             48.369 us |               35.157 us |            55.844 us |               87.035 us |
+| `contact_batch`    |           23,156 |        35,221 |           80,162 |              9.169 us |          24.761 us |             67.893 us |               30.351 us |            59.681 us |               92.548 us |
+| `diagram_document` |           45,172 |        50,788 |           77,410 |             10.259 us |          21.699 us |             57.093 us |               69.248 us |           109.277 us |              130.848 us |
+| `event_batch`      |          116,372 |       131,744 |          230,620 |             34.150 us |          69.852 us |            139.987 us |              193.619 us |           275.241 us |              372.344 us |
 
 ## What the numbers show
 
