@@ -28,7 +28,7 @@ const handwritten: ReadonlyArray<{ slug: string; label: string; group?: string }
   { slug: "multi-language-pipeline", label: "Multi-Language Pipeline" },
   { slug: "converters", label: "Converters" },
   { slug: "render-hooks", label: "Render Hooks" },
-  { slug: "tdbin", label: "Binary Codec", group: "TDBIN" },
+  { slug: "tdbin", label: "TDBIN Binary Codec", group: "TDBIN" },
   { slug: "tdbin-benchmarks", label: "Benchmarks", group: "TDBIN" },
   { slug: "tdbin-wire-format", label: "Wire Format", group: "TDBIN" },
   { slug: "tdbin-rust-api", label: "Rust API", group: "TDBIN" },
@@ -48,12 +48,15 @@ const introEntry: DocEntry = {
   html: mdToHtml(`# Introduction\n\n${SHARED_INTRO_MD}`),
 };
 
+const docTitle = (label: string, group?: string) =>
+  group === undefined || label.startsWith(group) ? label : `${group} ${label}`;
+
 const loadHandwritten = (slug: string, label: string, group?: string): DocEntry => ({
   slug,
   label,
-  title: group ? `${group} — ${label}` : label,
+  title: docTitle(label, group),
   isTopLevel: true,
-  ...(group ? { group } : {}),
+  ...(group === undefined ? {} : { group }),
   html: mdToHtml(readFileSync(resolve(DOCS_DIR, `${slug}.md`), "utf-8")),
 });
 

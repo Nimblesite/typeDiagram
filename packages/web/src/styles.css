@@ -752,7 +752,7 @@ pre[class*="language-"] {
   flex: 1;
   overflow: hidden;
   padding: 0;
-  background: var(--td-surface);
+  background-color: var(--td-surface);
   position: relative;
 }
 

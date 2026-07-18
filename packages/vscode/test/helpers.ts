@@ -12,6 +12,7 @@ export const makeDoc = (text: string, langId = "typediagram", scheme = "file") =
     toString: () => `${scheme}:///test/${langId}.td`,
   },
   getText: () => text,
+  positionAt: (offset: number) => ({ line: 0, character: offset }),
   languageId: langId,
 });
 

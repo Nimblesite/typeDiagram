@@ -21,6 +21,9 @@ describe("[VSCODE-EXT] activate", () => {
     mock.mockPanel.webview.html = "";
     mock.mockPanel._disposeCb = undefined;
     mock.mockPanel._preserveFocus = false;
+    mock.mockPanel.webview._messageHandlers = [];
+    mock.workspace._lastEdit = undefined;
+    mock.workspace.applyEdit.mockClear();
     mock.commands._handler = undefined;
     mock.workspace._changeCb = undefined;
     mock.workspace._closeCb = undefined;
@@ -39,11 +42,57 @@ describe("[VSCODE-EXT] activate", () => {
     const { ctx } = await activateExtension();
     expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.preview", expect.any(Function));
     expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.openAsDiagram", expect.any(Function));
+    expect(mock.commands.registerCommand).toHaveBeenCalledWith("typediagram.editorStatus", expect.any(Function));
+    expect(mock.commands.registerCommand).toHaveBeenCalledWith(
+      "typediagram.testVisualEditorInteractions",
+      expect.any(Function)
+    );
     // 7 original disposables + 1 Output Channel added by initLogger.
     // The Output Channel may already have been added in a prior test (lazy ensureChannel),
     // so we assert >= 7. Either way, both commands must be present.
     expect(ctx.subscriptions.length).toBeGreaterThanOrEqual(7);
     expect(mock.window.createOutputChannel).toHaveBeenCalledWith("TypeDiagram");
+  });
+
+  it("reports visual-editor readiness and open panels through the command API", async () => {
+    await activateExtension();
+    mock.window.activeTextEditor = { document: makeDoc("type Ready { x: Int }") };
+    mock.commands._handler?.();
+    const status = mock.commands._handlers.get("typediagram.editorStatus")?.();
+    expect(status).toEqual({ visualEditor: true, openPanels: 1 });
+  });
+
+  it("returns dense visual-interaction evidence from the live webview command bridge", async () => {
+    await activateExtension();
+    const empty = await mock.commands._handlers.get("typediagram.testVisualEditorInteractions")?.();
+    expect(empty).toEqual({ passed: [], sourceUpdated: false, evidence: {} });
+
+    mock.window.activeTextEditor = { document: makeDoc("type Ready { x: Int }") };
+    mock.commands._handler?.();
+    const expected = {
+      passed: ["canvas-chrome", "record-edit"],
+      sourceUpdated: true,
+      evidence: { toolbarButtons: 7, recordRenamed: true },
+    };
+    let postedRequestId = "";
+    mock.mockPanel.webview.postMessage.mockImplementationOnce((message: unknown) => {
+      // Safe: the command bridge always posts an object containing a generated requestId.
+      const request = message as { requestId: string };
+      postedRequestId = request.requestId;
+      queueMicrotask(() => {
+        mock.mockPanel.webview._messageHandlers.forEach((handler) => {
+          handler({ kind: "visual-interactions-result", requestId: request.requestId, result: expected });
+        });
+      });
+      return Promise.resolve(true);
+    });
+    const result = await mock.commands._handlers.get("typediagram.testVisualEditorInteractions")?.();
+    expect(result).toEqual(expected);
+    expect(mock.mockPanel.webview.postMessage).toHaveBeenCalledWith({
+      kind: "test-visual-interactions",
+      requestId: postedRequestId,
+    });
+    expect(postedRequestId).toMatch(/^\d+$/);
   });
 
   it("preview command does nothing without active typediagram editor", async () => {
@@ -90,22 +139,73 @@ describe("[VSCODE-EXT] activate", () => {
     });
   });
 
+  it("applies visual-editor source messages to the real text document", async () => {
+    await activateExtension();
+    const doc = makeDoc("typeDiagram\ntype X { a: Int }");
+    mock.window.activeTextEditor = { document: doc };
+    mock.commands._handler?.();
+    const handler = mock.mockPanel.webview._messageHandlers.at(-1);
+    handler?.({ kind: "edit", source: "typeDiagram\ntype X { a: String }\n" });
+    await vi.waitFor(() => {
+      expect(mock.workspace.applyEdit).toHaveBeenCalledTimes(1);
+    });
+    expect(mock.workspace._lastEdit?.replace).toHaveBeenCalledWith(
+      doc.uri,
+      expect.any(mock.Range),
+      "typeDiagram\ntype X { a: String }\n"
+    );
+  });
+
+  it("opens the source document as an escape hatch from an invalid visual edit", async () => {
+    await activateExtension();
+    const doc = makeDoc("typeDiagram\ntype X { a: Int }");
+    mock.window.activeTextEditor = { document: doc };
+    mock.commands._handler?.();
+    const handler = mock.mockPanel.webview._messageHandlers.at(-1);
+    handler?.({ kind: "open-source" });
+    await vi.waitFor(() => {
+      expect(mock.window.showTextDocument).toHaveBeenCalledWith(doc, { preview: false });
+    });
+    expect(mock.workspace.applyEdit).not.toHaveBeenCalled();
+    expect(mock.mockPanel.dispose).not.toHaveBeenCalled();
+  });
+
+  it("ignores malformed webview edits and labels pathless documents", async () => {
+    await activateExtension();
+    const doc = makeDoc("typeDiagram\ntype X { a: Int }");
+    doc.uri.path = "";
+    mock.window.activeTextEditor = { document: doc };
+    mock.commands._handler?.();
+    const handler = mock.mockPanel.webview._messageHandlers.at(-1);
+    handler?.(null);
+    handler?.("edit");
+    handler?.({ kind: "edit", source: 42 });
+    expect(mock.workspace.applyEdit).not.toHaveBeenCalled();
+    expect(mock.window.createWebviewPanel).toHaveBeenCalledWith(
+      "typediagram.preview",
+      "Preview: untitled.td",
+      mock.ViewColumn.Beside,
+      expect.any(Object)
+    );
+  });
+
   it("ignores changes to non-typediagram documents", async () => {
     await activateExtension();
     mock.workspace._changeCb?.({ document: makeDoc("x", "json") });
     expect(mock.mockPanel.webview.postMessage).not.toHaveBeenCalled();
   });
 
-  it("cleans up panel reference on document close", async () => {
+  it("keeps a live panel registered when only its hidden text document closes", async () => {
     await activateExtension();
     const doc = makeDoc("type Y { b: String }");
     mock.window.activeTextEditor = { document: doc };
     mock.commands._handler?.();
     mock.workspace._closeCb?.(doc);
-    // After close, next open should create fresh panel
     mock.window.createWebviewPanel.mockClear();
+    mock.mockPanel.reveal.mockClear();
     mock.commands._handler?.();
-    expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    expect(mock.window.createWebviewPanel).not.toHaveBeenCalled();
+    expect(mock.mockPanel.reveal).toHaveBeenCalledTimes(1);
   });
 
   it("deactivate is a no-op", async () => {
@@ -233,6 +333,29 @@ describe("[VSCODE-EXT] activate", () => {
     mock.window.createWebviewPanel.mockClear();
     mock.workspace._openCb?.(doc);
     expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+  });
+
+  it("[VSCODE-EDITOR-TAB] tab-committed edit keeps exactly one live diagram when its hidden document reopens", async () => {
+    await activateExtension();
+    const doc = makeDoc("typeDiagram\nunion Content { Scalar(String) }");
+    mock.workspace._openTextDocResult = doc;
+    const openAsDiagram = mock.commands._handlers.get("typediagram.openAsDiagram");
+
+    await openAsDiagram?.(doc.uri);
+    expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    expect(mock.mockPanel._disposeCb).toBeTypeOf("function");
+
+    mock.workspace._closeCb?.(doc);
+    const webviewHandler = mock.mockPanel.webview._messageHandlers.at(-1);
+    webviewHandler?.({ kind: "edit", source: "typeDiagram\nunion Content { Scalar(Int) }\n" });
+    await vi.waitFor(() => {
+      expect(mock.workspace.applyEdit).toHaveBeenCalledTimes(1);
+    });
+    mock.workspace._openCb?.(doc);
+
+    expect(mock.window.createWebviewPanel).toHaveBeenCalledTimes(1);
+    expect(mock.mockPanel.dispose).not.toHaveBeenCalled();
+    expect(mock.window.tabGroups.close).not.toHaveBeenCalled();
   });
 
   it("[VSCODE-OPEN-AS-DIAGRAM] openAsDiagram does nothing without URI or active editor", async () => {

@@ -1,0 +1,13 @@
+{
+  "name": "typediagram-vsix-e2e-harness",
+  "displayName": "TypeDiagram VSIX E2E Harness",
+  "publisher": "typediagram-tests",
+  "version": "0.0.0",
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "main": "./extension.cjs",
+  "activationEvents": [
+    "*"
+  ]
+}

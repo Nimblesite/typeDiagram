@@ -31,7 +31,9 @@ describe("render — small example", () => {
     const light = unwrap(await renderToString(SMALL_EXAMPLE, { theme: "light" }));
     const dark = unwrap(await renderToString(SMALL_EXAMPLE, { theme: "dark" }));
     expect(light).not.toBe(dark);
-    expect(dark).toContain("#252931");
+    expect(dark).toContain("#222a3d");
+    expect(dark).toContain('id="td-grid"');
+    expect(dark).toContain('id="td-ambient-shadow"');
   });
 });
 

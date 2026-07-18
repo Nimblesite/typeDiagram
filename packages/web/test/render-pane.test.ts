@@ -33,7 +33,7 @@ describe("[WEB-RENDER-PANE] renderPane", () => {
     const html = await renderPane(SMALL);
     expect(html).toMatch(/^<svg[\s>]/);
     // dark theme uses dark node fill color
-    expect(html).toContain("#252931");
+    expect(html).toContain("#222a3d");
     spy.mockRestore();
   });
 });

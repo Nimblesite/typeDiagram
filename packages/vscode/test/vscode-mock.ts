@@ -18,12 +18,15 @@ export const mockPanel = {
     // renderHtmlToPdf succeeds in tests.
     printToPDF: vi.fn(() => Promise.resolve(FAKE_PDF)),
     onDidReceiveMessage: vi.fn((handler: (msg: unknown) => void) => {
+      mockPanel.webview._messageHandlers.push(handler);
       // Fire a synthetic load-ready message so the extension's awaited promise resolves.
       queueMicrotask(() => {
         handler({ kind: "td-print-ready" });
+        handler({ kind: "visual-editor-ready" });
       });
       return { dispose: vi.fn() };
     }),
+    _messageHandlers: [] as Array<(msg: unknown) => void>,
   },
   reveal: vi.fn(),
   onDidDispose: vi.fn((cb: () => void) => {
@@ -39,6 +42,27 @@ export const mockPanel = {
 
 export class TabInputText {
   constructor(public uri: { toString: () => string }) {}
+}
+
+export class Position {
+  constructor(
+    public line: number,
+    public character: number
+  ) {}
+}
+
+export class Range {
+  constructor(
+    public start: Position,
+    public end: Position
+  ) {}
+}
+
+export class WorkspaceEdit {
+  replace = vi.fn();
+  constructor() {
+    workspace._lastEdit = this;
+  }
 }
 
 type Tab = { input: unknown };
@@ -59,6 +83,7 @@ export const window = {
   visibleTextEditors: [] as { document: unknown }[],
   createWebviewPanel: vi.fn(() => mockPanel),
   createOutputChannel: vi.fn(() => mockOutputChannel),
+  showTextDocument: vi.fn((_doc: unknown, _options?: unknown) => Promise.resolve(undefined)),
   showInformationMessage: vi.fn((..._args: unknown[]) => Promise.resolve(undefined)),
   showErrorMessage: vi.fn((_msg: string) => Promise.resolve(undefined)),
   tabGroups: {
@@ -100,6 +125,8 @@ export const workspace = {
     get: <T>(_key: string, defaultValue?: T) => defaultValue,
   })),
   openTextDocument: vi.fn((_uri: unknown) => Promise.resolve(workspace._openTextDocResult)),
+  applyEdit: vi.fn((_edit: unknown) => Promise.resolve(true)),
+  _lastEdit: undefined as WorkspaceEdit | undefined,
   _openTextDocResult: undefined as unknown,
   onDidOpenTextDocument: vi.fn((cb: (doc: unknown) => void) => {
     workspace._openCb = cb;

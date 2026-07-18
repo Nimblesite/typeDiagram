@@ -36,6 +36,10 @@
       "types": "./dist/render-svg/index.d.ts",
       "import": "./dist/render-svg/index.js"
     },
+    "./editor": {
+      "types": "./dist/editor/index.d.ts",
+      "import": "./dist/editor/index.js"
+    },
     "./converters/rust-tdbin": {
       "types": "./dist/converters/rust-tdbin.d.ts",
       "import": "./dist/converters/rust-tdbin.js"
@@ -67,10 +71,11 @@
     "elkjs": "^0.11.1"
   },
   "devDependencies": {
-    "esbuild": "^0.28.1",
-    "typescript": "^7.0.2",
-    "vitest": "^4.1.10",
     "@types/node": "^26.1.1",
-    "happy-dom": "^20.10.6"
+    "esbuild": "^0.28.1",
+    "happy-dom": "^20.10.6",
+    "typescript": "^7.0.2",
+    "typescript-compiler": "npm:typescript@6.0.3",
+    "vitest": "^4.1.10"
   }
 }
