@@ -4,9 +4,9 @@
 
 typeDiagram is a tiny, language-neutral DSL for describing **algebraic data types** — records, tagged unions, generics, aliases. From one `.td` file, you get:
 
-- **Source code** in TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, and Protobuf — DTOs, data classes, discriminated unions, pattern-matchable enums — generated from the same definition, always in sync.
+- **Source code** in Typeshed, TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, and Protobuf — DTOs, data classes, free functions, discriminated unions, and enums — converted through one model.
 - **SVG diagrams** with automatic orthogonal layout — no dragging, no fiddling, versionable in git.
-- **Round-trip conversion** from existing TypeScript/Python/Rust/Go/C#/F#/Dart/PHP/Protobuf back to the DSL, so you can retrofit an existing codebase.
+- **Round-trip conversion** from existing Typeshed/TypeScript/Python/Rust/Go/C#/F#/Dart/PHP/Protobuf back to the DSL, so you can retrofit an existing codebase.
 
 This is not a diagramming tool dressed up with a text input like Mermaid or PlantUML. typeDiagram is a **shared schema for your data model** — the diagram is a side effect, not the goal. The primary output is code, in as many languages as you need, kept strictly in sync by construction.
 
@@ -79,6 +79,8 @@ Three constructs: `type` (records), `union` (tagged sum types), `alias` (newtype
 ```sh
 typediagram schema.td > diagram.svg          # DSL → SVG
 typediagram --from typescript types.ts > diagram.svg   # TS → SVG
+typediagram --from typeshed --emit td module.pyi       # .pyi → typeDiagram
+typediagram-typeshed /path/to/typeshed generated/      # complete checkout
 typediagram --to rust schema.td > types.rs    # DSL → Rust
 ```
 

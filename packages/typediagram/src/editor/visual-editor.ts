@@ -1,7 +1,7 @@
 // [EDITOR-CANVAS] Direct manipulation for rendered typeDiagram SVGs.
 import { parse } from "../parser/index.js";
 import { buildModel } from "../model/build.js";
-import type { ResolvedDecl, ResolvedTypeRef } from "../model/types.js";
+import type { ResolvedDataDecl, ResolvedTypeRef } from "../model/types.js";
 import { addDeclaration, connectDeclarations } from "./source-editor.js";
 import { createCanvasChrome, type CanvasChrome } from "./controls.js";
 import { installVisualEditorStyles } from "./styles.js";
@@ -42,7 +42,7 @@ const snap = (value: number) => Math.round(value / 8) * 8;
 const refText = (ref: ResolvedTypeRef): string =>
   ref.args.length === 0 ? ref.name : `${ref.name}<${ref.args.map(refText).join(", ")}>`;
 
-const declRows = (decl: ResolvedDecl): EditorRow[] => {
+const declRows = (decl: ResolvedDataDecl): EditorRow[] => {
   switch (decl.kind) {
     case "record":
       return decl.fields.map((field) => ({ name: field.name, type: refText(field.type) }));
@@ -60,7 +60,9 @@ const inspectNode = (source: string, name: string): EditorNode | undefined => {
   const parsed = parse(source);
   const built = parsed.ok ? buildModel(parsed.value) : undefined;
   const decl = built?.ok === true ? built.value.decls.find((candidate) => candidate.name === name) : undefined;
-  return decl === undefined ? undefined : { name: decl.name, kind: decl.kind, rows: declRows(decl) };
+  return decl === undefined || decl.kind === "function"
+    ? undefined
+    : { name: decl.name, kind: decl.kind, rows: declRows(decl) };
 };
 
 const positionRecord = (positions: Map<string, NodePosition>) => Object.fromEntries(positions.entries());
@@ -122,10 +124,15 @@ const decoratePorts = (node: SVGGElement) => {
   const y = numberData(node, "y");
   const width = numberData(node, "width");
   const height = numberData(node, "height");
+  const declarationPort = Array.from(
+    node.ownerSVGElement?.querySelectorAll<SVGTextElement>("g[data-decl] > text") ?? []
+  ).some((text) => text.textContent.includes("<"))
+    ? [circle(x + width, y + 16, "td-source-port", -1)]
+    : [];
   node.querySelectorAll(":scope > .td-port").forEach((port) => {
     port.remove();
   });
-  node.append(circle(x, y + height / 2, "td-target-port", -2), circle(x + width, y + 16, "td-source-port", -1));
+  node.append(circle(x, y + height / 2, "td-target-port", -2), ...declarationPort);
   node.querySelectorAll<SVGGElement>("g[data-row-index]").forEach((row) => {
     const rowY = numberData(row, "rowY");
     const rowHeight = numberData(row, "rowHeight");
@@ -383,6 +390,23 @@ const createEditorState = (options: VisualEditorOptions): EditorState => ({
   polylines: new WeakMap(),
 });
 
+const trackSource = (options: VisualEditorOptions) => {
+  let source = options.getSource();
+  return {
+    options: {
+      ...options,
+      getSource: () => source,
+      onSourceChange: (next: string) => {
+        source = next;
+        options.onSourceChange(next);
+      },
+    },
+    sync: () => {
+      source = options.getSource();
+    },
+  };
+};
+
 const installSvg = (svg: SVGSVGElement, context: EditorContext, container: HTMLElement) => {
   const tracking = { ...context, svg };
   svg.querySelectorAll<SVGGElement>("g[data-decl]").forEach((node) => {
@@ -447,20 +471,24 @@ const installEditorEvents = (container: HTMLElement, viewport: ViewportControls,
   installKeys(container, viewport, chrome);
 };
 
+const editorRefresh = (container: HTMLElement, context: EditorContext) => () => {
+  refreshEditor(container, context);
+};
+
 export const createVisualEditor = (container: HTMLElement, options: VisualEditorOptions) => {
   installVisualEditorStyles(container.ownerDocument);
   container.classList.add("td-visual-editor");
+  const tracked = trackSource(options);
   const viewport = createViewport(container);
-  const state = createEditorState(options);
-  const chrome = createEditorChrome(container, viewport, state, options);
-  const context: EditorContext = { state, options, chrome, viewport };
-  const refresh = () => {
-    refreshEditor(container, context);
-  };
+  const state = createEditorState(tracked.options);
+  const chrome = createEditorChrome(container, viewport, state, tracked.options);
+  const context: EditorContext = { state, options: tracked.options, chrome, viewport };
+  const refresh = editorRefresh(container, context);
   installEditorEvents(container, viewport, chrome);
   return Object.assign(viewport, {
     refresh,
     setContent: (html: string) => {
+      tracked.sync();
       setViewportContent(container, html);
       refresh();
     },

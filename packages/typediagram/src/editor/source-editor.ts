@@ -3,13 +3,13 @@ import { parse, formatDiagnostics } from "../parser/index.js";
 import type { TypeRef } from "../parser/ast.js";
 import { buildModel } from "../model/build.js";
 import { printSource } from "../model/print.js";
-import type { Model, ResolvedDecl, ResolvedTypeRef } from "../model/types.js";
+import { walkDeclRefs, type Model, type ResolvedDecl, type ResolvedTypeRef } from "../model/types.js";
 import { err, ok } from "../result.js";
 import { runWhen, runWhenDefined } from "./effects.js";
 
 export type EditorFailure = { message: string };
 export type RowPatch = { name?: string; type?: string };
-export type DeclarationKind = ResolvedDecl["kind"];
+export type DeclarationKind = Exclude<ResolvedDecl["kind"], "function">;
 
 const editorModel = (source: string) => {
   const parsed = parse(source);
@@ -65,19 +65,13 @@ const renameRef = (ref: ResolvedTypeRef, before: string, after: string) => {
 };
 
 const visitRefs = (decl: ResolvedDecl, visit: (ref: ResolvedTypeRef) => void) => {
-  const refs =
-    decl.kind === "record"
-      ? decl.fields.map((field) => field.type)
-      : decl.kind === "union"
-        ? decl.variants.flatMap((variant) => variant.fields.map((field) => field.type))
-        : [decl.target];
-  refs.forEach(visit);
+  walkDeclRefs(decl, visit);
 };
 
-const uniqueName = (model: Model, base: string, suffix = 1): string => {
-  const name = suffix === 1 ? base : `${base}${String(suffix)}`;
-  return findDecl(model, name) === undefined ? name : uniqueName(model, base, suffix + 1);
-};
+const uniqueName = (names: readonly string[], base: string) =>
+  Array.from({ length: names.length + 1 }, (_, index) => (index === 0 ? base : `${base}${String(index + 1)}`)).find(
+    (name) => !names.includes(name)
+  ) ?? base;
 
 const stringRef = (): ResolvedTypeRef => ({
   name: "String",
@@ -86,18 +80,29 @@ const stringRef = (): ResolvedTypeRef => ({
 });
 
 const newDeclaration = (model: Model, kind: DeclarationKind): ResolvedDecl => {
+  const names = model.decls.map((decl) => decl.name);
   switch (kind) {
     case "record":
       return {
         kind,
-        name: uniqueName(model, "NewRecord"),
+        name: uniqueName(names, "NewRecord"),
         generics: [],
         fields: [{ name: "field", type: stringRef() }],
       };
     case "union":
-      return { kind, name: uniqueName(model, "NewUnion"), generics: [], variants: [{ name: "Variant", fields: [] }] };
+      return {
+        kind,
+        name: uniqueName(names, "NewUnion"),
+        generics: [],
+        variants: [{ name: "Variant", fields: [] }],
+      };
     case "alias":
-      return { kind, name: uniqueName(model, "NewAlias"), generics: [], target: stringRef() };
+      return {
+        kind,
+        name: uniqueName(names, "NewAlias"),
+        generics: [],
+        target: stringRef(),
+      };
   }
 };
 
@@ -246,16 +251,20 @@ export const connectDeclarations = (source: string, from: string, rowIndex: numb
   return !result.ok ? result : exists ? ok(printSource(result.value)) : missingDecl(decl === undefined ? from : target);
 };
 
+const newRecordRow = (names: readonly string[]) => ({ name: uniqueName(names, "field"), type: stringRef() });
+
+const newUnionVariant = (names: readonly string[]) => ({ name: uniqueName(names, "Variant"), fields: [] });
+
 export const addRow = (source: string, declName: string) => {
   const result = modelOrFailure(source);
   const decl = result.ok ? findDecl(result.value, declName) : undefined;
   runWhenDefined(decl, (current) => {
     switch (current.kind) {
       case "record":
-        current.fields.push({ name: "field", type: targetRef("String") });
+        current.fields.push(newRecordRow(current.fields.map((field) => field.name)));
         break;
       case "union":
-        current.variants.push({ name: "Variant", fields: [] });
+        current.variants.push(newUnionVariant(current.variants.map((variant) => variant.name)));
     }
   });
   return !result.ok ? result : sourceResult(result.value, decl, declName);

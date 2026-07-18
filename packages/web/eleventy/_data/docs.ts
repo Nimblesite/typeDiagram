@@ -27,6 +27,7 @@ const handwritten: ReadonlyArray<{ slug: string; label: string; group?: string }
   { slug: "cli", label: "CLI" },
   { slug: "multi-language-pipeline", label: "Multi-Language Pipeline" },
   { slug: "converters", label: "Converters" },
+  { slug: "typeshed-conversion", label: "Typeshed Conversion" },
   { slug: "render-hooks", label: "Render Hooks" },
   { slug: "tdbin", label: "TDBIN Binary Codec", group: "TDBIN" },
   { slug: "tdbin-benchmarks", label: "Benchmarks", group: "TDBIN" },

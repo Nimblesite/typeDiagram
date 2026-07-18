@@ -10,7 +10,8 @@
   },
   "type": "module",
   "bin": {
-    "typediagram": "./dist/bin.js"
+    "typediagram": "./dist/bin.js",
+    "typediagram-typeshed": "./dist/typeshed-bin.js"
   },
   "files": [
     "dist",

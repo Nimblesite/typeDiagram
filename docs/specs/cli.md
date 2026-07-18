@@ -21,15 +21,15 @@ If `file` is omitted, reads from stdin. Output goes to stdout. Errors go to stde
 
 ## Options
 
-| Flag           | Value                                                               | Description                                       |
-| -------------- | ------------------------------------------------------------------- | ------------------------------------------------- |
-| `--config`     | JSON file                                                           | Generate every configured language output         |
-| `--watch`      |                                                                     | Regenerate configured outputs after `.td` changes |
-| `--from`       | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from language source to SVG               |
-| `--to`         | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from typeDiagram to language source       |
-| `--theme`      | `light\|dark`                                                       | Color theme (default: `light`)                    |
-| `--font-size`  | number                                                              | Font size in pixels                               |
-| `-h`, `--help` |                                                                     | Show help                                         |
+| Flag           | Value                                                                         | Description                                       |
+| -------------- | ----------------------------------------------------------------------------- | ------------------------------------------------- |
+| `--config`     | JSON file                                                                     | Generate every configured language output         |
+| `--watch`      |                                                                               | Regenerate configured outputs after `.td` changes |
+| `--from`       | `typeshed\|typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from language source to SVG               |
+| `--to`         | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php`           | Convert from typeDiagram to language source       |
+| `--theme`      | `light\|dark`                                                                 | Color theme (default: `light`)                    |
+| `--font-size`  | number                                                                        | Font size in pixels                               |
+| `-h`, `--help` |                                                                               | Show help                                         |
 
 `--from` and `--to` are mutually exclusive.
 
@@ -81,6 +81,12 @@ typediagram --from typescript types.ts > diagram.svg
 
 # Python dataclasses → SVG
 typediagram --from python models.py > diagram.svg
+
+# One Typeshed stub → typeDiagram source
+typediagram --from typeshed --emit td stdlib/dataclasses.pyi > dataclasses.td
+
+# Complete Typeshed checkout → mirrored .td tree
+typediagram-typeshed /path/to/typeshed /path/to/generated-typeshed
 
 # Rust structs/enums → SVG
 typediagram --from rust types.rs > diagram.svg

@@ -62,7 +62,7 @@ const canvasChrome = (audit: Audit) => {
     (kind) => preview.querySelectorAll(`svg [data-kind="${kind}"]`).length > 0
   );
   const toolbarLabel = preview.querySelector(".td-canvas-toolbar")?.getAttribute("aria-label") === "Canvas controls";
-  const legendText = preview.querySelector(".td-canvas-legend")?.textContent?.replace(/\s/g, "") === "TypeUnionAlias";
+  const legendText = preview.querySelector(".td-canvas-legend")?.textContent.replace(/\s/g, "") === "TypeUnionAlias";
   const chromeInitiallyClosed =
     preview.querySelector<HTMLElement>(".td-node-creator")?.hidden === true &&
     preview.querySelector<HTMLElement>(".td-inspector")?.hidden === true;
@@ -109,7 +109,7 @@ const recordEdits = async (audit: Audit) => {
   const recordRenamed = audit.context.getSource().includes("type ConversationRequest");
   const recordFieldEdited = audit.context.getSource().includes("prompt: Option<String>");
   const recordRendered =
-    declaration(audit, "ConversationRequest")?.textContent?.includes("prompt: Option<String>") === true;
+    declaration(audit, "ConversationRequest")?.textContent.includes("prompt: Option<String>") === true;
   const recordEdge =
     audit.context.preview.querySelector('[data-edge][data-source="ConversationRequest"][data-target="Option"]') !==
     null;
@@ -144,7 +144,7 @@ const unionEdit = async (audit: Audit) => {
   await changeInput(audit, 4, "TextPart");
   const unionVariantRenamed = audit.context.getSource().includes("ScalarValue {");
   const unionPayloadEdited = audit.context.getSource().includes("ScalarValue { value: TextPart }");
-  const unionRendered = declaration(audit, "ToolResultContent")?.textContent?.includes("ScalarValue") === true;
+  const unionRendered = declaration(audit, "ToolResultContent")?.textContent.includes("ScalarValue") === true;
   const unionEdge =
     audit.context.preview.querySelector('[data-edge][data-source="ToolResultContent"][data-target="TextPart"]') !==
     null;
@@ -171,7 +171,7 @@ const aliasEdit = async (audit: Audit) => {
     audit.context.preview.querySelector(".td-inspector-remove") === null;
   await changeInput(audit, 2, "Option<String>");
   const aliasTargetEdited = audit.context.getSource().includes("alias Email = Option<String>");
-  const aliasRendered = declaration(audit, "Email")?.textContent?.includes("Option<String>") === true;
+  const aliasRendered = declaration(audit, "Email")?.textContent.includes("Option<String>") === true;
   const aliasEdge =
     audit.context.preview.querySelector('[data-edge][data-source="Email"][data-target="Option"]') !== null;
   Object.assign(audit.evidence, {
@@ -376,7 +376,7 @@ const drawRelationship = async (audit: Audit) => {
   const connectionPreview = await dragConnection(audit, "ConversationRequest", 0, "TextPart");
   const relationshipSource = audit.context.getSource().includes("prompt: TextPart");
   const relationshipRendered =
-    declaration(audit, "ConversationRequest")?.textContent?.includes("prompt: TextPart") === true;
+    declaration(audit, "ConversationRequest")?.textContent.includes("prompt: TextPart") === true;
   const relationshipEdge =
     audit.context.preview.querySelector('[data-edge][data-source="ConversationRequest"][data-target="TextPart"]') !==
     null;
@@ -401,7 +401,7 @@ const genericRelationshipRecovery = async (audit: Audit) => {
   const genericTargetRendered = declaration(audit, "Option") !== undefined;
   const genericEdge =
     audit.context.preview.querySelector('[data-edge][data-source="ToolResult"][data-target="Option"]') !== null;
-  const genericRendered = declaration(audit, "ToolResult")?.textContent?.includes("option: Option<Any>") === true;
+  const genericRendered = declaration(audit, "ToolResult")?.textContent.includes("option: Option<Any>") === true;
   const fatalErrorHidden = audit.context.preview.ownerDocument.getElementById("error-panel")?.hidden === true;
   const recoveryActions = audit.context.preview.ownerDocument.querySelectorAll("#error-panel .error-action").length;
   Object.assign(audit.evidence, {

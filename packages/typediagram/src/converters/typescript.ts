@@ -17,7 +17,7 @@ import {
   type Model,
   type ResolvedTypeRef,
   type ResolvedVariant,
-  visibleDeclsForTarget,
+  visibleDataDeclsForTarget,
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
@@ -279,7 +279,7 @@ const mapUntaggedVariantToTs = (variant: ResolvedVariant): string => {
 
 const toTypeScript = (model: Model): string => {
   const lines: string[] = [];
-  const decls = visibleDeclsForTarget(model.decls, "typescript");
+  const decls = visibleDataDeclsForTarget(model.decls, "typescript");
 
   for (const d of decls) {
     const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";

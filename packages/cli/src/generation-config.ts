@@ -3,8 +3,7 @@ import { watch, type FSWatcher } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { converters, model as modelLayer, parser } from "typediagram-core";
-import type { Result } from "./result.js";
-import { err, ok } from "./result.js";
+import { err, errorMessage, ok, type Result } from "./result.js";
 
 type GenerationError = { readonly message: string };
 type OutputTarget = { readonly language: converters.Language; readonly path: string };
@@ -20,8 +19,6 @@ const recordValue = (value: unknown): value is Record<string, unknown> =>
 
 const languageValue = (value: string): value is converters.Language =>
   converters.LANGUAGES.some((language) => language === value);
-
-const errorMessage = (error: unknown) => String(error);
 
 const readText = async (path: string): Promise<Result<string, GenerationError>> => {
   try {

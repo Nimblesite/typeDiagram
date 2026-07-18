@@ -366,7 +366,9 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     expect(getComputedStyle(row as HTMLElement).alignItems).toBe("end");
     expect(getComputedStyle(input as HTMLInputElement).boxSizing).toBe("border-box");
     expect(getComputedStyle(label as HTMLLabelElement).marginBottom).toBe("0px");
-    expect(getComputedStyle(close as HTMLButtonElement).height).toBe(getComputedStyle(input as HTMLInputElement).height);
+    expect(getComputedStyle(close as HTMLButtonElement).height).toBe(
+      getComputedStyle(input as HTMLInputElement).height
+    );
     expect(getComputedStyle(close as HTMLButtonElement).width).toBe(getComputedStyle(input as HTMLInputElement).height);
   });
 
@@ -476,8 +478,8 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     addRow?.click();
 
     expect(changes).toHaveLength(2);
-    expect(source.match(/^  field: String$/gm)).toHaveLength(1);
-    expect(source.match(/^  field2: String$/gm)).toHaveLength(1);
+    expect(source.match(/^ {2}field: String$/gm)).toHaveLength(1);
+    expect(source.match(/^ {2}field2: String$/gm)).toHaveLength(1);
     expect(source).toContain("active: Bool\n  field: String\n  field2: String");
     expect(await render(source)).toContain('data-decl="Account"');
   });

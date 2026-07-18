@@ -1,11 +1,13 @@
 export { buildModel, buildModelPartial } from "./build.js";
-export { ModelBuilder, alias, record, ref, resolveResolutions, union } from "./builder.js";
-export type { FieldSpec, UnionSpec, VariantSpec } from "./builder.js";
+export { ModelBuilder, alias, functionDecl, record, ref, resolveResolutions, union } from "./builder.js";
+export type { FieldSpec, FunctionSignatureSpec, UnionSpec, VariantSpec } from "./builder.js";
 export { fromJSON, toJSON, SCHEMA_VERSION } from "./json.js";
 export type {
   AliasJson,
   DeclJson,
   FieldJson,
+  FunctionJson,
+  FunctionSignatureJson,
   ModelJson,
   RecordJson,
   TypeRefJson,
@@ -25,7 +27,10 @@ export {
   type Model,
   type ResolvedAlias,
   type ResolvedDecl,
+  type ResolvedDataDecl,
   type ResolvedField,
+  type ResolvedFunction,
+  type ResolvedFunctionSignature,
   type ResolvedRecord,
   type ResolvedRefKind,
   type ResolvedTypeRef,

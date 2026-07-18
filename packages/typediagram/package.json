@@ -61,6 +61,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run --coverage",
+    "test:typeshed": "npm run build && node scripts/typeshed-corpus.mjs",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit -p tsconfig.build.json",
     "check-banned-deps": "node scripts/check-banned-deps.mjs",
@@ -68,6 +69,7 @@
     "check": "npm run check-banned-deps && npm run typecheck && npm run test"
   },
   "dependencies": {
+    "@lezer/python": "^1.1.19",
     "elkjs": "^0.11.1"
   },
   "devDependencies": {

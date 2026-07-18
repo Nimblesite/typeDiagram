@@ -115,7 +115,11 @@ function applyPostHook(body: SafeSvg, ctx: RenderCtx): SafeSvg {
 }
 
 function accentFor(declKind: NodeBox["declKind"], theme: Theme): string {
-  return declKind === "union" ? theme.unionAccent : declKind === "alias" ? theme.aliasAccent : theme.recordAccent;
+  return declKind === "union"
+    ? theme.unionAccent
+    : declKind === "alias" || declKind === "function"
+      ? theme.aliasAccent
+      : theme.recordAccent;
 }
 
 interface NodeGeometry {

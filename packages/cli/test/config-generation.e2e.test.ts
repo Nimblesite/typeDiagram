@@ -89,7 +89,7 @@ describe("[CLI-CONFIG-GENERATE] configured ADT generation", () => {
 
     await writeFile(sourcePath, `${source("  id: Int\n  name: String")}active`, "utf8");
     await vi.waitFor(() => {
-      expect(err.text()).toContain("expected 'type', 'union', 'untagged union', or 'alias'");
+      expect(err.text()).toContain("expected 'type', 'union', 'untagged union', 'alias', or 'function'");
     });
     expect(await readFile(typeScriptPath, "utf8")).toBe(lastGoodTypeScript);
     expect(await readFile(rustPath, "utf8")).toBe(lastGoodRust);

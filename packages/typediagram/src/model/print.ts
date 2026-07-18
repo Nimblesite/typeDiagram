@@ -1,4 +1,10 @@
-import { isTupleVariantFields, type Model, type ResolvedDecl, type ResolvedTypeRef } from "./types.js";
+import {
+  isTupleVariantFields,
+  type Model,
+  type ResolvedDecl,
+  type ResolvedFunctionSignature,
+  type ResolvedTypeRef,
+} from "./types.js";
 import { formatVariantName } from "../variant.js";
 
 export function printSource(model: Model): string {
@@ -53,7 +59,19 @@ function printDecl(d: ResolvedDecl): string {
       .join("\n");
     return `${d.untagged === true ? "untagged union" : "union"} ${d.name}${generics} {\n${variants}\n}`;
   }
-  return `alias ${d.name}${generics} = ${printRef(d.target)}`;
+  if (d.kind === "alias") {
+    return `alias ${d.name}${generics} = ${printRef(d.target)}`;
+  }
+  const signatures = d.signatures.map(printSignature);
+  const async = signatures[0]?.startsWith("async ") === true ? "async " : "";
+  return signatures.length === 1
+    ? `${async}function ${d.name}${generics}${signatures[0]?.replace(/^async /, "") ?? ""}`
+    : `function ${d.name}${generics} {\n${signatures.map((signature) => `  ${signature}`).join("\n")}\n}`;
+}
+
+function printSignature(signature: ResolvedFunctionSignature): string {
+  const params = signature.params.map((param) => `${param.name}: ${printRef(param.type)}`).join(", ");
+  return `${signature.async === true ? "async " : ""}(${params}) -> ${printRef(signature.returns)}`;
 }
 
 function printRef(t: ResolvedTypeRef): string {

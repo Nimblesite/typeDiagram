@@ -142,14 +142,14 @@ test.describe("[WEB-VISUAL-EDITOR]", () => {
     await expect(page.locator(".td-inspector-row")).toHaveCount(unionRowsBeforeAdd + 1);
     await expect(page.locator(".td-inspector-row").last().locator("input").first()).toHaveValue("Variant");
     await expect(page.locator(".td-inspector-row").last().locator("input").nth(1)).toHaveValue("");
-    await expect(page.locator("#editor")).toHaveValue(/  Variant\n/);
+    await expect(page.locator("#editor")).toHaveValue(/ {2}Variant\n/);
     await page.locator(".td-inspector-row").last().locator("input").first().fill("Cancelled");
     await page.locator(".td-inspector-row").last().locator("input").first().blur();
-    await expect(page.locator("#editor")).toHaveValue(/  Cancelled\n/);
+    await expect(page.locator("#editor")).toHaveValue(/ {2}Cancelled\n/);
     await expect(page.locator('[data-decl="ToolResultContent"]')).toContainText("Cancelled");
     await page.locator(".td-inspector-row").last().locator(".td-inspector-remove").click();
     await expect(page.locator(".td-inspector-row")).toHaveCount(unionRowsBeforeAdd);
-    await expect(page.locator("#editor")).not.toHaveValue(/  Cancelled\n/);
+    await expect(page.locator("#editor")).not.toHaveValue(/ {2}Cancelled\n/);
 
     await page.getByRole("button", { name: "Close properties" }).click();
     await page.locator('[data-decl="Email"]').click();
@@ -192,14 +192,14 @@ test.describe("[WEB-VISUAL-EDITOR]", () => {
     await expect(page.locator(".td-node-creator")).toBeVisible();
     await page.getByRole("button", { name: "Add record type" }).click();
     await expect(page.locator("#editor")).toHaveValue(/type NewRecord/);
-    await expect(page.locator("#editor")).toHaveValue(/type NewRecord \{\n  field: String\n\}/);
+    await expect(page.locator("#editor")).toHaveValue(/type NewRecord \{\n {2}field: String\n\}/);
     await expect(page.locator('[data-decl="NewRecord"]')).toHaveCount(1);
     await expect(page.locator(".td-node-creator")).toBeHidden();
     await expect(page.locator("#preview svg [data-decl]")).toHaveCount(12);
     await addType.click();
     await page.getByRole("button", { name: "Add union type" }).click();
     await expect(page.locator("#editor")).toHaveValue(/union NewUnion/);
-    await expect(page.locator("#editor")).toHaveValue(/union NewUnion \{\n  Variant\n\}/);
+    await expect(page.locator("#editor")).toHaveValue(/union NewUnion \{\n {2}Variant\n\}/);
     await expect(page.locator('[data-decl="NewUnion"]')).toHaveCount(1);
     await expect(page.locator(".td-node-creator")).toBeHidden();
     await expect(page.locator("#preview svg [data-decl]")).toHaveCount(13);
@@ -217,7 +217,7 @@ test.describe("[WEB-VISUAL-EDITOR]", () => {
     await page.locator(".td-inspector-row input").first().blur();
     await page.locator(".td-inspector-row input").nth(1).fill("TextPart");
     await page.locator(".td-inspector-row input").nth(1).blur();
-    await expect(page.locator("#editor")).toHaveValue(/type NewRecord \{\n  part: TextPart\n\}/);
+    await expect(page.locator("#editor")).toHaveValue(/type NewRecord \{\n {2}part: TextPart\n\}/);
     await expect(page.locator('[data-edge][data-source="NewRecord"][data-target="TextPart"]')).toHaveCount(1);
     await expect(page.getByRole("button", { name: "Delete NewRecord" })).toHaveText("Delete type");
     await page.getByRole("button", { name: "Delete NewRecord" }).click();
@@ -232,7 +232,7 @@ test.describe("[WEB-VISUAL-EDITOR]", () => {
     await page.locator(".td-inspector-row input").first().blur();
     await page.locator(".td-inspector-row input").nth(1).fill("TextPart");
     await page.locator(".td-inspector-row input").nth(1).blur();
-    await expect(page.locator("#editor")).toHaveValue(/union NewUnion \{\n  Ready\(TextPart\)\n\}/);
+    await expect(page.locator("#editor")).toHaveValue(/union NewUnion \{\n {2}Ready\(TextPart\)\n\}/);
     await expect(page.locator('[data-edge][data-source="NewUnion"][data-target="TextPart"]')).toHaveCount(1);
     await expect(page.getByRole("button", { name: "Delete NewUnion" })).toHaveText("Delete type");
     await page.getByRole("button", { name: "Delete NewUnion" }).click();

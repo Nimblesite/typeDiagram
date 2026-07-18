@@ -9,6 +9,8 @@ import {
   type ResolvedAlias,
   type ResolvedDecl,
   type ResolvedField,
+  type ResolvedFunction,
+  type ResolvedFunctionSignature,
   type ResolvedRecord,
   type ResolvedRefKind,
   type ResolvedTypeRef,
@@ -29,6 +31,12 @@ export interface VariantSpec {
 
 export interface UnionSpec {
   untagged?: boolean;
+}
+
+export interface FunctionSignatureSpec {
+  params: FieldSpec[];
+  returns: ResolvedTypeRef;
+  async?: boolean;
 }
 
 /** Build a TypeRef. Resolution is deferred to validate(). */
@@ -52,6 +60,22 @@ export function union(name: string, variants: VariantSpec[], generics: string[] 
 
 export function alias(name: string, target: ResolvedTypeRef, generics: string[] = []): ResolvedAlias {
   return { kind: "alias", name, generics, target };
+}
+
+export function functionDecl(
+  name: string,
+  signatures: FunctionSignatureSpec[],
+  generics: string[] = []
+): ResolvedFunction {
+  return { kind: "function", name, generics, signatures: signatures.map(toFunctionSignature) };
+}
+
+function toFunctionSignature(signature: FunctionSignatureSpec): ResolvedFunctionSignature {
+  return {
+    params: signature.params.map(toField),
+    returns: signature.returns,
+    ...(signature.async === true ? { async: true as const } : {}),
+  };
 }
 
 function toField(f: FieldSpec): ResolvedField {
@@ -146,7 +170,17 @@ export function resolveResolutions(model: Model): Model {
         ),
       };
     }
-    return { ...d, target: fixRef(d.target, generics, d.name) };
+    if (d.kind === "alias") {
+      return { ...d, target: fixRef(d.target, generics, d.name) };
+    }
+    return {
+      ...d,
+      signatures: d.signatures.map((signature) => ({
+        ...signature,
+        params: signature.params.map((param) => ({ ...param, type: fixRef(param.type, generics, d.name) })),
+        returns: fixRef(signature.returns, generics, d.name),
+      })),
+    };
   });
 
   // rebuild edges from the resolved decls

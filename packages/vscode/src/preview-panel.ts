@@ -35,10 +35,15 @@ const webviewMessage = (message: unknown): EditorMessage | OpenSourceMessage | u
   }
 };
 
-const applyEditorSource = async (doc: vscode.TextDocument, source: string) => {
+const sourceEnd = (source: string) => {
+  const line = source.split("\n").length - 1;
+  const character = source.length - source.lastIndexOf("\n") - 1;
+  return new vscode.Position(line, character);
+};
+
+const applyEditorSource = async (doc: vscode.TextDocument, previous: string, source: string) => {
   const edit = new vscode.WorkspaceEdit();
-  const end = doc.positionAt(doc.getText().length);
-  edit.replace(doc.uri, new vscode.Range(new vscode.Position(0, 0), end), source);
+  edit.replace(doc.uri, new vscode.Range(new vscode.Position(0, 0), sourceEnd(previous)), source);
   await vscode.workspace.applyEdit(edit);
 };
 
@@ -54,10 +59,12 @@ export const consumeEditorSource = (panel: vscode.WebviewPanel, source: string) 
 };
 
 const queueEditorSource = (panel: vscode.WebviewPanel, doc: vscode.TextDocument, source: string) => {
+  const sources = pendingSources.get(panel) ?? [];
+  const current = sources.at(-1) ?? doc.getText();
+  pendingSources.set(panel, [...sources, source]);
   const previous = pendingEdits.get(panel) ?? Promise.resolve();
   const next = previous.then(async () => {
-    pendingSources.set(panel, [...(pendingSources.get(panel) ?? []), source]);
-    await applyEditorSource(doc, source);
+    await applyEditorSource(doc, current, source);
     consumeEditorSource(panel, source);
   });
   pendingEdits.set(panel, next);

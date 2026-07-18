@@ -6,6 +6,7 @@ import {
   type Edge,
   type Model,
   type ResolvedDecl,
+  type ResolvedFunctionSignature,
   type ResolvedTypeRef,
 } from "../model/types.js";
 import { formatVariantName } from "../variant.js";
@@ -96,8 +97,13 @@ function printRefShort(t: ResolvedTypeRef): string {
 
 function declHeader(d: ResolvedDecl): string {
   const generics = d.generics.length === 0 ? "" : `<${d.generics.join(", ")}>`;
-  const tag = d.kind === "record" ? "" : d.kind === "union" ? "union " : "alias ";
+  const tag = d.kind === "record" ? "" : d.kind === "union" ? "union " : d.kind === "alias" ? "alias " : "function ";
   return `${tag}${d.name}${generics}`;
+}
+
+function functionRow(signature: ResolvedFunctionSignature): string {
+  const params = signature.params.map((param) => rowText(param.name, param.type)).join(", ");
+  return `${signature.async === true ? "async " : ""}(${params}) → ${printRefShort(signature.returns)}`;
 }
 
 function buildPreNodes(decls: ResolvedDecl[], fontSize: number, padX: number, padY: number): PreNode[] {
@@ -139,7 +145,7 @@ function buildPreNodes(decls: ResolvedDecl[], fontSize: number, padX: number, pa
         rows.push({ text: variantHeader, y, height: rowH });
         y += rowH;
       }
-    } else {
+    } else if (d.kind === "alias") {
       const text = `= ${printRefShort(d.target)}`;
       const m = measureText(text, fontSize);
       if (m.w > widest) {
@@ -147,6 +153,14 @@ function buildPreNodes(decls: ResolvedDecl[], fontSize: number, padX: number, pa
       }
       rows.push({ text, y, height: rowH });
       y += rowH;
+    } else {
+      for (const signature of d.signatures) {
+        const text = functionRow(signature);
+        const m = measureText(text, fontSize);
+        widest = Math.max(widest, m.w);
+        rows.push({ text, y, height: rowH });
+        y += rowH;
+      }
     }
 
     const width = Math.ceil(widest + padX * 2);

@@ -29,8 +29,9 @@ echo 'type User { name: String }' | typediagram > diagram.svg
 # From a file
 typediagram schema.td > diagram.svg
 
-# From existing TypeScript/Python/Rust/Go/C#/F#/Dart/PHP/Protobuf code
+# From existing Typeshed/TypeScript/Python/Rust/Go/C#/F#/Dart/PHP/Protobuf code
 typediagram --from typescript types.ts > diagram.svg
+typediagram --from typeshed --emit td module.pyi > module.td
 ```
 
 ## Your first diagram
@@ -70,7 +71,7 @@ You'll see three connected boxes: `User` links to `Option<T>` (via the `email` f
 | **Web playground**    | Browser-based editor with syntax highlighting, live preview, pan/zoom, and a Hooks tab with live presets |
 | **CLI**               | `typediagram` binary — pipe source in, SVG out                                                           |
 | **VS Code extension** | Live `.td` preview, markdown preview rendering, **Export to PDF** with vector diagrams                   |
-| **Converters**        | Bidirectional: TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, Protobuf ↔ typeDiagram                   |
+| **Converters**        | Typeshed, TypeScript, Python, Rust, Go, C#, F#, Dart, PHP, Protobuf ↔ typeDiagram                        |
 | **Node.js API**       | `renderToString()`, `parse()`, converter APIs, **render hooks** for SVG customisation                    |
 
 ## Markdown → PDF (VS Code)

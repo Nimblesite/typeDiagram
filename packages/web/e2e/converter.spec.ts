@@ -55,10 +55,10 @@ test.describe("[WEB-CONVERTER]", () => {
 
   test("initial layout: tabs, labels, sample text, panels", async ({ page }) => {
     const labels = await page.$$eval(".conv-lang-tab", (tabs) => tabs.map((t) => t.textContent));
-    for (const name of ["TypeScript", "Rust", "Python", "Go", "C#", "F#", "Dart", "Protobuf", "PHP"]) {
+    for (const name of ["TypeScript", "Rust", "Python", "Typeshed", "Go", "C#", "F#", "Dart", "Protobuf", "PHP"]) {
       expect(labels).toContain(name);
     }
-    expect(labels.length).toBe(9);
+    expect(labels.length).toBe(10);
     expect(await page.$eval(".conv-lang-tab--active", (el) => el.textContent)).toBe("TypeScript");
     expect(await page.$eval("#conv-left-label", (el) => el.textContent)).toBe("typediagram");
     expect(await page.$eval("#conv-right-label", (el) => el.textContent)).toBe("typescript");
@@ -119,6 +119,32 @@ test.describe("[WEB-CONVERTER]", () => {
     const preview = await page.$eval("#conv-preview", (el) => el.innerHTML);
     expect(preview).toContain("<svg");
     expect(preview).not.toContain("No Rust type definitions found");
+  });
+
+  test("Typeshed + flip imports dataclasses and module functions but excludes methods", async ({ page }) => {
+    await page.locator('[data-lang="typeshed"]').click();
+    await waitForTdCode(page, "class ChatRequest");
+    await page.locator("#conv-flip").click();
+    await waitForEditorContains(page, "class ChatRequest");
+    await page.locator("#conv-editor").fill(`from dataclasses import dataclass
+
+@dataclass
+class Payload:
+    value: str
+    def encode(self) -> bytes: ...
+
+def fetch(payload: Payload) -> bytes: ...
+`);
+    await waitForTdCode(page, "function fetch");
+
+    const td = await page.$eval("#conv-td code", (el) => el.textContent);
+    const preview = await page.$eval("#conv-preview", (el) => el.innerHTML);
+    expect(td).toContain("type Payload");
+    expect(td).toContain("value: String");
+    expect(td).toContain("function fetch(payload: Payload) -> Bytes");
+    expect(td).not.toContain("encode");
+    expect(preview).toContain('data-kind="function"');
+    expect(preview).toContain('data-decl="Payload"');
   });
 
   test("flipping back restores the last known TD source", async ({ page }) => {
