@@ -285,9 +285,12 @@ const finishConnection = (
 ) => {
   const connection = state.connect;
   const eventTarget = event.target instanceof Element ? event.target.closest<SVGGElement>("[data-decl]") : null;
-  const target = eventTarget ?? document.elementFromPoint(event.clientX, event.clientY)?.closest<SVGGElement>("[data-decl]");
+  const target =
+    eventTarget ?? document.elementFromPoint(event.clientX, event.clientY)?.closest<SVGGElement>("[data-decl]");
   const targetName = target?.dataset.decl;
   runWhenDefined(connection, (current) => {
+    state.selected = undefined;
+    chrome.inspector.hidden = true;
     const destination = targetName === current.name ? undefined : targetName;
     runWhenDefined(destination, (name) => {
       applyMutation(connectDeclarations(options.getSource(), current.name, current.rowIndex, name), options, chrome);
@@ -346,9 +349,11 @@ const exportSvg = (wrapper: HTMLElement) => {
       : undefined;
   const anchor = url === undefined ? undefined : document.createElement("a");
   runWhenDefined(anchor, (current) => {
-    Object.assign(current, { href: url, download: "type-diagram.svg" });
+    Object.assign(current, { href: url, download: "type-diagram.svg", hidden: true });
+    document.body.append(current);
   });
   anchor?.click();
+  anchor?.remove();
   runWhenDefined(url, (current) => {
     URL.revokeObjectURL(current);
   });
@@ -418,8 +423,7 @@ const createEditorChrome = (
   state: EditorState,
   options: VisualEditorOptions
 ) => {
-  let chrome: CanvasChrome | undefined;
-  chrome = createCanvasChrome(container, {
+  const chrome = createCanvasChrome(container, {
     addNode: (kind) => {
       runWhenDefined(chrome, (current) => {
         applyMutation(addDeclaration(options.getSource(), kind), options, current);

@@ -3,8 +3,8 @@ export const VISUAL_EDITOR_INTERACTION_COMMAND = "typediagram.testVisualEditorIn
 
 export const VISUAL_INTERACTION_PASSES = [
   "canvas-chrome",
-  "record-edit",
   "invalid-edit",
+  "record-edit",
   "union-edit",
   "alias-edit",
   "add-remove",
@@ -15,6 +15,7 @@ export const VISUAL_INTERACTION_PASSES = [
   "trackpad-zoom",
   "fit-reset-pan",
   "draw-relationship",
+  "generic-relationship-recovery",
   "auto-layout",
   "export-svg",
   "close-and-escape",

@@ -14,7 +14,11 @@ const REPO_ROOT = resolve(PKG_ROOT, "../..");
 const RUN_ID = `${String(process.pid)}-${String(Date.now())}`;
 const RESULT_PATH = resolve(PKG_ROOT, `.vscode-test/electron-result-${RUN_ID}.ok`);
 const HARNESS_PATH = resolve(__dirname, "harness");
-const PROFILE_PATH = resolve(PKG_ROOT, `.vscode-test/vsix-profile-${RUN_ID}`);
+const DARWIN_LAUNCHER = resolve(__dirname, "macos-launcher.sh");
+const PROFILE_PATH =
+  process.platform === "darwin"
+    ? resolve("/tmp", `td-vsix-${RUN_ID}`)
+    : resolve(PKG_ROOT, `.vscode-test/vsix-profile-${RUN_ID}`);
 const USER_DATA_PATH = resolve(PROFILE_PATH, "user-data");
 const EXTENSIONS_PATH = resolve(PROFILE_PATH, "extensions");
 
@@ -88,18 +92,14 @@ async function main() {
   const configuredExecutable = process.env["TYPEDIAGRAM_VSCODE_EXECUTABLE_PATH"];
   const configuredCli = configuredExecutable?.endsWith("/bin/code") === true;
   const vscodeExecutablePath =
-    appPath === undefined ? (configuredExecutable ?? (await downloadAndUnzipVSCode())) : "/usr/bin/open";
+    appPath === undefined ? (configuredExecutable ?? (await downloadAndUnzipVSCode())) : DARWIN_LAUNCHER;
   rmSync(PROFILE_PATH, { recursive: true, force: true });
   mkdirSync(USER_DATA_PATH, { recursive: true });
   mkdirSync(EXTENSIONS_PATH, { recursive: true });
   installVsix(configuredExecutable ?? vscodeExecutablePath, configuredCli, appPath, vsixPath);
   const profileArgs = [`--user-data-dir=${USER_DATA_PATH}`, `--extensions-dir=${EXTENSIONS_PATH}`];
   const launchArgs =
-    appPath === undefined
-      ? configuredCli
-        ? ["--wait", "--new-window", ...profileArgs]
-        : profileArgs
-      : ["-W", "-n", "-a", appPath, "--args", ...profileArgs];
+    appPath === undefined ? (configuredCli ? ["--wait", "--new-window", ...profileArgs] : profileArgs) : profileArgs;
   rmSync(RESULT_PATH, { force: true });
 
   const exitCode = await runTests({

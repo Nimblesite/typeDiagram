@@ -1,7 +1,7 @@
 // [VSCODE-EXT] Extension entry point — registers preview command, wires editor events.
 import * as vscode from "vscode";
 import { warmupSyncRender, isSyncRenderReady } from "typediagram-core";
-import { openPreview, requestVisualEditorInteractions } from "./preview-panel.js";
+import { consumeEditorSource, openPreview, requestVisualEditorInteractions } from "./preview-panel.js";
 import { typediagramMarkdownItPlugin, type MarkdownIt, setPluginLogger } from "./markdown-it-plugin.js";
 import { getLogger, initLogger } from "./logger.js";
 import { exportPdf, type ExportPdfDeps } from "./export-pdf.js";
@@ -146,7 +146,18 @@ export const activate = async (context: vscode.ExtensionContext) => {
       return;
     }
     const panel = panels.get(doc.uri.toString());
-    panel?.webview.postMessage({ kind: "update", source: doc.getText() });
+    const source = doc.getText();
+    switch (panel) {
+      case undefined:
+        break;
+      default:
+        switch (consumeEditorSource(panel, source)) {
+          case true:
+            break;
+          case false:
+            void panel.webview.postMessage({ kind: "update", source });
+        }
+    }
   });
 
   const onClose = vscode.workspace.onDidCloseTextDocument((doc) => {

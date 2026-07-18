@@ -143,4 +143,15 @@ describe("[EDITOR-SOURCE] visual operations preserve a valid, connected type mod
     expect(model.ok).toBe(true);
     expect(model.ok ? model.value.edges.some((edge) => edge.targetDeclName === "Option") : false).toBe(true);
   });
+
+  it("rejects a bare generic field edit before it can replace the live diagram", () => {
+    const genericSource = `${SOURCE}\nunion Option<T> {\n  Some { value: T }\n  None\n}\n`;
+    const edited = editRow(genericSource, "User", 0, { type: "Option" });
+    expect(edited.ok).toBe(false);
+    expect(edited.ok ? edited.value : edited.error.message).toContain("takes 1 type argument(s), got 0");
+    expect(genericSource).toContain("id: Int");
+    expect(genericSource).not.toContain("id: Option");
+    const originalModel = parse(genericSource);
+    expect(originalModel.ok).toBe(true);
+  });
 });

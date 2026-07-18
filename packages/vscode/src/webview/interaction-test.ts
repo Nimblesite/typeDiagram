@@ -10,9 +10,7 @@ export type VisualInteractionContext = {
 
 type Audit = { context: VisualInteractionContext; passed: string[]; evidence: VisualInteractionEvidence };
 type Point = { x: number; y: number };
-
 const mark = (audit: Audit, name: string, passed: boolean) => (passed ? audit.passed.push(name) : undefined);
-
 const pointer = (type: string, point: Point, buttons: number) =>
   new PointerEvent(type, {
     bubbles: true,
@@ -24,22 +22,18 @@ const pointer = (type: string, point: Point, buttons: number) =>
     clientX: point.x,
     clientY: point.y,
   });
-
 const button = (audit: Audit, label: string) => {
   const value = audit.context.preview.querySelector(`[aria-label="${label}"]`);
   return value instanceof HTMLButtonElement ? value : undefined;
 };
-
 const input = (audit: Audit, index: number) => {
   const value = audit.context.preview.querySelectorAll(".td-inspector input").item(index);
   return value instanceof HTMLInputElement ? value : undefined;
 };
-
 const declaration = (audit: Audit, name: string) => {
   const value = audit.context.preview.querySelector(`[data-decl="${name}"]`);
   return value instanceof SVGGElement ? value : undefined;
 };
-
 const selectDeclaration = (audit: Audit, name: string) => {
   const node = declaration(audit, name);
   const svg = node?.ownerSVGElement ?? undefined;
@@ -48,7 +42,6 @@ const selectDeclaration = (audit: Audit, name: string) => {
   svg?.dispatchEvent(pointer("pointerup", point, 0));
   return node;
 };
-
 const changeInput = async (audit: Audit, index: number, value: string) => {
   const current = input(audit, index);
   current?.focus();
@@ -57,7 +50,6 @@ const changeInput = async (audit: Audit, index: number, value: string) => {
   await audit.context.settle();
   return current !== undefined;
 };
-
 const canvasChrome = (audit: Audit) => {
   const { preview } = audit.context;
   const toolbarButtons = preview.querySelectorAll(".td-canvas-toolbar .td-canvas-button").length;
@@ -65,60 +57,151 @@ const canvasChrome = (audit: Audit) => {
   const grid = preview.querySelector("svg #td-grid") !== null;
   const shadow = preview.querySelector("svg #td-ambient-shadow") !== null;
   const nodeCount = preview.querySelectorAll("svg [data-decl]").length;
-  Object.assign(audit.evidence, { toolbarButtons, legendItems, grid, shadow, nodeCount });
+  const ports = preview.querySelectorAll("svg .td-port").length;
+  const nodeKinds = ["record", "union", "alias"].every(
+    (kind) => preview.querySelectorAll(`svg [data-kind="${kind}"]`).length > 0
+  );
+  const toolbarLabel = preview.querySelector(".td-canvas-toolbar")?.getAttribute("aria-label") === "Canvas controls";
+  const legendText = preview.querySelector(".td-canvas-legend")?.textContent?.replace(/\s/g, "") === "TypeUnionAlias";
+  const chromeInitiallyClosed =
+    preview.querySelector<HTMLElement>(".td-node-creator")?.hidden === true &&
+    preview.querySelector<HTMLElement>(".td-inspector")?.hidden === true;
+  Object.assign(audit.evidence, {
+    toolbarButtons,
+    legendItems,
+    grid,
+    shadow,
+    nodeCount,
+    ports,
+    nodeKinds,
+    toolbarLabel,
+    legendText,
+    chromeInitiallyClosed,
+  });
   const toolbar = toolbarButtons === 8;
   const legend = legendItems === 3;
-  const rendered = grid && shadow && nodeCount > 0;
-  mark(audit, "canvas-chrome", toolbar && legend && rendered);
+  const rendered = grid && shadow && nodeCount > 10 && ports > 30;
+  mark(
+    audit,
+    "canvas-chrome",
+    toolbar && legend && rendered && nodeKinds && toolbarLabel && legendText && chromeInitiallyClosed
+  );
 };
-
 const recordEdits = async (audit: Audit) => {
   selectDeclaration(audit, "ChatRequest");
+  const recordKind = audit.context.preview.querySelector(".td-inspector-kind")?.textContent === "record";
+  const recordRows = audit.context.preview.querySelectorAll(".td-inspector-row").length;
+  const recordSelected = audit.context.preview.querySelectorAll(".td-selected").length === 1;
   await changeInput(audit, 0, "ConversationRequest");
+  const renamedNode = declaration(audit, "ConversationRequest") !== undefined;
+  const oldNodeGone = declaration(audit, "ChatRequest") === undefined;
   selectDeclaration(audit, "ConversationRequest");
   await changeInput(audit, 1, "prompt");
   selectDeclaration(audit, "ConversationRequest");
+  const beforeInvalid = audit.context.getSource();
   await changeInput(audit, 2, "List<");
-  const invalid = !audit.context.getSource().includes("prompt: List<");
+  const invalid = audit.context.getSource() === beforeInvalid && !audit.context.getSource().includes("prompt: List<");
   const invalidToast = audit.context.preview.querySelector(".td-editor-toast:not([hidden])") !== null;
-  Object.assign(audit.evidence, { invalidRejected: invalid, invalidToast });
+  Object.assign(audit.evidence, { invalidRejected: invalid, invalidToast, recordKind, recordRows, recordSelected });
   mark(audit, "invalid-edit", invalid && invalidToast);
   selectDeclaration(audit, "ConversationRequest");
   await changeInput(audit, 2, "Option<String>");
   const recordRenamed = audit.context.getSource().includes("type ConversationRequest");
   const recordFieldEdited = audit.context.getSource().includes("prompt: Option<String>");
-  Object.assign(audit.evidence, { recordRenamed, recordFieldEdited });
-  mark(audit, "record-edit", recordRenamed && recordFieldEdited);
+  const recordRendered =
+    declaration(audit, "ConversationRequest")?.textContent?.includes("prompt: Option<String>") === true;
+  const recordEdge =
+    audit.context.preview.querySelector('[data-edge][data-source="ConversationRequest"][data-target="Option"]') !==
+    null;
+  Object.assign(audit.evidence, {
+    recordRenamed,
+    recordFieldEdited,
+    renamedNode,
+    oldNodeGone,
+    recordRendered,
+    recordEdge,
+  });
+  mark(
+    audit,
+    "record-edit",
+    recordRenamed &&
+      recordFieldEdited &&
+      renamedNode &&
+      oldNodeGone &&
+      recordRendered &&
+      recordEdge &&
+      recordKind &&
+      recordRows === 3 &&
+      recordSelected
+  );
 };
-
 const unionEdit = async (audit: Audit) => {
   selectDeclaration(audit, "ToolResultContent");
+  const unionKind = audit.context.preview.querySelector(".td-inspector-kind")?.textContent === "union";
+  const unionRows = audit.context.preview.querySelectorAll(".td-inspector-row").length;
   await changeInput(audit, 3, "ScalarValue");
   selectDeclaration(audit, "ToolResultContent");
   await changeInput(audit, 4, "TextPart");
   const unionVariantRenamed = audit.context.getSource().includes("ScalarValue {");
   const unionPayloadEdited = audit.context.getSource().includes("ScalarValue { value: TextPart }");
-  Object.assign(audit.evidence, { unionVariantRenamed, unionPayloadEdited });
-  mark(audit, "union-edit", unionVariantRenamed && unionPayloadEdited);
+  const unionRendered = declaration(audit, "ToolResultContent")?.textContent?.includes("ScalarValue") === true;
+  const unionEdge =
+    audit.context.preview.querySelector('[data-edge][data-source="ToolResultContent"][data-target="TextPart"]') !==
+    null;
+  Object.assign(audit.evidence, {
+    unionVariantRenamed,
+    unionPayloadEdited,
+    unionKind,
+    unionRows,
+    unionRendered,
+    unionEdge,
+  });
+  mark(
+    audit,
+    "union-edit",
+    unionVariantRenamed && unionPayloadEdited && unionKind && unionRows === 4 && unionRendered && unionEdge
+  );
 };
-
 const aliasEdit = async (audit: Audit) => {
   selectDeclaration(audit, "Email");
+  const aliasKind = audit.context.preview.querySelector(".td-inspector-kind")?.textContent === "alias";
+  const aliasRows = audit.context.preview.querySelectorAll(".td-inspector-row").length;
+  const aliasHasNoRowControls =
+    audit.context.preview.querySelector(".td-inspector-add") === null &&
+    audit.context.preview.querySelector(".td-inspector-remove") === null;
   await changeInput(audit, 2, "Option<String>");
   const aliasTargetEdited = audit.context.getSource().includes("alias Email = Option<String>");
-  audit.evidence.aliasTargetEdited = aliasTargetEdited;
-  mark(audit, "alias-edit", aliasTargetEdited);
+  const aliasRendered = declaration(audit, "Email")?.textContent?.includes("Option<String>") === true;
+  const aliasEdge =
+    audit.context.preview.querySelector('[data-edge][data-source="Email"][data-target="Option"]') !== null;
+  Object.assign(audit.evidence, {
+    aliasTargetEdited,
+    aliasKind,
+    aliasRows,
+    aliasHasNoRowControls,
+    aliasRendered,
+    aliasEdge,
+  });
+  mark(
+    audit,
+    "alias-edit",
+    aliasTargetEdited && aliasKind && aliasRows === 1 && aliasHasNoRowControls && aliasRendered && aliasEdge
+  );
 };
-
 const addRemove = async (audit: Audit) => {
   selectDeclaration(audit, "ConversationRequest");
   const add = audit.context.preview.querySelector(".td-inspector-add");
+  const sourceBefore = audit.context.getSource();
   const beforeRows = audit.context.preview.querySelectorAll(".td-inspector-row").length;
+  const beforePorts = declaration(audit, "ConversationRequest")?.querySelectorAll(".td-source-port").length ?? 0;
   (add instanceof HTMLButtonElement ? add : undefined)?.click();
   await audit.context.settle();
   const added = audit.context.getSource().includes("field: String");
   selectDeclaration(audit, "ConversationRequest");
   const afterAddRows = audit.context.preview.querySelectorAll(".td-inspector-row").length;
+  const afterAddPorts = declaration(audit, "ConversationRequest")?.querySelectorAll(".td-source-port").length ?? 0;
+  const lastInputs = audit.context.preview.querySelectorAll<HTMLInputElement>(".td-inspector-row:last-of-type input");
+  const defaultRow = lastInputs.item(0).value === "field" && lastInputs.item(1).value === "String";
   const removes = audit.context.preview.querySelectorAll(".td-inspector-remove");
   const remove = removes.item(removes.length - 1);
   (remove instanceof HTMLButtonElement ? remove : undefined)?.click();
@@ -126,10 +209,33 @@ const addRemove = async (audit: Audit) => {
   selectDeclaration(audit, "ConversationRequest");
   const afterRemoveRows = audit.context.preview.querySelectorAll(".td-inspector-row").length;
   const removed = !audit.context.getSource().includes("field: String");
-  Object.assign(audit.evidence, { beforeRows, afterAddRows, afterRemoveRows, rowAdded: added, rowRemoved: removed });
-  mark(audit, "add-remove", added && removed && afterAddRows === beforeRows + 1 && afterRemoveRows === beforeRows);
+  const afterRemovePorts = declaration(audit, "ConversationRequest")?.querySelectorAll(".td-source-port").length ?? 0;
+  const sourceRestored = audit.context.getSource() === sourceBefore;
+  Object.assign(audit.evidence, {
+    beforeRows,
+    afterAddRows,
+    afterRemoveRows,
+    rowAdded: added,
+    rowRemoved: removed,
+    beforePorts,
+    afterAddPorts,
+    afterRemovePorts,
+    defaultRow,
+    sourceRestored,
+  });
+  mark(
+    audit,
+    "add-remove",
+    added &&
+      removed &&
+      defaultRow &&
+      sourceRestored &&
+      afterAddRows === beforeRows + 1 &&
+      afterRemoveRows === beforeRows &&
+      afterAddPorts === beforePorts + 1 &&
+      afterRemovePorts === beforePorts
+  );
 };
-
 const iconButtons = (audit: Audit) => {
   selectDeclaration(audit, "ConversationRequest");
   const close = button(audit, "Close properties");
@@ -140,13 +246,11 @@ const iconButtons = (audit: Audit) => {
   Object.assign(audit.evidence, { closeIcon, removeIconCount, removeButtonsLabelled });
   mark(audit, "icon-buttons", closeIcon && removeIconCount === removes.length && removeButtonsLabelled);
 };
-
 const addNode = async (audit: Audit, label: string) => {
   button(audit, "Add type")?.click();
   button(audit, label)?.click();
   await audit.context.settle();
 };
-
 const addDeleteNodes = async (audit: Audit) => {
   button(audit, "Add type")?.click();
   const creatorButtons = audit.context.preview.querySelectorAll(".td-node-creator button").length;
@@ -248,12 +352,11 @@ const fitResetPan = (audit: Audit) => {
   );
 };
 
-const drawRelationship = async (audit: Audit) => {
-  selectDeclaration(audit, "ConversationRequest");
+const dragConnection = async (audit: Audit, sourceName: string, rowIndex: number, targetName: string) => {
   const port = audit.context.preview.querySelector(
-    '[data-decl="ConversationRequest"] .td-source-port[data-row-index="0"]'
+    `[data-decl="${sourceName}"] .td-source-port[data-row-index="${String(rowIndex)}"]`
   );
-  const target = audit.context.preview.querySelector('[data-decl="AgentConfig"] .td-target-port');
+  const target = audit.context.preview.querySelector(`[data-decl="${targetName}"] .td-target-port`);
   const svg = port instanceof SVGCircleElement ? port.ownerSVGElement : undefined;
   const sourceBox = port?.getBoundingClientRect();
   const targetBox = target?.getBoundingClientRect();
@@ -265,9 +368,61 @@ const drawRelationship = async (audit: Audit) => {
     audit.context.preview.querySelector(".td-connection-preview")?.getAttribute("d")?.includes(" C ") === true;
   target?.dispatchEvent(pointer("pointerup", end, 0));
   await audit.context.settle();
-  const relationshipSource = audit.context.getSource().includes("prompt: AgentConfig");
-  Object.assign(audit.evidence, { connectionPreview, relationshipSource });
-  mark(audit, "draw-relationship", connectionPreview && relationshipSource);
+  return connectionPreview;
+};
+
+const drawRelationship = async (audit: Audit) => {
+  selectDeclaration(audit, "ConversationRequest");
+  const connectionPreview = await dragConnection(audit, "ConversationRequest", 0, "TextPart");
+  const relationshipSource = audit.context.getSource().includes("prompt: TextPart");
+  const relationshipRendered =
+    declaration(audit, "ConversationRequest")?.textContent?.includes("prompt: TextPart") === true;
+  const relationshipEdge =
+    audit.context.preview.querySelector('[data-edge][data-source="ConversationRequest"][data-target="TextPart"]') !==
+    null;
+  const relationshipClosed = audit.context.preview.querySelector(".td-connection-preview") === null;
+  Object.assign(audit.evidence, {
+    connectionPreview,
+    relationshipSource,
+    relationshipRendered,
+    relationshipEdge,
+    relationshipClosed,
+  });
+  mark(
+    audit,
+    "draw-relationship",
+    connectionPreview && relationshipSource && relationshipRendered && relationshipEdge && relationshipClosed
+  );
+};
+
+const genericRelationshipRecovery = async (audit: Audit) => {
+  const connectionPreview = await dragConnection(audit, "ToolResult", -1, "Option");
+  const genericSource = audit.context.getSource().includes("option: Option<Any>");
+  const genericTargetRendered = declaration(audit, "Option") !== undefined;
+  const genericEdge =
+    audit.context.preview.querySelector('[data-edge][data-source="ToolResult"][data-target="Option"]') !== null;
+  const genericRendered = declaration(audit, "ToolResult")?.textContent?.includes("option: Option<Any>") === true;
+  const fatalErrorHidden = audit.context.preview.ownerDocument.getElementById("error-panel")?.hidden === true;
+  const recoveryActions = audit.context.preview.ownerDocument.querySelectorAll("#error-panel .error-action").length;
+  Object.assign(audit.evidence, {
+    genericSource,
+    genericTargetRendered,
+    genericEdge,
+    genericRendered,
+    fatalErrorHidden,
+    recoveryActions,
+  });
+  mark(
+    audit,
+    "generic-relationship-recovery",
+    connectionPreview &&
+      genericSource &&
+      genericTargetRendered &&
+      genericEdge &&
+      genericRendered &&
+      fatalErrorHidden &&
+      recoveryActions === 2
+  );
 };
 
 const autoLayout = (audit: Audit) => {
@@ -320,6 +475,7 @@ const canvasInteractions = async (audit: Audit) => {
   trackpadZoom(audit);
   fitResetPan(audit);
   await drawRelationship(audit);
+  await genericRelationshipRecovery(audit);
   autoLayout(audit);
   exportSvg(audit);
   closeAndEscape(audit);
@@ -335,7 +491,8 @@ export const runVisualEditorInteractions = async (
   const source = context.getSource();
   return {
     passed: audit.passed,
-    sourceUpdated: source.includes("ConversationRequest") && source.includes("prompt: AgentConfig"),
+    sourceUpdated:
+      source.includes("ConversationRequest") && source.includes("prompt: TextPart") && source.includes("Option<Any>"),
     evidence: audit.evidence,
   };
 };

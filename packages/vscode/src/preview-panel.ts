@@ -10,6 +10,7 @@ import {
 type EditorMessage = { kind: "edit"; source: string };
 type OpenSourceMessage = { kind: "open-source" };
 const pendingEdits = new WeakMap<vscode.WebviewPanel, Promise<void>>();
+const pendingSources = new WeakMap<vscode.WebviewPanel, string[]>();
 const panelReady = new WeakMap<vscode.WebviewPanel, Promise<void>>();
 let interactionRequestId = 0;
 
@@ -41,9 +42,24 @@ const applyEditorSource = async (doc: vscode.TextDocument, source: string) => {
   await vscode.workspace.applyEdit(edit);
 };
 
+export const consumeEditorSource = (panel: vscode.WebviewPanel, source: string) => {
+  const sources = pendingSources.get(panel) ?? [];
+  const index = sources.indexOf(source);
+  switch (index >= 0) {
+    case true:
+      sources.splice(index, 1);
+      break;
+  }
+  return index >= 0;
+};
+
 const queueEditorSource = (panel: vscode.WebviewPanel, doc: vscode.TextDocument, source: string) => {
   const previous = pendingEdits.get(panel) ?? Promise.resolve();
-  const next = previous.then(() => applyEditorSource(doc, source));
+  const next = previous.then(async () => {
+    pendingSources.set(panel, [...(pendingSources.get(panel) ?? []), source]);
+    await applyEditorSource(doc, source);
+    consumeEditorSource(panel, source);
+  });
   pendingEdits.set(panel, next);
 };
 

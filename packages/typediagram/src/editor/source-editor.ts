@@ -30,8 +30,11 @@ const findDecl = (model: Model, name: string) => model.decls.find((decl) => decl
 
 const missingDecl = (name: string) => err<EditorFailure>({ message: `Unknown declaration '${name}'` });
 
-const sourceResult = (model: Model, decl: ResolvedDecl | undefined, name: string) =>
-  decl === undefined ? missingDecl(name) : ok(printSource(model));
+const sourceResult = (model: Model, decl: ResolvedDecl | undefined, name: string) => {
+  const source = printSource(model);
+  const validated = modelOrFailure(source);
+  return decl === undefined ? missingDecl(name) : validated.ok ? ok(source) : validated;
+};
 
 const unresolvedRef = (ref: TypeRef): ResolvedTypeRef => ({
   name: ref.name,
@@ -85,7 +88,12 @@ const stringRef = (): ResolvedTypeRef => ({
 const newDeclaration = (model: Model, kind: DeclarationKind): ResolvedDecl => {
   switch (kind) {
     case "record":
-      return { kind, name: uniqueName(model, "NewRecord"), generics: [], fields: [{ name: "field", type: stringRef() }] };
+      return {
+        kind,
+        name: uniqueName(model, "NewRecord"),
+        generics: [],
+        fields: [{ name: "field", type: stringRef() }],
+      };
     case "union":
       return { kind, name: uniqueName(model, "NewUnion"), generics: [], variants: [{ name: "Variant", fields: [] }] };
     case "alias":

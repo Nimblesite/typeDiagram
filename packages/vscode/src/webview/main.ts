@@ -57,7 +57,10 @@ const recoveryElements = () => {
   const restore = document.getElementById("restore-valid-source");
   const openSource = document.getElementById("open-source");
   const complete =
-    errorPanel !== null && error !== null && restore instanceof HTMLButtonElement && openSource instanceof HTMLButtonElement;
+    errorPanel !== null &&
+    error !== null &&
+    restore instanceof HTMLButtonElement &&
+    openSource instanceof HTMLButtonElement;
   return complete ? { errorPanel, error, restore, openSource } : undefined;
 };
 

@@ -156,6 +156,112 @@ describe("[VSCODE-EXT] activate", () => {
     );
   });
 
+  it("replaces the entire prior visual source when a field relationship follows node creation", async () => {
+    const initial = `type AuditEvent {
+  id: Uuid
+  createdAt: DateTime
+  amount: Decimal
+  parent: Option<Uuid>
+  history: List<DateTime>
+}
+`;
+    const added = `typeDiagram
+
+${initial.trimEnd()}
+
+type NewRecord {
+  field: String
+}
+`;
+    const connected = added.replace("field: String", "field: AuditEvent");
+    const endOf = (source: string) => {
+      const lines = source.split("\n");
+      return { line: lines.length - 1, character: lines.at(-1)?.length ?? 0 };
+    };
+    const doc = { ...makeDoc(initial), positionAt: () => endOf(initial) };
+    mock.window.activeTextEditor = { document: doc };
+    await activateExtension();
+    mock.commands._handler?.();
+
+    const handler = mock.mockPanel.webview._messageHandlers.at(-1);
+    handler?.({ kind: "edit", source: added });
+    handler?.({ kind: "edit", source: connected });
+    await vi.waitFor(() => {
+      expect(mock.workspace.applyEdit).toHaveBeenCalledTimes(2);
+    });
+
+    const secondEdit = mock.workspace.applyEdit.mock.calls[1]?.[0] as mock.WorkspaceEdit;
+    const replacement = secondEdit.replace.mock.calls[0];
+    const range = replacement?.[1] as mock.Range;
+    expect(replacement?.[2]).toBe(connected);
+    expect(range.start).toEqual(new mock.Position(0, 0));
+    expect(range.end).toEqual(endOf(added));
+    expect(range.end).not.toEqual(endOf(initial));
+  });
+
+  it("undoes an invalid visual edit without retaining or duplicating its diagnostics", async () => {
+    const valid = "typeDiagram\ntype Person {\n  age: Int\n  active: Bool\n}\n";
+    const invalid = `${valid}age\nactive\n`;
+    const endOf = (source: string) => {
+      const lines = source.split("\n");
+      return new mock.Position(lines.length - 1, lines.at(-1)?.length ?? 0);
+    };
+    const doc = { ...makeDoc(valid), positionAt: () => endOf(valid) };
+    mock.window.activeTextEditor = { document: doc };
+    await activateExtension();
+    mock.commands._handler?.();
+
+    const handler = mock.mockPanel.webview._messageHandlers.at(-1);
+    handler?.({ kind: "edit", source: invalid });
+    handler?.({ kind: "edit", source: valid });
+    await vi.waitFor(() => {
+      expect(mock.workspace.applyEdit).toHaveBeenCalledTimes(2);
+    });
+
+    const invalidEdit = mock.workspace.applyEdit.mock.calls[0]?.[0] as mock.WorkspaceEdit;
+    const recoveryEdit = mock.workspace.applyEdit.mock.calls[1]?.[0] as mock.WorkspaceEdit;
+    const invalidReplacement = invalidEdit.replace.mock.calls[0];
+    const recoveryReplacement = recoveryEdit.replace.mock.calls[0];
+    const recoveryRange = recoveryReplacement?.[1] as mock.Range;
+    expect(invalidReplacement?.[2]).toBe(invalid);
+    expect(recoveryReplacement?.[2]).toBe(valid);
+    expect(recoveryRange.start).toEqual(new mock.Position(0, 0));
+    expect(recoveryRange.end).toEqual(endOf(invalid));
+    expect(recoveryRange.end).not.toEqual(endOf(valid));
+  });
+
+  it("consumes visual-edit echoes without dropping genuine external document changes", async () => {
+    await activateExtension();
+    const doc = makeDoc("typeDiagram\ntype X { a: Int }");
+    const first = "typeDiagram\ntype X { a: String }\n";
+    const second = "typeDiagram\ntype X { a: Text }\n";
+    mock.window.activeTextEditor = { document: doc };
+    mock.commands._handler?.();
+    mock.mockPanel.webview.postMessage.mockClear();
+    mock.workspace.applyEdit
+      .mockImplementationOnce(() => {
+        mock.workspace._changeCb?.({ document: makeDoc(first) });
+        return Promise.resolve(true);
+      })
+      .mockImplementationOnce(() => {
+        mock.workspace._changeCb?.({ document: makeDoc(second) });
+        return Promise.resolve(true);
+      });
+    const handler = mock.mockPanel.webview._messageHandlers.at(-1);
+    handler?.({ kind: "edit", source: first });
+    handler?.({ kind: "edit", source: second });
+    await vi.waitFor(() => {
+      expect(mock.workspace.applyEdit).toHaveBeenCalledTimes(2);
+    });
+    expect(mock.mockPanel.webview.postMessage).not.toHaveBeenCalled();
+    mock.workspace._changeCb?.({ document: makeDoc("typeDiagram\ntype X { a: External }\n") });
+    expect(mock.mockPanel.webview.postMessage).toHaveBeenCalledOnce();
+    expect(mock.mockPanel.webview.postMessage).toHaveBeenCalledWith({
+      kind: "update",
+      source: "typeDiagram\ntype X { a: External }\n",
+    });
+  });
+
   it("opens the source document as an escape hatch from an invalid visual edit", async () => {
     await activateExtension();
     const doc = makeDoc("typeDiagram\ntype X { a: Int }");

@@ -1,7 +1,7 @@
 // [VSCODE-WEBVIEW-HTML-TEST] Tests for webview HTML generation.
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parser } from "typediagram-core";
+import { parser, renderToString } from "typediagram-core";
 import { webviewHtml } from "../src/webview-html.js";
 
 describe("[VSCODE-WEBVIEW-HTML] webviewHtml", () => {
@@ -54,11 +54,14 @@ describe("[VSCODE-WEBVIEW-HTML] webviewHtml", () => {
     expect(html).toContain("Open source");
   });
 
-  it("ships a parseable sample for the visual editor recovery workflow", () => {
+  it("ships a renderable sample for the visual editor recovery workflow", async () => {
     const source = readFileSync(new URL("../examples/sample.td", import.meta.url), "utf8");
-    const result = parser.parse(source);
-    expect(result.ok).toBe(true);
-    expect(result.ok ? result.value.declarations.length : 0).toBeGreaterThan(8);
+    const parsed = parser.parse(source);
+    const rendered = await renderToString(source);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok ? parsed.value.decls.length : 0).toBeGreaterThan(8);
+    expect(rendered.ok).toBe(true);
+    expect(rendered.ok ? rendered.value : "").toContain("<svg");
     expect(source).toContain("union Option<T>");
     expect(source).toContain("alias Email = String");
   });

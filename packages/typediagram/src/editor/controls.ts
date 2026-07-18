@@ -76,7 +76,9 @@ const createNodeCreator = (container: HTMLElement, actions: CanvasActions) => {
 const createToolbar = (container: HTMLElement, actions: CanvasActions, creator: HTMLElement) => {
   const toolbar = document.createElement("div");
   const zoom = button("100%", "Current zoom", () => undefined);
-  const addType = button("+ Type", "Add type", () => (creator.hidden = !creator.hidden));
+  const addType = button("+ Type", "Add type", () => {
+    creator.hidden = creator.hidden === false;
+  });
   toolbar.className = "td-canvas-toolbar";
   toolbar.setAttribute("role", "toolbar");
   toolbar.setAttribute("aria-label", "Canvas controls");

@@ -14,21 +14,46 @@ npx typediagram schema.td > diagram.svg
 
 ```
 typediagram [options] [file]
+typediagram --config FILE [--watch]
 ```
 
 If `file` is omitted, reads from stdin. Output goes to stdout. Errors go to stderr with exit code 1.
 
 ## Options
 
-| Flag           | Value                                                               | Description                                 |
-| -------------- | ------------------------------------------------------------------- | ------------------------------------------- |
-| `--from`       | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from language source to SVG         |
-| `--to`         | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from typeDiagram to language source |
-| `--theme`      | `light\|dark`                                                       | Color theme (default: `light`)              |
-| `--font-size`  | number                                                              | Font size in pixels                         |
-| `-h`, `--help` |                                                                     | Show help                                   |
+| Flag           | Value                                                               | Description                                       |
+| -------------- | ------------------------------------------------------------------- | ------------------------------------------------- |
+| `--config`     | JSON file                                                           | Generate every configured language output         |
+| `--watch`      |                                                                     | Regenerate configured outputs after `.td` changes |
+| `--from`       | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from language source to SVG               |
+| `--to`         | `typescript\|python\|rust\|go\|csharp\|fsharp\|dart\|protobuf\|php` | Convert from typeDiagram to language source       |
+| `--theme`      | `light\|dark`                                                       | Color theme (default: `light`)                    |
+| `--font-size`  | number                                                              | Font size in pixels                               |
+| `-h`, `--help` |                                                                     | Show help                                         |
 
 `--from` and `--to` are mutually exclusive.
+
+## Configured generation and watch mode
+
+Paths are relative to the config file. Each `outputs` key selects one converter from the supported language registry:
+
+```json
+{
+  "source": "schemas/person.td",
+  "watch": true,
+  "outputs": {
+    "typescript": "frontend/src/generated/person.ts",
+    "rust": "backend/src/generated/person.rs",
+    "python": "services/generated/person.py"
+  }
+}
+```
+
+```sh
+typediagram --config typediagram.json
+```
+
+`"watch": true` performs initial generation and then watches the source. `--watch` enables the same behavior from the command line when the config omits it. Each valid save regenerates every selected language. Invalid source reports diagnostics without overwriting the last good generated files; the watcher recovers automatically after the next valid save.
 
 ## Examples
 

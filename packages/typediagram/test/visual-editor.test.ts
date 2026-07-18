@@ -55,7 +55,7 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     vi.restoreAllMocks();
   });
 
-  it("supports the full direct-manipulation workflow and all canvas controls", async () => {
+  it("supports the full workflow without unsafe declaration-level connection handles", async () => {
     const container = document.createElement("section");
     size(container);
     document.body.appendChild(container);
@@ -80,6 +80,10 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     expect(container.querySelectorAll(".td-legend-item")).toHaveLength(3);
     expect(container.querySelector('[data-decl="Profile"]')?.getAttribute("transform")).toBe("translate(16 8)");
     expect(container.querySelectorAll(".td-port").length).toBeGreaterThan(8);
+    expect(container.querySelectorAll('.td-source-port[data-row-index="-1"]')).toHaveLength(0);
+    expect(container.querySelector('[data-decl="Account"] .td-source-port[data-row-index="-1"]')).toBeNull();
+    expect(container.querySelector('[data-decl="State"] .td-source-port[data-row-index="-1"]')).toBeNull();
+    expect(container.querySelector('[data-decl="Owner"] .td-source-port[data-row-index="-1"]')).toBeNull();
     installVisualEditorStyles(document);
     expect(document.querySelectorAll("style[data-td-visual-editor]")).toHaveLength(1);
 
@@ -162,6 +166,9 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     connectionSvg?.dispatchEvent(pointer("pointerup", 400, 200));
     expect(source).toContain("member: Profile");
     expect(elementFromPoint).toHaveBeenCalled();
+    editor.setContent(await render(source));
+    expect(container.querySelector<HTMLElement>(".td-inspector")?.hidden).toBe(true);
+    expect(container.querySelectorAll(".td-selected")).toHaveLength(0);
 
     const wrapper = container.querySelector<HTMLElement>(".viewport-wrapper");
     const beforeZoom = wrapper?.style.transform;
@@ -180,11 +187,20 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
 
     const createObjectURL = vi.spyOn(URL, "createObjectURL").mockReturnValue("blob:test");
     const revokeObjectURL = vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => undefined);
-    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
+      this.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    });
+    let exportFilename = "";
+    const captureExport = (event: Event) => {
+      exportFilename = event.target instanceof HTMLAnchorElement ? event.target.download : exportFilename;
+    };
+    document.addEventListener("click", captureExport, true);
     container.querySelector<HTMLButtonElement>('[aria-label="Export SVG"]')?.click();
+    document.removeEventListener("click", captureExport, true);
     expect(createObjectURL).toHaveBeenCalledTimes(1);
     expect(revokeObjectURL).toHaveBeenCalledWith("blob:test");
     expect(click).toHaveBeenCalledTimes(1);
+    expect(exportFilename).toBe("type-diagram.svg");
 
     container.querySelector<HTMLButtonElement>('[aria-label="Restore automatic layout"]')?.click();
     expect(positions.at(-1)).toEqual({});
@@ -332,6 +348,28 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     expect(VISUAL_EDITOR_CSS).toContain(".td-icon-button:focus-visible");
   });
 
+  it("aligns every record row close button with its input edge", async () => {
+    const container = document.createElement("section");
+    size(container);
+    document.body.appendChild(container);
+    const editor = createVisualEditor(container, {
+      getSource: () => SOURCE,
+      onSourceChange: vi.fn(),
+    });
+    editor.setContent(await render(SOURCE));
+    clickNode(container.querySelector<SVGGElement>('[data-decl="Account"]'), 100, 100);
+
+    const row = container.querySelector<HTMLElement>(".td-inspector-row");
+    const label = row?.querySelector<HTMLLabelElement>("label");
+    const input = label?.querySelector<HTMLInputElement>("input");
+    const close = row?.querySelector<HTMLButtonElement>(".td-inspector-remove");
+    expect(getComputedStyle(row as HTMLElement).alignItems).toBe("end");
+    expect(getComputedStyle(input as HTMLInputElement).boxSizing).toBe("border-box");
+    expect(getComputedStyle(label as HTMLLabelElement).marginBottom).toBe("0px");
+    expect(getComputedStyle(close as HTMLButtonElement).height).toBe(getComputedStyle(input as HTMLInputElement).height);
+    expect(getComputedStyle(close as HTMLButtonElement).width).toBe(getComputedStyle(input as HTMLInputElement).height);
+  });
+
   it("adds every ADT node kind and deletes a selected node from the diagram source", async () => {
     const container = document.createElement("section");
     size(container);
@@ -384,5 +422,63 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     editor.setContent(await render(source));
     expect(container.querySelector('[data-decl="Account"]')).toBeNull();
     expect(container.querySelectorAll('[data-edge][data-target="Account"]')).toHaveLength(0);
+  });
+
+  it("assigns distinct node identities when creation outruns the host source round-trip", async () => {
+    const container = document.createElement("section");
+    size(container);
+    document.body.appendChild(container);
+    const changes: string[] = [];
+    const editor = createVisualEditor(container, {
+      getSource: () => SOURCE,
+      onSourceChange: (next) => changes.push(next),
+    });
+    editor.setContent(await render(SOURCE));
+
+    const addType = container.querySelector<HTMLButtonElement>('[aria-label="Add type"]');
+    const addRecord = () => {
+      addType?.click();
+      expect(container.querySelector<HTMLElement>(".td-node-creator")?.hidden).toBe(false);
+      container.querySelector<HTMLButtonElement>('[aria-label="Add record type"]')?.click();
+    };
+
+    addRecord();
+    addRecord();
+
+    expect(changes).toHaveLength(2);
+    expect(changes[0]).toContain("type NewRecord {");
+    expect(changes[0]).toContain("field: String");
+    expect(changes[1]).toContain("type NewRecord2 {");
+    expect(changes[1]).not.toBe(changes[0]);
+    expect(await render(changes[0] ?? "")).toContain('data-decl="NewRecord"');
+    expect(await render(changes[1] ?? "")).toContain('data-decl="NewRecord2"');
+  });
+
+  it("assigns a unique field name whenever Add row is clicked on a record", async () => {
+    const container = document.createElement("section");
+    size(container);
+    document.body.appendChild(container);
+    let source = SOURCE;
+    const changes: string[] = [];
+    const editor = createVisualEditor(container, {
+      getSource: () => source,
+      onSourceChange: (next) => {
+        source = next;
+        changes.push(next);
+      },
+    });
+    editor.setContent(await render(source));
+
+    clickNode(container.querySelector<SVGGElement>('[data-decl="Account"]'), 80, 80);
+    const addRow = container.querySelector<HTMLButtonElement>(".td-inspector-add");
+    expect(addRow?.textContent).toContain("Add row");
+    addRow?.click();
+    addRow?.click();
+
+    expect(changes).toHaveLength(2);
+    expect(source.match(/^  field: String$/gm)).toHaveLength(1);
+    expect(source.match(/^  field2: String$/gm)).toHaveLength(1);
+    expect(source).toContain("active: Bool\n  field: String\n  field2: String");
+    expect(await render(source)).toContain('data-decl="Account"');
   });
 });

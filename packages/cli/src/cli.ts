@@ -10,6 +10,7 @@ import {
 } from "typediagram-core";
 import { emitRustCodec, generateRustModule } from "typediagram-core/converters/rust-tdbin";
 import { HELP_TEXT, parseArgs, type CliArgs } from "./args.js";
+import { runGenerationConfig } from "./generation-config.js";
 import { readSource } from "./io.js";
 import { versionJson, versionText } from "./version.js";
 
@@ -18,7 +19,8 @@ type TdModelResult = { readonly ok: true; readonly value: modelLayer.Model } | {
 export const main = async (
   argv: readonly string[],
   stdout: NodeJS.WritableStream,
-  stderr: NodeJS.WritableStream
+  stderr: NodeJS.WritableStream,
+  signal?: AbortSignal
 ): Promise<number> => {
   const argsResult = parseArgs(argv);
   return !argsResult.ok
@@ -27,13 +29,15 @@ export const main = async (
       ? (stdout.write(HELP_TEXT), 0)
       : argsResult.value.version
         ? versionFlow(argsResult.value, stdout, stderr)
-        : argsResult.value.tdbinCommand !== null
-          ? tdbinFlow(argsResult.value, stdout, stderr)
-          : argsResult.value.from !== null
-            ? fromLangFlow(argsResult.value, stdout, stderr)
-            : argsResult.value.to !== null
-              ? toLangFlow(argsResult.value, stdout, stderr)
-              : renderFlow(argsResult.value, stdout, stderr);
+        : argsResult.value.config !== null
+          ? runGenerationConfig(argsResult.value.config, argsResult.value.watch, stdout, stderr, signal)
+          : argsResult.value.tdbinCommand !== null
+            ? tdbinFlow(argsResult.value, stdout, stderr)
+            : argsResult.value.from !== null
+              ? fromLangFlow(argsResult.value, stdout, stderr)
+              : argsResult.value.to !== null
+                ? toLangFlow(argsResult.value, stdout, stderr)
+                : renderFlow(argsResult.value, stdout, stderr);
 };
 
 /** [SWR-VERSION-CLI-OUTPUT] --version: print from package metadata and exit. No runtime, no network. */
