@@ -15,6 +15,7 @@ vi.mock("typediagram-core", () => ({
   converters: {
     typescript: { fromSource: mockFromSource, toSource: mockToSource, language: "typescript" },
     python: { fromSource: mockFromSource, toSource: mockToSource, language: "python" },
+    typeshed: { fromSource: mockFromSource, toSource: mockToSource, language: "typeshed" },
     rust: { fromSource: mockFromSource, toSource: mockToSource, language: "rust" },
     go: { fromSource: mockFromSource, toSource: mockToSource, language: "go" },
     csharp: { fromSource: mockFromSource, toSource: mockToSource, language: "csharp" },

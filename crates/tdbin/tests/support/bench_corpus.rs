@@ -83,7 +83,7 @@ pub mod corpus {
     /// size and speed comparison is fair.
     pub mod pb {
         /// The `Address` message: `string street = 1; int64 zip = 2;`.
-        #[derive(Clone, PartialEq, prost::Message)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
         pub struct Address {
             /// The street line.
             #[prost(string, tag = "1")]
@@ -94,7 +94,7 @@ pub mod corpus {
         }
 
         /// The `EmailContact` message: `string addr = 1;`.
-        #[derive(Clone, PartialEq, prost::Message)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
         pub struct EmailContact {
             /// The email address.
             #[prost(string, tag = "1")]
@@ -102,7 +102,7 @@ pub mod corpus {
         }
 
         /// The `PhoneContact` message: `int64 number = 1; int64 country = 2;`.
-        #[derive(Clone, PartialEq, prost::Message)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
         pub struct PhoneContact {
             /// The subscriber number.
             #[prost(int64, tag = "1")]
@@ -113,7 +113,7 @@ pub mod corpus {
         }
 
         /// The `contact` oneof: `EmailContact email = 7 | PhoneContact phone = 8`.
-        #[derive(Clone, PartialEq, prost::Oneof)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Oneof)]
         pub enum Contact {
             /// The email-contact variant.
             #[prost(message, tag = "7")]
@@ -124,7 +124,7 @@ pub mod corpus {
         }
 
         /// The top-level `Person` message mirroring the TDBIN `Person` record.
-        #[derive(Clone, PartialEq, prost::Message)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
         pub struct Person {
             /// The full name.
             #[prost(string, tag = "1")]
@@ -150,7 +150,7 @@ pub mod corpus {
         }
 
         /// A metric batch with list-heavy, fixed-width data.
-        #[derive(Clone, PartialEq, prost::Message)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
         pub struct BenchMetricBatch {
             /// Batch identifier.
             #[prost(string, tag = "1")]
@@ -176,7 +176,7 @@ pub mod corpus {
         }
 
         /// A named repeated-double metric column.
-        #[derive(Clone, PartialEq, prost::Message)]
+        #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
         pub struct BenchMetricColumn {
             /// Column name.
             #[prost(string, tag = "1")]

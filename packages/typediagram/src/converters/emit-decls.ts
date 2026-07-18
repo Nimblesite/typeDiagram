@@ -10,7 +10,7 @@ import {
   type ResolvedAlias,
   type ResolvedRecord,
   type ResolvedUnion,
-  visibleDeclsForTarget,
+  visibleDataDeclsForTarget,
 } from "../model/types.js";
 import type { Language } from "./types.js";
 
@@ -29,7 +29,7 @@ export interface EmitDeclsOptions {
 }
 
 const emitOne = (d: Model["decls"][number], emit: DeclEmitters): string[] =>
-  d.kind === "record" ? emit.record(d) : d.kind === "union" ? emit.union(d) : emit.alias(d);
+  d.kind === "record" ? emit.record(d) : d.kind === "union" ? emit.union(d) : d.kind === "alias" ? emit.alias(d) : [];
 
 /**
  * Walk `model`'s decls visible to `language`, emit each via `emit` (a blank
@@ -42,7 +42,7 @@ export const emitDecls = (
   options: EmitDeclsOptions = {}
 ): string => {
   const lines = [...(options.prelude ?? [])];
-  for (const d of visibleDeclsForTarget(model.decls, language)) {
+  for (const d of visibleDataDeclsForTarget(model.decls, language)) {
     lines.push(...emitOne(d, emit), "");
   }
   const joined = lines.join("\n");

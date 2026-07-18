@@ -15,6 +15,8 @@ const TDBIN_COMMANDS: ReadonlySet<TdbinCommand> = new Set<TdbinCommand>(["encode
 
 export interface CliArgs {
   readonly file: string | null;
+  readonly config: string | null;
+  readonly watch: boolean;
   readonly tdbinCommand: TdbinCommand | null;
   readonly theme: Theme;
   readonly fontSize: number | null;
@@ -47,6 +49,8 @@ const parseFontSize = (v: string): Result<number, ArgError> => {
 export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> => {
   const state = {
     file: null as string | null,
+    config: null as string | null,
+    watch: false,
     tdbinCommand: null as TdbinCommand | null,
     theme: "light" as Theme,
     fontSize: null as number | null,
@@ -71,13 +75,19 @@ export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> =>
     }
     cur = it.next();
   }
-  return state.from !== null && state.to !== null
-    ? err({ message: "--from and --to are mutually exclusive" })
-    : state.tdbinCommand !== null && (state.from !== null || state.to !== null)
-      ? err({ message: "tdbin commands cannot be combined with --from or --to" })
-      : state.json && !state.version
-        ? err({ message: "--json requires --version" })
-        : ok(state);
+  return state.watch && state.config === null
+    ? err({ message: "--watch requires --config" })
+    : state.config !== null && state.file !== null
+      ? err({ message: "--config cannot be combined with a positional file" })
+      : state.config !== null && (state.from !== null || state.to !== null || state.tdbinCommand !== null)
+        ? err({ message: "--config cannot be combined with --from, --to, or a tdbin command" })
+        : state.from !== null && state.to !== null
+          ? err({ message: "--from and --to are mutually exclusive" })
+          : state.tdbinCommand !== null && (state.from !== null || state.to !== null)
+            ? err({ message: "tdbin commands cannot be combined with --from or --to" })
+            : state.json && !state.version
+              ? err({ message: "--json requires --version" })
+              : ok(state);
 };
 
 const applyArg = (
@@ -85,6 +95,8 @@ const applyArg = (
   next: () => string | null,
   s: {
     file: string | null;
+    config: string | null;
+    watch: boolean;
     tdbinCommand: TdbinCommand | null;
     theme: Theme;
     fontSize: number | null;
@@ -102,23 +114,30 @@ const applyArg = (
       ? ((s.version = true), ok(true as const))
       : a === "--json"
         ? ((s.json = true), ok(true as const))
-        : a === "--theme"
-          ? applyTheme(next(), s)
-          : a === "--font-size"
-            ? applyFontSize(next(), s)
-            : a === "--from"
-              ? applyLang(next(), s, "from")
-              : a === "--to"
-                ? applyLang(next(), s, "to")
-                : a === "--emit"
-                  ? applyEmit(next(), s)
-                  : a.startsWith("-")
-                    ? err({ message: `unknown flag: ${a}` })
-                    : s.tdbinCommand === null && s.file === null && isTdbinCommand(a)
-                      ? ((s.tdbinCommand = a), ok(true as const))
-                      : s.file !== null
-                        ? err({ message: `unexpected positional arg: ${a}` })
-                        : ((s.file = a), ok(true as const));
+        : a === "--config"
+          ? applyConfig(next(), s)
+          : a === "--watch"
+            ? ((s.watch = true), ok(true as const))
+            : a === "--theme"
+              ? applyTheme(next(), s)
+              : a === "--font-size"
+                ? applyFontSize(next(), s)
+                : a === "--from"
+                  ? applyLang(next(), s, "from")
+                  : a === "--to"
+                    ? applyLang(next(), s, "to")
+                    : a === "--emit"
+                      ? applyEmit(next(), s)
+                      : a.startsWith("-")
+                        ? err({ message: `unknown flag: ${a}` })
+                        : s.tdbinCommand === null && s.file === null && isTdbinCommand(a)
+                          ? ((s.tdbinCommand = a), ok(true as const))
+                          : s.file !== null
+                            ? err({ message: `unexpected positional arg: ${a}` })
+                            : ((s.file = a), ok(true as const));
+
+const applyConfig = (v: string | null, s: { config: string | null }): Result<true, ArgError> =>
+  v === null ? err({ message: "--config expects a file path" }) : ((s.config = v), ok(true as const));
 
 const applyTheme = (v: string | null, s: { theme: Theme }): Result<true, ArgError> =>
   v === null
@@ -159,11 +178,14 @@ export const HELP_TEXT = `typediagram — render typeDiagram DSL to SVG, or conv
 
 Usage:
   typediagram [options] [file]
+  typediagram --config FILE [--watch]
   typediagram encode [file]
   typediagram decode [file]
   typediagram verify [file]
 
 Options:
+  --config FILE        Generate configured language outputs from one .td source
+  --watch              Regenerate configured outputs whenever the .td source changes
   --from LANG          Convert from language source to SVG
   --to   LANG          Convert from typeDiagram to language source
   --emit svg|td|td+svg Output format for --from (default: svg)
@@ -179,5 +201,6 @@ SVG (or language source with --to) is written to stdout.
 With --emit td, outputs the intermediate typeDiagram source.
 With --emit td+svg, outputs typeDiagram source then a --- separator then SVG.
 TDBIN encode emits a generated Rust ADT+codec module; decode emits codec impls for generated Rust ADTs; verify validates schema support.
+Config paths are resolved relative to FILE. Invalid watched edits retain the last generated outputs and recover on the next valid edit.
 Errors go to stderr; exit code 1 on failure.
 `;

@@ -10,7 +10,7 @@
 // columnar emission in rust-tdbin-columnar.ts / rust-tdbin-columns.ts, and
 // the layout manifest/hash in rust-tdbin-hash.ts.
 import type { Diagnostic } from "../parser/diagnostics.js";
-import { type Model, type ResolvedDecl, visibleDeclsForTarget } from "../model/types.js";
+import { type Model, type ResolvedDataDecl, type ResolvedDecl, visibleDataDeclsForTarget } from "../model/types.js";
 import { emitRustDecl } from "./rust.js";
 import { err, ok, type Result } from "../result.js";
 import { classifyRecord, classifyUnion, diag, type Layout } from "./rust-tdbin-plan.js";
@@ -98,7 +98,7 @@ const declBlocks = (ctx: EmitCtx, d: ResolvedDecl): Result<string[], Diagnostic[
  *  monomorphized first. */
 export const emitRustCodec = (model: Model, options?: RustCodecOptions): Result<string, Diagnostic[]> => {
   const layout: Layout = options?.layout ?? 1;
-  const visible = visibleDeclsForTarget(model.decls, "rust");
+  const visible = visibleDataDeclsForTarget(model.decls, "rust");
   const ctx: EmitCtx = {
     decls: model.decls,
     layout,
@@ -118,7 +118,7 @@ export const emitRustCodec = (model: Model, options?: RustCodecOptions): Result<
 
 /** Records derive `Default` so required pointer fields can decode null as the
  *  schema default ([TDBIN-PTR-NULL]); unions get a generated `impl Default`. */
-const deriveFor = (d: ResolvedDecl): string =>
+const deriveFor = (d: ResolvedDataDecl): string =>
   d.kind === "record"
     ? "#[derive(Debug, Clone, PartialEq, Default)]\n"
     : d.kind === "union"
@@ -127,7 +127,7 @@ const deriveFor = (d: ResolvedDecl): string =>
 
 /** Emit one ADT type with its doc comment first, then the derive, then the body
  *  (from the shared Rust converter) — the order rustc/clippy expect. */
-const emitTypeWithDocs = (d: ResolvedDecl): string => {
+const emitTypeWithDocs = (d: ResolvedDataDecl): string => {
   const [doc, ...rest] = emitRustDecl(d, true);
   return `${doc ?? ""}\n${deriveFor(d)}${rest.join("\n")}`;
 };
@@ -141,6 +141,6 @@ export const generateRustModule = (model: Model, options?: RustCodecOptions): Re
   if (!codec.ok) {
     return codec;
   }
-  const types = visibleDeclsForTarget(model.decls, "rust").map(emitTypeWithDocs).join("\n");
+  const types = visibleDataDeclsForTarget(model.decls, "rust").map(emitTypeWithDocs).join("\n");
   return ok(`${types}\n${codec.value}\n`);
 };

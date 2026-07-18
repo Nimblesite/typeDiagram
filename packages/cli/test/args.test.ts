@@ -11,6 +11,8 @@ describe("[CLI-ARGS] parseArgs", () => {
     }
     expect(r.value).toEqual({
       file: null,
+      config: null,
+      watch: false,
       tdbinCommand: null,
       theme: "light",
       fontSize: null,
@@ -151,6 +153,19 @@ describe("[CLI-ARGS] parseArgs", () => {
   it("parses --emit td+svg", () => {
     const r = parseArgs(["--emit", "td+svg"]);
     expect(r.ok && r.value.emit).toBe("td+svg");
+  });
+
+  it("parses config watch mode and rejects every conflicting invocation", () => {
+    const configured = parseArgs(["--config", "typediagram.json", "--watch"]);
+    expect(configured.ok).toBe(true);
+    expect(configured.ok && configured.value.config).toBe("typediagram.json");
+    expect(configured.ok && configured.value.watch).toBe(true);
+    expect(parseArgs(["--watch"]).ok).toBe(false);
+    expect(parseArgs(["--config"]).ok).toBe(false);
+    expect(parseArgs(["--config", "td.json", "schema.td"]).ok).toBe(false);
+    expect(parseArgs(["--config", "td.json", "--to", "rust"]).ok).toBe(false);
+    expect(parseArgs(["--config", "td.json", "--from", "rust"]).ok).toBe(false);
+    expect(parseArgs(["--config", "td.json", "encode"]).ok).toBe(false);
   });
 
   it("defaults --emit to svg", () => {

@@ -1,6 +1,7 @@
 // [CONV] Barrel export for all language converters.
 import { typescript } from "./typescript.js";
 import { python } from "./python.js";
+import { typeshed } from "./typeshed.js";
 import { rust } from "./rust.js";
 import { go } from "./go.js";
 import { csharp } from "./csharp.js";
@@ -10,7 +11,9 @@ import { protobuf } from "./protobuf.js";
 import { php } from "./php.js";
 import type { Converter, Language } from "./types.js";
 
-export { typescript, python, rust, go, csharp, fsharp, dart, protobuf, php };
+export { typescript, python, typeshed, rust, go, csharp, fsharp, dart, protobuf, php };
+export type { TypeshedAnalysis, TypeshedConverter } from "./typeshed.js";
+export type { TypeshedStats } from "./typeshed-decls.js";
 export { parseTypeRef, printTypeRef } from "./parse-typeref.js";
 export type { Converter, Language } from "./types.js";
 
@@ -20,6 +23,7 @@ export type { Converter, Language } from "./types.js";
 export const byLanguage: Record<Language, Converter> = {
   typescript,
   python,
+  typeshed,
   rust,
   go,
   csharp,

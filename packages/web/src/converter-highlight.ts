@@ -141,12 +141,14 @@ const PROTOBUF_RULES = table(
   /[<>{}:;,=()[\]]/g
 );
 
-type SupportedLang = "typescript" | "rust" | "python" | "go" | "csharp" | "fsharp" | "dart" | "protobuf" | "php";
+type SupportedLang =
+  "typescript" | "rust" | "python" | "typeshed" | "go" | "csharp" | "fsharp" | "dart" | "protobuf" | "php";
 
 const LANG_RULES: Record<SupportedLang, readonly Rule[]> = {
   typescript: TYPESCRIPT_RULES,
   rust: RUST_RULES,
   python: PYTHON_RULES,
+  typeshed: PYTHON_RULES,
   go: GO_RULES,
   csharp: CSHARP_RULES,
   fsharp: FSHARP_RULES,

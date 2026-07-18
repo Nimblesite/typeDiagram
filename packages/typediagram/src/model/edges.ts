@@ -1,4 +1,12 @@
-import type { Edge, ResolvedAlias, ResolvedDecl, ResolvedRecord, ResolvedTypeRef, ResolvedUnion } from "./types.js";
+import type {
+  Edge,
+  ResolvedAlias,
+  ResolvedDecl,
+  ResolvedFunction,
+  ResolvedRecord,
+  ResolvedTypeRef,
+  ResolvedUnion,
+} from "./types.js";
 
 interface DeclaredRef {
   declName: string;
@@ -67,8 +75,38 @@ function aliasEdges(d: ResolvedAlias): Edge[] {
   }));
 }
 
+function functionEdges(d: ResolvedFunction): Edge[] {
+  return d.signatures.flatMap((signature, row) => [
+    ...signature.params.flatMap((param) => functionRefEdges(d.name, row, param.name, "parameter", param.type)),
+    ...functionRefEdges(d.name, row, "return", "return", signature.returns),
+  ]);
+}
+
+function functionRefEdges(
+  sourceDeclName: string,
+  sourceRowIndex: number,
+  label: string,
+  kind: "parameter" | "return",
+  type: ResolvedTypeRef
+): Edge[] {
+  return [...walkDeclaredRefs(type)].map((ref) => ({
+    sourceDeclName,
+    sourceRowIndex,
+    sourceVariantFieldIndex: null,
+    targetDeclName: ref.declName,
+    label,
+    kind: ref.isHead ? kind : ("genericArg" as const),
+  }));
+}
+
 function declEdges(d: ResolvedDecl): Edge[] {
-  return d.kind === "record" ? recordEdges(d) : d.kind === "union" ? unionEdges(d) : aliasEdges(d);
+  return d.kind === "record"
+    ? recordEdges(d)
+    : d.kind === "union"
+      ? unionEdges(d)
+      : d.kind === "alias"
+        ? aliasEdges(d)
+        : functionEdges(d);
 }
 
 /** Collect the deduplicated edge set for a resolved decl list. Shared by build.ts and builder.ts. */

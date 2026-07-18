@@ -4,175 +4,130 @@ exports[`render — chat example > snapshot — chat example SVG (default theme)
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1825 410" width="1825" height="410" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="1825" height="410" fill="none"/>
-<g data-decl="ChatRequest" data-kind="record">
-  <rect x="29" y="28" width="321" height="98" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="321" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="29" y="56.2" width="321" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="29" y1="62.2" x2="350" y2="62.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="4" height="98" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="39" y="49.65" fill="#1a1d22" font-weight="600">ChatRequest</text>
+<rect class="td-blueprint-bg" width="1825" height="410" fill="#f6f8fc"/><rect width="1825" height="410" fill="url(#td-grid)"/>
+<g data-edge="ChatRequest:2:Option:field" data-source="ChatRequest" data-target="Option"><polyline points="351,102 1638,102" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="994.5" y="98" fill="#3a4a5c" font-size="11" text-anchor="middle">tool_results</text></g>
+<g data-edge="ChatRequest:2:ToolResult:genericArg" data-source="ChatRequest" data-target="ToolResult"><polyline points="351,102 361,102 361,183 411,183" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="361" y="138.5" fill="#3a4a5c" font-size="11" text-anchor="middle">tool_results</text></g>
+<g data-edge="ChatTurnInput:2:Option:field" data-source="ChatTurnInput" data-target="Option"><polyline points="351,262 361,262 361,102 1638,102" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="361" y="178" fill="#3a4a5c" font-size="11" text-anchor="middle">tool_results</text></g>
+<g data-edge="ChatTurnInput:2:ToolResult:genericArg" data-source="ChatTurnInput" data-target="ToolResult"><polyline points="351,262 361,262 361,183 411,183" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="361" y="218.5" fill="#3a4a5c" font-size="11" text-anchor="middle">tool_results</text></g>
+<g data-edge="ToolResult:2:ToolResultContent:field" data-source="ToolResult" data-target="ToolResultContent"><polyline points="640,219 650,219 650,199 700,199" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="650" y="205" fill="#3a4a5c" font-size="11" text-anchor="middle">content</text></g>
+<g data-edge="ToolResultContent:3:ContentItem:genericArg" data-source="ToolResultContent" data-target="ContentItem"><polyline points="1015,239 1075,239" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="1045" y="235" fill="#3a4a5c" font-size="11" text-anchor="middle">List.items</text></g>
+<g data-edge="ContentItem:0:TextPart:variantPayload" data-source="ContentItem" data-target="TextPart"><polyline points="1289,239 1299,239 1299,151 1349,151" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="1299" y="191" fill="#3a4a5c" font-size="11" text-anchor="middle">Text.value</text></g>
+<g data-edge="ContentItem:1:UriPart:variantPayload" data-source="ContentItem" data-target="UriPart"><polyline points="1289,268 1349,268" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="1319" y="264" fill="#3a4a5c" font-size="11" text-anchor="middle">Uri.value</text></g>
+<g data-edge="UriPart:1:UriKind:field" data-source="UriPart" data-target="UriKind"><polyline points="1578,293 1638,293" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="1608" y="289" fill="#3a4a5c" font-size="11" text-anchor="middle">kind</text></g>
+<g data-edge="UriPart:2:Option:field" data-source="UriPart" data-target="Option"><polyline points="1578,268 1588,268 1588,102 1638,102" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="1588" y="181" fill="#3a4a5c" font-size="11" text-anchor="middle">media_type</text></g>
+<g data-decl="ChatRequest" class="td-node" data-kind="record" data-x="29" data-y="28" data-width="321" data-height="98" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="28" width="321" height="98" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="28" width="321" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="60.2" width="321" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="28" width="4" height="98" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="39" y="49.65" fill="#0b1326" font-weight="600">ChatRequest</text>
   
-  <line x1="29" y1="62.2" x2="350" y2="62.2" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="77.35" fill="#1a1d22">message: String</text>
-<line x1="29" y1="83.4" x2="350" y2="83.4" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="98.55" fill="#1a1d22">session_id: String</text>
-<line x1="29" y1="104.60000000000001" x2="350" y2="104.60000000000001" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="119.75" fill="#1a1d22">tool_results: Option&lt;List&lt;ToolResult&gt;&gt;</text>
+  <g data-row-index="0" data-row-y="62.2" data-row-height="21.2"><line x1="29" y1="62.2" x2="350" y2="62.2" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="77.35" fill="#26384d">message: String</text></g>
+<g data-row-index="1" data-row-y="83.4" data-row-height="21.2"><line x1="29" y1="83.4" x2="350" y2="83.4" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="98.55" fill="#26384d">session_id: String</text></g>
+<g data-row-index="2" data-row-y="104.60000000000001" data-row-height="21.2"><line x1="29" y1="104.60000000000001" x2="350" y2="104.60000000000001" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="119.75" fill="#26384d">tool_results: Option&lt;List&lt;ToolResult&gt;&gt;</text></g>
 </g>
-<g data-decl="ChatTurnInput" data-kind="record">
-  <rect x="29" y="166" width="321" height="120" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="166" width="321" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="29" y="194.2" width="321" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="29" y1="200.2" x2="350" y2="200.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="166" width="4" height="120" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="39" y="187.65" fill="#1a1d22" font-weight="600">ChatTurnInput</text>
+<g data-decl="ChatTurnInput" class="td-node" data-kind="record" data-x="29" data-y="166" data-width="321" data-height="120" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="166" width="321" height="120" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="166" width="321" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="198.2" width="321" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="166" width="4" height="120" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="39" y="187.65" fill="#0b1326" font-weight="600">ChatTurnInput</text>
   
-  <line x1="29" y1="200.2" x2="350" y2="200.2" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="215.35" fill="#1a1d22">config: AgentConfig</text>
-<line x1="29" y1="221.4" x2="350" y2="221.4" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="236.55" fill="#1a1d22">user_message: String</text>
-<line x1="29" y1="242.60000000000002" x2="350" y2="242.60000000000002" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="257.75" fill="#1a1d22">tool_results: Option&lt;List&lt;ToolResult&gt;&gt;</text>
-<line x1="29" y1="263.8" x2="350" y2="263.8" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="278.95000000000005" fill="#1a1d22">session_id: String</text>
+  <g data-row-index="0" data-row-y="200.2" data-row-height="21.2"><line x1="29" y1="200.2" x2="350" y2="200.2" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="215.35" fill="#26384d">config: AgentConfig</text></g>
+<g data-row-index="1" data-row-y="221.4" data-row-height="21.2"><line x1="29" y1="221.4" x2="350" y2="221.4" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="236.55" fill="#26384d">user_message: String</text></g>
+<g data-row-index="2" data-row-y="242.60000000000002" data-row-height="21.2"><line x1="29" y1="242.60000000000002" x2="350" y2="242.60000000000002" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="257.75" fill="#26384d">tool_results: Option&lt;List&lt;ToolResult&gt;&gt;</text></g>
+<g data-row-index="3" data-row-y="263.8" data-row-height="21.2"><line x1="29" y1="263.8" x2="350" y2="263.8" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="278.95000000000005" fill="#26384d">session_id: String</text></g>
 </g>
-<g data-decl="ToolResult" data-kind="record">
-  <rect x="412" y="123" width="227" height="120" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="412" y="123" width="227" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="412" y="151.2" width="227" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="412" y1="157.2" x2="639" y2="157.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="412" y="123" width="4" height="120" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="422" y="144.65" fill="#1a1d22" font-weight="600">ToolResult</text>
+<g data-decl="ToolResult" class="td-node" data-kind="record" data-x="412" data-y="123" data-width="227" data-height="120" filter="url(#td-ambient-shadow)">
+  <rect x="412" y="123" width="227" height="120" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="412" y="123" width="227" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="412" y="155.2" width="227" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="412" y="123" width="4" height="120" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="422" y="144.65" fill="#0b1326" font-weight="600">ToolResult</text>
   
-  <line x1="412" y1="157.2" x2="639" y2="157.2" stroke="#dadde2" stroke-width="1"/>
-<text x="422" y="172.35" fill="#1a1d22">tool_call_id: String</text>
-<line x1="412" y1="178.4" x2="639" y2="178.4" stroke="#dadde2" stroke-width="1"/>
-<text x="422" y="193.55" fill="#1a1d22">name: String</text>
-<line x1="412" y1="199.60000000000002" x2="639" y2="199.60000000000002" stroke="#dadde2" stroke-width="1"/>
-<text x="422" y="214.75000000000003" fill="#1a1d22">content: ToolResultContent</text>
-<line x1="412" y1="220.8" x2="639" y2="220.8" stroke="#dadde2" stroke-width="1"/>
-<text x="422" y="235.95000000000002" fill="#1a1d22">ok: Bool</text>
+  <g data-row-index="0" data-row-y="157.2" data-row-height="21.2"><line x1="412" y1="157.2" x2="639" y2="157.2" stroke="#d8e0eb" stroke-width="1"/><text x="422" y="172.35" fill="#26384d">tool_call_id: String</text></g>
+<g data-row-index="1" data-row-y="178.4" data-row-height="21.2"><line x1="412" y1="178.4" x2="639" y2="178.4" stroke="#d8e0eb" stroke-width="1"/><text x="422" y="193.55" fill="#26384d">name: String</text></g>
+<g data-row-index="2" data-row-y="199.60000000000002" data-row-height="21.2"><line x1="412" y1="199.60000000000002" x2="639" y2="199.60000000000002" stroke="#d8e0eb" stroke-width="1"/><text x="422" y="214.75000000000003" fill="#26384d">content: ToolResultContent</text></g>
+<g data-row-index="3" data-row-y="220.8" data-row-height="21.2"><line x1="412" y1="220.8" x2="639" y2="220.8" stroke="#d8e0eb" stroke-width="1"/><text x="422" y="235.95000000000002" fill="#26384d">ok: Bool</text></g>
 </g>
-<g data-decl="ToolResultContent" data-kind="union">
-  <rect x="701" y="131" width="313" height="135" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="701" y="131" width="313" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="701" y="175.2" width="313" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="701" y1="181.2" x2="1014" y2="181.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="701" y="131" width="4" height="135" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="711" y="152.65" fill="#1a1d22" font-weight="600">union ToolResultContent</text>
-  <text x="857.5" y="175.79999999999998" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="701" y1="181.2" x2="1014" y2="181.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="701" y1="181.2" x2="1014" y2="181.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="711" y="196.35" fill="#1a1d22">◇ None</text>
-<line x1="701" y1="202.4" x2="1014" y2="202.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="711" y="217.55" fill="#1a1d22">◇ Scalar { value: String }</text>
-<line x1="701" y1="223.60000000000002" x2="1014" y2="223.60000000000002" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="711" y="238.75000000000003" fill="#1a1d22">◇ Dict { entries: Map&lt;String, String&gt; }</text>
-<line x1="701" y1="244.8" x2="1014" y2="244.8" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="711" y="259.95" fill="#1a1d22">◇ List { items: List&lt;ContentItem&gt; }</text>
+<g data-decl="ToolResultContent" class="td-node" data-kind="union" data-x="701" data-y="131" data-width="313" data-height="135" filter="url(#td-ambient-shadow)">
+  <rect x="701" y="131" width="313" height="135" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="701" y="131" width="313" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="701" y="179.2" width="313" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="701" y="131" width="4" height="135" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="711" y="152.65" fill="#0b1326" font-weight="600">union ToolResultContent</text>
+  <text x="857.5" y="175.79999999999998" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="701" y1="181.2" x2="1014" y2="181.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="181.2" data-row-height="21.2"><line x1="701" y1="181.2" x2="1014" y2="181.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="711" y="196.35" fill="#26384d">◇ None</text></g>
+<g data-row-index="1" data-row-y="202.4" data-row-height="21.2"><line x1="701" y1="202.4" x2="1014" y2="202.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="711" y="217.55" fill="#26384d">◇ Scalar { value: String }</text></g>
+<g data-row-index="2" data-row-y="223.60000000000002" data-row-height="21.2"><line x1="701" y1="223.60000000000002" x2="1014" y2="223.60000000000002" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="711" y="238.75000000000003" fill="#26384d">◇ Dict { entries: Map&lt;String, String&gt; }</text></g>
+<g data-row-index="3" data-row-y="244.8" data-row-height="21.2"><line x1="701" y1="244.8" x2="1014" y2="244.8" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="711" y="259.95" fill="#26384d">◇ List { items: List&lt;ContentItem&gt; }</text></g>
 </g>
-<g data-decl="ContentItem" data-kind="union">
-  <rect x="1076" y="182" width="212" height="114" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1076" y="182" width="212" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="1076" y="226.2" width="212" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="1076" y1="232.2" x2="1288" y2="232.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1076" y="182" width="4" height="114" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="1086" y="203.65" fill="#1a1d22" font-weight="600">union ContentItem</text>
-  <text x="1182" y="226.79999999999998" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="1076" y1="232.2" x2="1288" y2="232.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="1076" y1="232.2" x2="1288" y2="232.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1086" y="247.35" fill="#1a1d22">◇ Text { value: TextPart }</text>
-<line x1="1076" y1="253.4" x2="1288" y2="253.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1086" y="268.55" fill="#1a1d22">◇ Uri { value: UriPart }</text>
-<line x1="1076" y1="274.6" x2="1288" y2="274.6" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1086" y="289.75000000000006" fill="#1a1d22">◇ Scalar { value: String }</text>
+<g data-decl="ContentItem" class="td-node" data-kind="union" data-x="1076" data-y="182" data-width="212" data-height="114" filter="url(#td-ambient-shadow)">
+  <rect x="1076" y="182" width="212" height="114" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="1076" y="182" width="212" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="1076" y="230.2" width="212" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="1076" y="182" width="4" height="114" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="1086" y="203.65" fill="#0b1326" font-weight="600">union ContentItem</text>
+  <text x="1182" y="226.79999999999998" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="1076" y1="232.2" x2="1288" y2="232.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="232.2" data-row-height="21.2"><line x1="1076" y1="232.2" x2="1288" y2="232.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1086" y="247.35" fill="#26384d">◇ Text { value: TextPart }</text></g>
+<g data-row-index="1" data-row-y="253.4" data-row-height="21.2"><line x1="1076" y1="253.4" x2="1288" y2="253.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1086" y="268.55" fill="#26384d">◇ Uri { value: UriPart }</text></g>
+<g data-row-index="2" data-row-y="274.6" data-row-height="21.2"><line x1="1076" y1="274.6" x2="1288" y2="274.6" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1086" y="289.75000000000006" fill="#26384d">◇ Scalar { value: String }</text></g>
 </g>
-<g data-decl="TextPart" data-kind="record">
-  <rect x="1350" y="123" width="118" height="56" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1350" y="123" width="118" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="1350" y="151.2" width="118" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="1350" y1="157.2" x2="1468" y2="157.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1350" y="123" width="4" height="56" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="1360" y="144.65" fill="#1a1d22" font-weight="600">TextPart</text>
+<g data-decl="TextPart" class="td-node" data-kind="record" data-x="1350" data-y="123" data-width="118" data-height="56" filter="url(#td-ambient-shadow)">
+  <rect x="1350" y="123" width="118" height="56" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="1350" y="123" width="118" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="1350" y="155.2" width="118" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="1350" y="123" width="4" height="56" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="1360" y="144.65" fill="#0b1326" font-weight="600">TextPart</text>
   
-  <line x1="1350" y1="157.2" x2="1468" y2="157.2" stroke="#dadde2" stroke-width="1"/>
-<text x="1360" y="172.35" fill="#1a1d22">text: String</text>
+  <g data-row-index="0" data-row-y="157.2" data-row-height="21.2"><line x1="1350" y1="157.2" x2="1468" y2="157.2" stroke="#d8e0eb" stroke-width="1"/><text x="1360" y="172.35" fill="#26384d">text: String</text></g>
 </g>
-<g data-decl="UriPart" data-kind="record">
-  <rect x="1350" y="219" width="227" height="98" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1350" y="219" width="227" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="1350" y="247.2" width="227" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="1350" y1="253.2" x2="1577" y2="253.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1350" y="219" width="4" height="98" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="1360" y="240.65" fill="#1a1d22" font-weight="600">UriPart</text>
+<g data-decl="UriPart" class="td-node" data-kind="record" data-x="1350" data-y="219" data-width="227" data-height="98" filter="url(#td-ambient-shadow)">
+  <rect x="1350" y="219" width="227" height="98" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="1350" y="219" width="227" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="1350" y="251.2" width="227" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="1350" y="219" width="4" height="98" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="1360" y="240.65" fill="#0b1326" font-weight="600">UriPart</text>
   
-  <line x1="1350" y1="253.2" x2="1577" y2="253.2" stroke="#dadde2" stroke-width="1"/>
-<text x="1360" y="268.35" fill="#1a1d22">url: String</text>
-<line x1="1350" y1="274.4" x2="1577" y2="274.4" stroke="#dadde2" stroke-width="1"/>
-<text x="1360" y="289.55" fill="#1a1d22">kind: UriKind</text>
-<line x1="1350" y1="295.6" x2="1577" y2="295.6" stroke="#dadde2" stroke-width="1"/>
-<text x="1360" y="310.75000000000006" fill="#1a1d22">media_type: Option&lt;String&gt;</text>
+  <g data-row-index="0" data-row-y="253.2" data-row-height="21.2"><line x1="1350" y1="253.2" x2="1577" y2="253.2" stroke="#d8e0eb" stroke-width="1"/><text x="1360" y="268.35" fill="#26384d">url: String</text></g>
+<g data-row-index="1" data-row-y="274.4" data-row-height="21.2"><line x1="1350" y1="274.4" x2="1577" y2="274.4" stroke="#d8e0eb" stroke-width="1"/><text x="1360" y="289.55" fill="#26384d">kind: UriKind</text></g>
+<g data-row-index="2" data-row-y="295.6" data-row-height="21.2"><line x1="1350" y1="295.6" x2="1577" y2="295.6" stroke="#d8e0eb" stroke-width="1"/><text x="1360" y="310.75000000000006" fill="#26384d">media_type: Option&lt;String&gt;</text></g>
 </g>
-<g data-decl="UriKind" data-kind="union">
-  <rect x="1639" y="204" width="126" height="178" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1639" y="204" width="126" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="1639" y="248.2" width="126" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="1639" y1="254.2" x2="1765" y2="254.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1639" y="204" width="4" height="178" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="1649" y="225.65" fill="#1a1d22" font-weight="600">union UriKind</text>
-  <text x="1702" y="248.79999999999998" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="1639" y1="254.2" x2="1765" y2="254.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="1639" y1="254.2" x2="1765" y2="254.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="269.35" fill="#1a1d22">◇ Image</text>
-<line x1="1639" y1="275.4" x2="1765" y2="275.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="290.55" fill="#1a1d22">◇ Audio</text>
-<line x1="1639" y1="296.6" x2="1765" y2="296.6" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="311.75000000000006" fill="#1a1d22">◇ Video</text>
-<line x1="1639" y1="317.8" x2="1765" y2="317.8" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="332.95000000000005" fill="#1a1d22">◇ Document</text>
-<line x1="1639" y1="339" x2="1765" y2="339" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="354.15000000000003" fill="#1a1d22">◇ Web</text>
-<line x1="1639" y1="360.2" x2="1765" y2="360.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="375.35" fill="#1a1d22">◇ Api</text>
+<g data-decl="UriKind" class="td-node" data-kind="union" data-x="1639" data-y="204" data-width="126" data-height="178" filter="url(#td-ambient-shadow)">
+  <rect x="1639" y="204" width="126" height="178" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="1639" y="204" width="126" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="1639" y="252.2" width="126" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="1639" y="204" width="4" height="178" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="1649" y="225.65" fill="#0b1326" font-weight="600">union UriKind</text>
+  <text x="1702" y="248.79999999999998" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="1639" y1="254.2" x2="1765" y2="254.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="254.2" data-row-height="21.2"><line x1="1639" y1="254.2" x2="1765" y2="254.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="269.35" fill="#26384d">◇ Image</text></g>
+<g data-row-index="1" data-row-y="275.4" data-row-height="21.2"><line x1="1639" y1="275.4" x2="1765" y2="275.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="290.55" fill="#26384d">◇ Audio</text></g>
+<g data-row-index="2" data-row-y="296.6" data-row-height="21.2"><line x1="1639" y1="296.6" x2="1765" y2="296.6" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="311.75000000000006" fill="#26384d">◇ Video</text></g>
+<g data-row-index="3" data-row-y="317.8" data-row-height="21.2"><line x1="1639" y1="317.8" x2="1765" y2="317.8" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="332.95000000000005" fill="#26384d">◇ Document</text></g>
+<g data-row-index="4" data-row-y="339" data-row-height="21.2"><line x1="1639" y1="339" x2="1765" y2="339" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="354.15000000000003" fill="#26384d">◇ Web</text></g>
+<g data-row-index="5" data-row-y="360.2" data-row-height="21.2"><line x1="1639" y1="360.2" x2="1765" y2="360.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="375.35" fill="#26384d">◇ Api</text></g>
 </g>
-<g data-decl="Option" data-kind="union">
-  <rect x="1639" y="55" width="157" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1639" y="55" width="157" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="1639" y="99.2" width="157" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="1639" y1="105.2" x2="1796" y2="105.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="1639" y="55" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="1649" y="76.64999999999999" fill="#1a1d22" font-weight="600">union Option&lt;T&gt;</text>
-  <text x="1717.5" y="99.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="1639" y1="105.2" x2="1796" y2="105.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="1639" y1="105.2" x2="1796" y2="105.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="120.35" fill="#1a1d22">◇ Some { value: T }</text>
-<line x1="1639" y1="126.4" x2="1796" y2="126.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="1649" y="141.55" fill="#1a1d22">◇ None</text>
+<g data-decl="Option" class="td-node" data-kind="union" data-x="1639" data-y="55" data-width="157" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="1639" y="55" width="157" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="1639" y="55" width="157" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="1639" y="103.2" width="157" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="1639" y="55" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="1649" y="76.64999999999999" fill="#0b1326" font-weight="600">union Option&lt;T&gt;</text>
+  <text x="1717.5" y="99.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="1639" y1="105.2" x2="1796" y2="105.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="105.2" data-row-height="21.2"><line x1="1639" y1="105.2" x2="1796" y2="105.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="120.35" fill="#26384d">◇ Some { value: T }</text></g>
+<g data-row-index="1" data-row-y="126.4" data-row-height="21.2"><line x1="1639" y1="126.4" x2="1796" y2="126.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="1649" y="141.55" fill="#26384d">◇ None</text></g>
 </g>
-<polyline points="351,102 1638,102" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="994.5" y="98" fill="#3b3f46" font-size="11" text-anchor="middle">tool_results</text>
-<polyline points="351,102 361,102 361,183 411,183" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="361" y="138.5" fill="#3b3f46" font-size="11" text-anchor="middle">tool_results</text>
-<polyline points="351,262 361,262 361,102 1638,102" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="361" y="178" fill="#3b3f46" font-size="11" text-anchor="middle">tool_results</text>
-<polyline points="351,262 361,262 361,183 411,183" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="361" y="218.5" fill="#3b3f46" font-size="11" text-anchor="middle">tool_results</text>
-<polyline points="640,219 650,219 650,199 700,199" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="650" y="205" fill="#3b3f46" font-size="11" text-anchor="middle">content</text>
-<polyline points="1015,239 1075,239" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="1045" y="235" fill="#3b3f46" font-size="11" text-anchor="middle">List.items</text>
-<polyline points="1289,239 1299,239 1299,151 1349,151" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="1299" y="191" fill="#3b3f46" font-size="11" text-anchor="middle">Text.value</text>
-<polyline points="1289,268 1349,268" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="1319" y="264" fill="#3b3f46" font-size="11" text-anchor="middle">Uri.value</text>
-<polyline points="1578,293 1638,293" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="1608" y="289" fill="#3b3f46" font-size="11" text-anchor="middle">kind</text>
-<polyline points="1578,268 1588,268 1588,102 1638,102" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="1588" y="181" fill="#3b3f46" font-size="11" text-anchor="middle">media_type</text>
 </svg>"
 `;
 
@@ -180,90 +135,72 @@ exports[`render — chat example > snapshot — small example SVG (default theme
 "<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 517" width="480" height="517" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="480" height="517" fill="none"/>
-<g data-decl="User" data-kind="record">
-  <rect x="29" y="229" width="180" height="141" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="229" width="180" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="29" y="257.2" width="180" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="29" y1="263.2" x2="209" y2="263.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="229" width="4" height="141" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="39" y="250.65" fill="#1a1d22" font-weight="600">User</text>
+<rect class="td-blueprint-bg" width="480" height="517" fill="#f6f8fc"/><rect width="480" height="517" fill="url(#td-grid)"/>
+<g data-edge="User:2:Option:field" data-source="User" data-target="Option"><polyline points="210,347 270,347" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="240" y="343" fill="#3a4a5c" font-size="11" text-anchor="middle">email</text></g>
+<g data-edge="User:2:Email:genericArg" data-source="User" data-target="Email"><polyline points="210,347 220,347 220,461 270,461" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="220" y="400" fill="#3a4a5c" font-size="11" text-anchor="middle">email</text></g>
+<g data-edge="User:4:Address:field" data-source="User" data-target="Address"><polyline points="210,323 220,323 220,211 270,211" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="220" y="263" fill="#3a4a5c" font-size="11" text-anchor="middle">address</text></g>
+<g data-decl="User" class="td-node" data-kind="record" data-x="29" data-y="229" data-width="180" data-height="141" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="229" width="180" height="141" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="229" width="180" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="261.2" width="180" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="229" width="4" height="141" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="39" y="250.65" fill="#0b1326" font-weight="600">User</text>
   
-  <line x1="29" y1="263.2" x2="209" y2="263.2" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="278.35" fill="#1a1d22">id: UUID</text>
-<line x1="29" y1="284.4" x2="209" y2="284.4" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="299.55" fill="#1a1d22">name: String</text>
-<line x1="29" y1="305.6" x2="209" y2="305.6" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="320.75000000000006" fill="#1a1d22">email: Option&lt;Email&gt;</text>
-<line x1="29" y1="326.8" x2="209" y2="326.8" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="341.95000000000005" fill="#1a1d22">roles: List&lt;Role&gt;</text>
-<line x1="29" y1="348" x2="209" y2="348" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="363.15000000000003" fill="#1a1d22">address: Address</text>
+  <g data-row-index="0" data-row-y="263.2" data-row-height="21.2"><line x1="29" y1="263.2" x2="209" y2="263.2" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="278.35" fill="#26384d">id: UUID</text></g>
+<g data-row-index="1" data-row-y="284.4" data-row-height="21.2"><line x1="29" y1="284.4" x2="209" y2="284.4" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="299.55" fill="#26384d">name: String</text></g>
+<g data-row-index="2" data-row-y="305.6" data-row-height="21.2"><line x1="29" y1="305.6" x2="209" y2="305.6" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="320.75000000000006" fill="#26384d">email: Option&lt;Email&gt;</text></g>
+<g data-row-index="3" data-row-y="326.8" data-row-height="21.2"><line x1="29" y1="326.8" x2="209" y2="326.8" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="341.95000000000005" fill="#26384d">roles: List&lt;Role&gt;</text></g>
+<g data-row-index="4" data-row-y="348" data-row-height="21.2"><line x1="29" y1="348" x2="209" y2="348" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="363.15000000000003" fill="#26384d">address: Address</text></g>
 </g>
-<g data-decl="Address" data-kind="record">
-  <rect x="271" y="162" width="180" height="98" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="162" width="180" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="271" y="190.2" width="180" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="271" y1="196.2" x2="451" y2="196.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="162" width="4" height="98" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="281" y="183.65" fill="#1a1d22" font-weight="600">Address</text>
+<g data-decl="Address" class="td-node" data-kind="record" data-x="271" data-y="162" data-width="180" data-height="98" filter="url(#td-ambient-shadow)">
+  <rect x="271" y="162" width="180" height="98" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="271" y="162" width="180" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="194.2" width="180" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="162" width="4" height="98" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="281" y="183.65" fill="#0b1326" font-weight="600">Address</text>
   
-  <line x1="271" y1="196.2" x2="451" y2="196.2" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="211.35" fill="#1a1d22">line1: String</text>
-<line x1="271" y1="217.4" x2="451" y2="217.4" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="232.55" fill="#1a1d22">city: String</text>
-<line x1="271" y1="238.60000000000002" x2="451" y2="238.60000000000002" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="253.75000000000003" fill="#1a1d22">country: CountryCode</text>
+  <g data-row-index="0" data-row-y="196.2" data-row-height="21.2"><line x1="271" y1="196.2" x2="451" y2="196.2" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="211.35" fill="#26384d">line1: String</text></g>
+<g data-row-index="1" data-row-y="217.4" data-row-height="21.2"><line x1="271" y1="217.4" x2="451" y2="217.4" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="232.55" fill="#26384d">city: String</text></g>
+<g data-row-index="2" data-row-y="238.60000000000002" data-row-height="21.2"><line x1="271" y1="238.60000000000002" x2="451" y2="238.60000000000002" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="253.75000000000003" fill="#26384d">country: CountryCode</text></g>
 </g>
-<g data-decl="Shape" data-kind="union">
-  <rect x="29" y="28" width="344" height="114" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="344" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="29" y="72.2" width="344" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="4" height="114" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="39" y="49.65" fill="#1a1d22" font-weight="600">union Shape</text>
-  <text x="201" y="72.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="93.35" fill="#1a1d22">◇ Circle { radius: Float }</text>
-<line x1="29" y1="99.4" x2="373" y2="99.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="114.55" fill="#1a1d22">◇ Square { side: Float }</text>
-<line x1="29" y1="120.60000000000001" x2="373" y2="120.60000000000001" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="135.75000000000003" fill="#1a1d22">◇ Triangle { a: Float, b: Float, c: Float }</text>
+<g data-decl="Shape" class="td-node" data-kind="union" data-x="29" data-y="28" data-width="344" data-height="114" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="28" width="344" height="114" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="28" width="344" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="76.2" width="344" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="28" width="4" height="114" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="39" y="49.65" fill="#0b1326" font-weight="600">union Shape</text>
+  <text x="201" y="72.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="78.2" data-row-height="21.2"><line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="93.35" fill="#26384d">◇ Circle { radius: Float }</text></g>
+<g data-row-index="1" data-row-y="99.4" data-row-height="21.2"><line x1="29" y1="99.4" x2="373" y2="99.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="114.55" fill="#26384d">◇ Square { side: Float }</text></g>
+<g data-row-index="2" data-row-y="120.60000000000001" data-row-height="21.2"><line x1="29" y1="120.60000000000001" x2="373" y2="120.60000000000001" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="135.75000000000003" fill="#26384d">◇ Triangle { a: Float, b: Float, c: Float }</text></g>
 </g>
-<g data-decl="Option" data-kind="union">
-  <rect x="271" y="300" width="157" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="300" width="157" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="271" y="344.2" width="157" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="300" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="281" y="321.65000000000003" fill="#1a1d22" font-weight="600">union Option&lt;T&gt;</text>
-  <text x="349.5" y="344.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="281" y="365.35" fill="#1a1d22">◇ Some { value: T }</text>
-<line x1="271" y1="371.4" x2="428" y2="371.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="281" y="386.55" fill="#1a1d22">◇ None</text>
+<g data-decl="Option" class="td-node" data-kind="union" data-x="271" data-y="300" data-width="157" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="271" y="300" width="157" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="271" y="300" width="157" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="271" y="348.2" width="157" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="271" y="300" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="281" y="321.65000000000003" fill="#0b1326" font-weight="600">union Option&lt;T&gt;</text>
+  <text x="349.5" y="344.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="350.2" data-row-height="21.2"><line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="281" y="365.35" fill="#26384d">◇ Some { value: T }</text></g>
+<g data-row-index="1" data-row-y="371.4" data-row-height="21.2"><line x1="271" y1="371.4" x2="428" y2="371.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="281" y="386.55" fill="#26384d">◇ None</text></g>
 </g>
-<g data-decl="Email" data-kind="alias">
-  <rect x="271" y="433" width="110" height="56" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="433" width="110" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="271" y="461.2" width="110" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="271" y1="467.2" x2="381" y2="467.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="433" width="4" height="56" rx="2" ry="2" fill="#0a7a5e"/>
-  <text x="281" y="454.65000000000003" fill="#1a1d22" font-weight="600">alias Email</text>
+<g data-decl="Email" class="td-node" data-kind="alias" data-x="271" data-y="433" data-width="110" data-height="56" filter="url(#td-ambient-shadow)">
+  <rect x="271" y="433" width="110" height="56" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="271" y="433" width="110" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="465.2" width="110" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="433" width="4" height="56" rx="1" ry="1" fill="#0f8a7a"/>
+  <text x="281" y="454.65000000000003" fill="#0b1326" font-weight="600">alias Email</text>
   
-  <line x1="271" y1="467.2" x2="381" y2="467.2" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="482.35" fill="#1a1d22">= String</text>
+  <g data-row-index="0" data-row-y="467.2" data-row-height="21.2"><line x1="271" y1="467.2" x2="381" y2="467.2" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="482.35" fill="#26384d">= String</text></g>
 </g>
-<polyline points="210,347 270,347" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="240" y="343" fill="#3b3f46" font-size="11" text-anchor="middle">email</text>
-<polyline points="210,347 220,347 220,461 270,461" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="220" y="400" fill="#3b3f46" font-size="11" text-anchor="middle">email</text>
-<polyline points="210,323 220,323 220,211 270,211" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="220" y="263" fill="#3b3f46" font-size="11" text-anchor="middle">address</text>
 </svg>"
 `;

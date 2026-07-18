@@ -1,50 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 347 262" width="347" height="262" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="347" height="262" fill="none"/>
-<g data-decl="Pair" data-kind="record">
-  <rect x="29" y="28" width="102" height="77" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="102" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="29" y="56.2" width="102" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="29" y1="62.2" x2="131" y2="62.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="4" height="77" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="39" y="49.65" fill="#1a1d22" font-weight="600">Pair&lt;A, B&gt;</text>
-  
-  <line x1="29" y1="62.2" x2="131" y2="62.2" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="77.35" fill="#1a1d22">first: A</text>
-<line x1="29" y1="83.4" x2="131" y2="83.4" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="98.55" fill="#1a1d22">second: B</text>
-</g>
-<g data-decl="Either" data-kind="union">
-  <rect x="153" y="28" width="165" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="153" y="28" width="165" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="153" y="72.2" width="165" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="153" y1="78.2" x2="318" y2="78.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="153" y="28" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="163" y="49.65" fill="#1a1d22" font-weight="600">union Either&lt;L, R&gt;</text>
-  <text x="235.5" y="72.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="153" y1="78.2" x2="318" y2="78.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="153" y1="78.2" x2="318" y2="78.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="163" y="93.35" fill="#1a1d22">◇ Left { value: L }</text>
-<line x1="153" y1="99.4" x2="318" y2="99.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="163" y="114.55" fill="#1a1d22">◇ Right { value: R }</text>
-</g>
-<g data-decl="Result" data-kind="union">
-  <rect x="29" y="141" width="165" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="141" width="165" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="29" y="185.2" width="165" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="29" y1="191.2" x2="194" y2="191.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="141" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="39" y="162.65" fill="#1a1d22" font-weight="600">union Result&lt;T, E&gt;</text>
-  <text x="111.5" y="185.79999999999998" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="29" y1="191.2" x2="194" y2="191.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="29" y1="191.2" x2="194" y2="191.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="206.35" fill="#1a1d22">◇ Ok { value: T }</text>
-<line x1="29" y1="212.4" x2="194" y2="212.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="227.55" fill="#1a1d22">◇ Err { error: E }</text>
-</g>
+<rect class="td-blueprint-bg" width="347" height="262" fill="#f6f8fc"/><rect width="347" height="262" fill="url(#td-grid)"/>
 
+<g data-decl="Pair" class="td-node" data-kind="record" data-x="29" data-y="28" data-width="102" data-height="77" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="28" width="102" height="77" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="28" width="102" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="60.2" width="102" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="28" width="4" height="77" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="39" y="49.65" fill="#0b1326" font-weight="600">Pair&lt;A, B&gt;</text>
+  
+  <g data-row-index="0" data-row-y="62.2" data-row-height="21.2"><line x1="29" y1="62.2" x2="131" y2="62.2" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="77.35" fill="#26384d">first: A</text></g>
+<g data-row-index="1" data-row-y="83.4" data-row-height="21.2"><line x1="29" y1="83.4" x2="131" y2="83.4" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="98.55" fill="#26384d">second: B</text></g>
+</g>
+<g data-decl="Either" class="td-node" data-kind="union" data-x="153" data-y="28" data-width="165" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="153" y="28" width="165" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="153" y="28" width="165" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="153" y="76.2" width="165" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="153" y="28" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="163" y="49.65" fill="#0b1326" font-weight="600">union Either&lt;L, R&gt;</text>
+  <text x="235.5" y="72.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="153" y1="78.2" x2="318" y2="78.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="78.2" data-row-height="21.2"><line x1="153" y1="78.2" x2="318" y2="78.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="163" y="93.35" fill="#26384d">◇ Left { value: L }</text></g>
+<g data-row-index="1" data-row-y="99.4" data-row-height="21.2"><line x1="153" y1="99.4" x2="318" y2="99.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="163" y="114.55" fill="#26384d">◇ Right { value: R }</text></g>
+</g>
+<g data-decl="Result" class="td-node" data-kind="union" data-x="29" data-y="141" data-width="165" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="141" width="165" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="141" width="165" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="189.2" width="165" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="141" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="39" y="162.65" fill="#0b1326" font-weight="600">union Result&lt;T, E&gt;</text>
+  <text x="111.5" y="185.79999999999998" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="29" y1="191.2" x2="194" y2="191.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="191.2" data-row-height="21.2"><line x1="29" y1="191.2" x2="194" y2="191.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="206.35" fill="#26384d">◇ Ok { value: T }</text></g>
+<g data-row-index="1" data-row-y="212.4" data-row-height="21.2"><line x1="29" y1="212.4" x2="194" y2="212.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="227.55" fill="#26384d">◇ Err { error: E }</text></g>
+</g>
 </svg>

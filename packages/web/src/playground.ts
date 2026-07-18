@@ -7,14 +7,13 @@
 import { debounce } from "./debounce.js";
 import { renderPane } from "./render-pane.js";
 import { initSplitter } from "./splitter.js";
-import { createViewport, setViewportContent } from "./viewport.js";
 import { initHighlight } from "./highlight.js";
 import { initEditorZoom } from "./editor-zoom.js";
-import { createZoomControls } from "./zoom-controls.js";
 import { evalHooks } from "./eval-hooks.js";
 import { PRESETS, togglePresetInCode, presetsInCode, type PresetId } from "./hook-presets.js";
 import { initJsHighlight } from "./highlight-js.js";
 import { HOME_PAGE_SAMPLE } from "typediagram-core";
+import { createVisualEditor, type NodePosition } from "typediagram-core/editor";
 
 const INITIAL_SOURCE = HOME_PAGE_SAMPLE;
 
@@ -126,6 +125,18 @@ const activateTab = (tabId: "source" | "hooks", refs: ReturnType<typeof buildDom
 
 const STORAGE_SOURCE_KEY = "td-playground-source";
 const STORAGE_HOOKS_KEY = "td-playground-hooks";
+const STORAGE_POSITIONS_KEY = "td-playground-positions";
+
+const savedPositions = (): Readonly<Record<string, NodePosition>> => {
+  const stored = localStorage.getItem(STORAGE_POSITIONS_KEY);
+  try {
+    const parsed: unknown = JSON.parse(stored ?? "{}");
+    // Safe: position values are consumed only as numeric SVG translations.
+    return typeof parsed === "object" && parsed !== null ? (parsed as Record<string, NodePosition>) : {};
+  } catch {
+    return {};
+  }
+};
 
 export const mountPlayground = (container: HTMLElement) => {
   const refs = buildDom(container);
@@ -142,8 +153,6 @@ export const mountPlayground = (container: HTMLElement) => {
     editorWrap,
   } = refs;
   initSplitter(container, splitter);
-  const vp = createViewport(preview);
-  createZoomControls(preview, vp);
 
   const savedSource = localStorage.getItem(STORAGE_SOURCE_KEY);
   const savedHooks = localStorage.getItem(STORAGE_HOOKS_KEY);
@@ -156,6 +165,19 @@ export const mountPlayground = (container: HTMLElement) => {
   const logRenderFailure = (where: string) => (err: unknown) => {
     console.error(`[playground] ${where} render failed`, err);
   };
+
+  const visualEditor = createVisualEditor(preview, {
+    getSource: () => editor.value,
+    onSourceChange: (source) => {
+      editor.value = source;
+      localStorage.setItem(STORAGE_SOURCE_KEY, source);
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+    },
+    initialPositions: savedPositions(),
+    onPositionsChange: (positions) => {
+      localStorage.setItem(STORAGE_POSITIONS_KEY, JSON.stringify(positions));
+    },
+  });
 
   buildPresetButtons(
     hooksToolbar,
@@ -187,7 +209,7 @@ export const mountPlayground = (container: HTMLElement) => {
       hooksBadge.textContent = "";
     }
     const html = await renderPane(editor.value, evaluated.hooks);
-    setViewportContent(preview, html);
+    visualEditor.setContent(html);
   };
   const debounced = debounce(() => {
     run().catch(logRenderFailure("debounced"));

@@ -1,40 +1,36 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 590 175" width="590" height="175" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="590" height="175" fill="none"/>
-<g data-decl="Outer" data-kind="union">
-  <rect x="29" y="28" width="204" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="204" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="29" y="72.2" width="204" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="29" y1="78.2" x2="233" y2="78.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="39" y="49.65" fill="#1a1d22" font-weight="600">union Outer</text>
-  <text x="131" y="72.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="29" y1="78.2" x2="233" y2="78.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="29" y1="78.2" x2="233" y2="78.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="93.35" fill="#1a1d22">◇ Leaf { value: String }</text>
-<line x1="29" y1="99.4" x2="233" y2="99.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="114.55" fill="#1a1d22">◇ Nested { inner: Inner }</text>
+<rect class="td-blueprint-bg" width="590" height="175" fill="#f6f8fc"/><rect width="590" height="175" fill="url(#td-grid)"/>
+<g data-edge="Outer:1:Inner:variantPayload" data-source="Outer" data-target="Inner"><polyline points="234,90 294,90" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="264" y="86" fill="#3a4a5c" font-size="11" text-anchor="middle">Nested.inner</text></g>
+<g data-decl="Outer" class="td-node" data-kind="union" data-x="29" data-y="28" data-width="204" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="28" width="204" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="28" width="204" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="76.2" width="204" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="28" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="39" y="49.65" fill="#0b1326" font-weight="600">union Outer</text>
+  <text x="131" y="72.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="29" y1="78.2" x2="233" y2="78.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="78.2" data-row-height="21.2"><line x1="29" y1="78.2" x2="233" y2="78.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="93.35" fill="#26384d">◇ Leaf { value: String }</text></g>
+<g data-row-index="1" data-row-y="99.4" data-row-height="21.2"><line x1="29" y1="99.4" x2="233" y2="99.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="114.55" fill="#26384d">◇ Nested { inner: Inner }</text></g>
 </g>
-<g data-decl="Inner" data-kind="union">
-  <rect x="295" y="33" width="266" height="114" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="295" y="33" width="266" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="295" y="77.2" width="266" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="295" y1="83.2" x2="561" y2="83.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="295" y="33" width="4" height="114" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="305" y="54.65" fill="#1a1d22" font-weight="600">union Inner</text>
-  <text x="428" y="77.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="295" y1="83.2" x2="561" y2="83.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="295" y1="83.2" x2="561" y2="83.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="305" y="98.35" fill="#1a1d22">◇ A</text>
-<line x1="295" y1="104.4" x2="561" y2="104.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="305" y="119.55" fill="#1a1d22">◇ B { data: Int }</text>
-<line x1="295" y1="125.60000000000001" x2="561" y2="125.60000000000001" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="305" y="140.75000000000003" fill="#1a1d22">◇ C { label: String, count: Int }</text>
+<g data-decl="Inner" class="td-node" data-kind="union" data-x="295" data-y="33" data-width="266" data-height="114" filter="url(#td-ambient-shadow)">
+  <rect x="295" y="33" width="266" height="114" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="295" y="33" width="266" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="295" y="81.2" width="266" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="295" y="33" width="4" height="114" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="305" y="54.65" fill="#0b1326" font-weight="600">union Inner</text>
+  <text x="428" y="77.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="295" y1="83.2" x2="561" y2="83.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="83.2" data-row-height="21.2"><line x1="295" y1="83.2" x2="561" y2="83.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="305" y="98.35" fill="#26384d">◇ A</text></g>
+<g data-row-index="1" data-row-y="104.4" data-row-height="21.2"><line x1="295" y1="104.4" x2="561" y2="104.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="305" y="119.55" fill="#26384d">◇ B { data: Int }</text></g>
+<g data-row-index="2" data-row-y="125.60000000000001" data-row-height="21.2"><line x1="295" y1="125.60000000000001" x2="561" y2="125.60000000000001" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="305" y="140.75000000000003" fill="#26384d">◇ C { label: String, count: Int }</text></g>
 </g>
-<polyline points="234,90 294,90" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="264" y="86" fill="#3b3f46" font-size="11" text-anchor="middle">Nested.inner</text>
 </svg>

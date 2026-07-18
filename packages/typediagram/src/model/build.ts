@@ -1,4 +1,15 @@
-import type { AliasDecl, Declaration, Diagram, Field, RecordDecl, TypeRef, UnionDecl, Variant } from "../parser/ast.js";
+import type {
+  AliasDecl,
+  Declaration,
+  Diagram,
+  Field,
+  FunctionDecl,
+  FunctionSignature,
+  RecordDecl,
+  TypeRef,
+  UnionDecl,
+  Variant,
+} from "../parser/ast.js";
 import { DiagnosticBag, type Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err, ok } from "../result.js";
 import { withDiscriminant } from "../variant.js";
@@ -9,6 +20,8 @@ import {
   type ResolvedAlias,
   type ResolvedDecl,
   type ResolvedField,
+  type ResolvedFunction,
+  type ResolvedFunctionSignature,
   type ResolvedRecord,
   type ResolvedRefKind,
   type ResolvedTypeRef,
@@ -71,7 +84,40 @@ function resolveDecl(
   if (d.kind === "union") {
     return resolveUnion(d, declMap, externals, generics, bag);
   }
-  return resolveAlias(d, declMap, externals, generics, bag);
+  return d.kind === "alias"
+    ? resolveAlias(d, declMap, externals, generics, bag)
+    : resolveFunction(d, declMap, externals, generics, bag);
+}
+
+function resolveFunction(
+  d: FunctionDecl,
+  declMap: Map<string, DeclEntry>,
+  externals: Set<string>,
+  generics: Set<string>,
+  bag: DiagnosticBag
+): ResolvedFunction {
+  return {
+    kind: "function",
+    name: d.name,
+    generics: [...d.generics],
+    signatures: d.signatures.map((signature) => resolveSignature(signature, d.name, declMap, externals, generics, bag)),
+    ...(d.targeting === undefined ? {} : { targeting: { ...d.targeting } }),
+  };
+}
+
+function resolveSignature(
+  signature: FunctionSignature,
+  ownerName: string,
+  declMap: Map<string, DeclEntry>,
+  externals: Set<string>,
+  generics: Set<string>,
+  bag: DiagnosticBag
+): ResolvedFunctionSignature {
+  return {
+    params: signature.params.map((param) => resolveField(param, ownerName, declMap, externals, generics, bag)),
+    returns: resolveTypeRef(signature.returns, ownerName, declMap, externals, generics, bag),
+    ...(signature.async === true ? { async: true as const } : {}),
+  };
 }
 
 function resolveRecord(

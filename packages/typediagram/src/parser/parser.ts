@@ -5,7 +5,6 @@ import type {
   Diagram,
   Field,
   RecordDecl,
-  Span,
   TypeRef,
   UnionDecl,
   Variant,
@@ -16,6 +15,15 @@ import { tokenize } from "./lexer.js";
 import { type Result, err, ok } from "../result.js";
 import type { Diagnostic } from "./diagnostics.js";
 import { withDiscriminant } from "../variant.js";
+import { parseFunction } from "./function.js";
+import {
+  describeToken,
+  expectToken,
+  parseCommaSeparated,
+  parseGenericParams,
+  parseTypeRef,
+  spanBetween,
+} from "./parse-common.js";
 
 /** The keyword, name token, and generic parameters shared by every decl form. */
 interface DeclHeader {
@@ -105,14 +113,20 @@ class Parser {
     if (t.kind === "UntaggedKw") {
       const next = this.cur.peek(1);
       if (next.kind !== "UnionKw") {
-        return this.errorAndRecover(`expected 'union' after 'untagged', got ${describe(next)}`, next);
+        return this.errorAndRecover(`expected 'union' after 'untagged', got ${describeToken(next)}`, next);
       }
       return this.parseUnion(true, targeting);
     }
     if (t.kind === "AliasKw") {
       return this.parseAlias(targeting);
     }
-    return this.errorAndRecover(`expected 'type', 'union', 'untagged union', or 'alias', got ${describe(t)}`, t);
+    if (t.kind === "FunctionKw" || t.kind === "AsyncKw") {
+      return parseFunction(this.cur, this.diags, targeting);
+    }
+    return this.errorAndRecover(
+      `expected 'type', 'union', 'untagged union', 'alias', or 'function', got ${describeToken(t)}`,
+      t
+    );
   }
 
   /** Emit an error diagnostic anchored at `tok`, recover to the next decl, return null. */
@@ -229,33 +243,11 @@ class Parser {
   }
 
   private parseCommaSeparated<T>(closer: TokenKind, parseItem: () => T | null): T[] {
-    const items: T[] = [];
-    while (this.cur.peek().kind !== closer && this.cur.peek().kind !== "EOF") {
-      const item = parseItem();
-      if (item === null) {
-        break;
-      }
-      items.push(item);
-      if (this.cur.peek().kind === "Comma") {
-        this.cur.next();
-      } else {
-        break;
-      }
-    }
-    return items;
+    return parseCommaSeparated(this.cur, closer, parseItem);
   }
 
   private parseGenericParams(): string[] {
-    if (this.cur.peek().kind !== "LAngle") {
-      return [];
-    }
-    this.cur.next();
-    const names = this.parseCommaSeparated(
-      "RAngle",
-      () => this.expect("Ident", "generic parameter name")?.value ?? null
-    );
-    this.expect("RAngle", "'>'");
-    return names;
+    return parseGenericParams(this.cur, this.diags);
   }
 
   private parseBraceList<T>(parseItem: () => T | null): T[] {
@@ -367,30 +359,11 @@ class Parser {
   }
 
   private parseTypeRef(): TypeRef | null {
-    const nameTok = this.expect("Ident", "type name");
-    if (nameTok === null) {
-      return null;
-    }
-    let args: TypeRef[] = [];
-    if (this.cur.peek().kind === "LAngle") {
-      this.cur.next();
-      args = this.parseCommaSeparated("RAngle", () => this.parseTypeRef());
-      this.expect("RAngle", "'>'");
-    }
-    return {
-      name: nameTok.value,
-      args,
-      span: spanBetween(nameTok, this.cur.peek()),
-    };
+    return parseTypeRef(this.cur, this.diags);
   }
 
   private expect(kind: TokenKind, what: string): Token | null {
-    const t = this.cur.peek();
-    if (t.kind === kind) {
-      return this.cur.next();
-    }
-    this.diags.error(`expected ${what}, got ${describe(t)}`, t.line, t.col, t.length || 1);
-    return null;
+    return expectToken(this.cur, this.diags, kind, what);
   }
 
   private eatSeparator(): void {
@@ -426,31 +399,15 @@ class Parser {
           return;
         }
         depth--;
-      } else if (depth === 0 && (t.kind === "TypeKw" || t.kind === "UnionKw" || t.kind === "AliasKw")) {
+      } else if (
+        depth === 0 &&
+        (t.kind === "TypeKw" || t.kind === "UnionKw" || t.kind === "AliasKw" || t.kind === "FunctionKw")
+      ) {
         return;
       }
       this.cur.next();
     }
   }
-}
-
-function spanBetween(a: Token, b: Token): Span {
-  return {
-    line: a.line,
-    col: a.col,
-    offset: a.offset,
-    length: Math.max(0, b.offset + b.length - a.offset),
-  };
-}
-
-function describe(t: Token): string {
-  if (t.kind === "EOF") {
-    return "end of input";
-  }
-  if (t.kind === "Newline") {
-    return "newline";
-  }
-  return `${t.kind} "${t.value}"`;
 }
 
 export function parsePartial(source: string): { ast: Diagram; diagnostics: Diagnostic[] } {

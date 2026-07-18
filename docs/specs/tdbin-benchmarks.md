@@ -1,0 +1,58 @@
+# TDBIN Benchmarks
+
+TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [`scripts/tdbin-bench-report.mjs`](https://github.com/Nimblesite/typeDiagram/blob/main/scripts/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
+
+> **Scope: these figures are for the Rust implementation only.** Both the encoded sizes and the speeds are measured against the Rust `tdbin` codec crate ([`crates/tdbin`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin)), the Rust `prost` Protobuf encoder, and the Rust `rmp-serde` MessagePack encoder. The TDBIN **wire format** and its byte sizes are language-neutral, but serialize/deserialize **speeds** depend on each language's implementation — typeDiagram's other codec targets, and other Protobuf/MessagePack libraries, will differ, sometimes substantially.
+
+## Size and Speed
+
+One row per test. Sizes are exact encoded bytes; "Serialize" is the whole ADT→binary conversion and "Deserialize" the whole binary→ADT conversion, each a Criterion median. typeDiagram is its **framed** production wire mode; MessagePack is struct-as-map (via `rmp-serde`). Lower is better in every column.
+
+| Test               | typeDiagram Size | Protobuf Size | MessagePack Size | typeDiagram Serialize | Protobuf Serialize | MessagePack Serialize | typeDiagram Deserialize | Protobuf Deserialize | MessagePack Deserialize |
+| ------------------ | ---------------: | ------------: | ---------------: | --------------------: | -----------------: | --------------------: | ----------------------: | -------------------: | ----------------------: |
+| `with_address`     |              172 |            79 |              142 |              86.21 ns |           46.82 ns |             240.50 ns |               157.32 ns |            150.50 ns |               192.39 ns |
+| `without_address`  |              124 |            31 |              100 |              63.80 ns |           32.86 ns |             227.40 ns |                76.85 ns |             50.06 ns |               108.75 ns |
+| `metric_batch`     |           43,788 |        84,149 |           90,440 |              6.557 us |          45.616 us |             43.619 us |                5.198 us |            29.664 us |               52.304 us |
+| `person_batch`     |           22,988 |        29,184 |           61,963 |              9.728 us |          17.986 us |             48.369 us |               35.157 us |            55.844 us |               87.035 us |
+| `contact_batch`    |           23,156 |        35,221 |           80,162 |              9.169 us |          24.761 us |             67.893 us |               30.351 us |            59.681 us |               92.548 us |
+| `diagram_document` |           45,172 |        50,788 |           77,410 |             10.259 us |          21.699 us |             57.093 us |               69.248 us |           109.277 us |              130.848 us |
+| `event_batch`      |          116,372 |       131,744 |          230,620 |             34.150 us |          69.852 us |            139.987 us |              193.619 us |           275.241 us |              372.344 us |
+
+## What the numbers show
+
+The following are read directly off the table above — each is a comparison of the measured values, nothing more:
+
+- **`with_address`** (tiny nested record and union, 1 item): smallest encoding is **Protobuf**; fastest round-trip is **Protobuf**. typeDiagram's encoding is 0.5× the size of Protobuf and 0.8× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+- **`without_address`** (tiny sparse record and union, 1 item): smallest encoding is **Protobuf**; fastest round-trip is **Protobuf**. typeDiagram's encoding is 0.3× the size of Protobuf and 0.8× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+- **`metric_batch`** (list-heavy telemetry, 4,096 items): smallest encoding is **typeDiagram**; fastest round-trip is **typeDiagram**. typeDiagram's encoding is 1.9× the size of Protobuf and 2.1× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+- **`person_batch`** (repeated records, 512 items): smallest encoding is **typeDiagram**; fastest round-trip is **typeDiagram**. typeDiagram's encoding is 1.3× the size of Protobuf and 2.7× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+- **`contact_batch`** (repeated unions, 2,048 items): smallest encoding is **typeDiagram**; fastest round-trip is **typeDiagram**. typeDiagram's encoding is 1.5× the size of Protobuf and 3.5× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+- **`diagram_document`** (record-heavy diagram document, 768 items): smallest encoding is **typeDiagram**; fastest round-trip is **typeDiagram**. typeDiagram's encoding is 1.1× the size of Protobuf and 1.7× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+- **`event_batch`** (union-heavy event stream, 2,048 items): smallest encoding is **typeDiagram**; fastest round-trip is **typeDiagram**. typeDiagram's encoding is 1.1× the size of Protobuf and 2× the size of MessagePack here (values <1 mean typeDiagram is smaller, >1 larger).
+
+## Methodology
+
+- **Rust implementations.** Every timing is for a Rust codec: typeDiagram's [`tdbin`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin) crate, Protobuf via `prost`, and MessagePack via `rmp-serde`. Encoded sizes are a property of the wire format and hold across languages; speeds do not — typeDiagram's other language targets and other Protobuf/MessagePack libraries will produce different timings.
+- **Same values, three encoders.** Every test builds one logical value and feeds the identical value to the typeDiagram codec, to a hand-written Protobuf mirror (`prost`), and — via `serde` derives on that same mirror — to MessagePack (`rmp-serde`). No format receives a different input. See the fixtures in [`crates/tdbin/tests/support/bench_corpus.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/tests/support/bench_corpus.rs).
+- **Self-describing modes only.** typeDiagram _framed_, Protobuf, and MessagePack _struct-as-map_ all carry enough structure to be decoded without an external schema, so the comparison is like-for-like.
+- **Sizes are exact byte counts** emitted by each encoder (see [`crates/tdbin/examples/bench_data.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/examples/bench_data.rs)) — not estimates.
+- **Timings are Criterion medians** over 50 samples per operation; each measured value flows through `black_box` so the optimizer cannot elide the work. The benchmark harness is [`crates/tdbin/benches/gate.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/benches/gate.rs).
+- **Corpus schemas** are committed at [`docs/benchmarks/tdbin-corpus.td`](https://github.com/Nimblesite/typeDiagram/blob/main/docs/benchmarks/tdbin-corpus.td) and [`docs/benchmarks/tdbin-corpus.proto`](https://github.com/Nimblesite/typeDiagram/blob/main/docs/benchmarks/tdbin-corpus.proto).
+
+## Test machine
+
+| Field        | Value                               |
+| ------------ | ----------------------------------- |
+| Platform     | darwin 25.5.0 (arm64)               |
+| CPU          | Apple M4 Max                        |
+| Logical CPUs | 14                                  |
+| Memory       | 36.0 GiB                            |
+| Rust         | rustc 1.97.0 (2d8144b78 2026-07-07) |
+| Cargo        | cargo 1.97.0 (c980f4866 2026-06-30) |
+
+## Reproduce
+
+Run the benchmark, then regenerate this page:
+
+- `cargo bench -p tdbin --bench gate -- --noplot`
+- `node scripts/tdbin-bench-report.mjs`

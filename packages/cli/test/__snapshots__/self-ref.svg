@@ -1,23 +1,23 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 290 143" width="290" height="143" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="290" height="143" fill="none"/>
-<g data-decl="TreeNode" data-kind="record">
-  <rect x="39" y="28" width="212" height="77" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="39" y="28" width="212" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="39" y="56.2" width="212" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="39" y1="62.2" x2="251" y2="62.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="39" y="28" width="4" height="77" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="49" y="49.65" fill="#1a1d22" font-weight="600">TreeNode</text>
+<rect class="td-blueprint-bg" width="290" height="143" fill="#f6f8fc"/><rect width="290" height="143" fill="url(#td-grid)"/>
+<g data-edge="TreeNode:1:TreeNode:genericArg" data-source="TreeNode" data-target="TreeNode"><polyline points="252,80 262,79.5 262,115 28,115 28,66.5 38,67" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="145" y="111" fill="#3a4a5c" font-size="11" text-anchor="middle">children</text></g>
+<g data-decl="TreeNode" class="td-node" data-kind="record" data-x="39" data-y="28" data-width="212" data-height="77" filter="url(#td-ambient-shadow)">
+  <rect x="39" y="28" width="212" height="77" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="39" y="28" width="212" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="39" y="60.2" width="212" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="39" y="28" width="4" height="77" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="49" y="49.65" fill="#0b1326" font-weight="600">TreeNode</text>
   
-  <line x1="39" y1="62.2" x2="251" y2="62.2" stroke="#dadde2" stroke-width="1"/>
-<text x="49" y="77.35" fill="#1a1d22">value: String</text>
-<line x1="39" y1="83.4" x2="251" y2="83.4" stroke="#dadde2" stroke-width="1"/>
-<text x="49" y="98.55" fill="#1a1d22">children: List&lt;TreeNode&gt;</text>
+  <g data-row-index="0" data-row-y="62.2" data-row-height="21.2"><line x1="39" y1="62.2" x2="251" y2="62.2" stroke="#d8e0eb" stroke-width="1"/><text x="49" y="77.35" fill="#26384d">value: String</text></g>
+<g data-row-index="1" data-row-y="83.4" data-row-height="21.2"><line x1="39" y1="83.4" x2="251" y2="83.4" stroke="#d8e0eb" stroke-width="1"/><text x="49" y="98.55" fill="#26384d">children: List&lt;TreeNode&gt;</text></g>
 </g>
-<polyline points="252,80 262,79.5 262,115 28,115 28,66.5 38,67" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="145" y="111" fill="#3b3f46" font-size="11" text-anchor="middle">children</text>
 </svg>

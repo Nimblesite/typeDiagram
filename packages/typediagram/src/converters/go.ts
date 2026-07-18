@@ -9,7 +9,7 @@
 // Option<T> <-> *T.  Generics use Go 1.18+ type parameters (`[T any]`).
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDeclsForTarget } from "../model/types.js";
+import { modelReferencesType, type Model, type ResolvedTypeRef, visibleDataDeclsForTarget } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { mapBuiltinName, parseTypeRef, resolveFieldTypes } from "./parse-typeref.js";
@@ -309,7 +309,7 @@ const goGenericsInstance = (generics: string[]): string => (generics.length === 
 const variantStructName = (unionName: string, variantName: string): string => `${unionName}${variantName}`;
 
 const toGo = (model: Model): string => {
-  const visible = visibleDeclsForTarget(model.decls, "go");
+  const visible = visibleDataDeclsForTarget(model.decls, "go");
   const lines: string[] = ["package types", ""];
   if (modelReferencesType(visible, "DateTime")) {
     lines.push('import "time"', "");

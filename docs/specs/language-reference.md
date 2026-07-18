@@ -1,6 +1,6 @@
 # Language Reference
 
-typeDiagram has three constructs: **type** (records), **union** (tagged sum types), and **alias** (newtypes). That's it.
+typeDiagram has four constructs: **type** (records), **union** (tagged sum types), **alias** (newtypes), and **function** (free-function/service signatures). It has no class methods.
 
 ## Records (`type`)
 
@@ -96,6 +96,19 @@ alias UserId = Uuid
 alias Callback = Option<String>
 ```
 
+## Functions (`function`)
+
+Functions carry typed parameters, return types, optional generics, async state, and overloads. See [Typeshed to typeDiagram](typeshed-conversion.md) for the full import pipeline.
+
+```typediagram
+function fetch<T>(request: Request, fallback: Option<T>) -> Response
+
+function read {
+  (path: String) -> Bytes
+  async (path: String, timeout: Float) -> Bytes
+}
+```
+
 ## Built-in types
 
 These primitive types are always available (no declaration needed):
@@ -171,10 +184,14 @@ References to undeclared types (like `CountryCode` or any name not declared in t
 
 ```
 Diagram     = ("typeDiagram")? Declaration*
-Declaration = Record | Union | Alias
+Declaration = Record | Union | Alias | Function
 Record      = "type" Name Generics? "{" Field* "}"
 Union       = "union" Name Generics? "{" Variant* "}"
 Alias       = "alias" Name Generics? "=" TypeRef
+Function    = ("async")? "function" Name Generics? Signature
+            | "function" Name Generics? "{" Signature* "}"
+Signature   = ("async")? "(" Parameter* ")" "->" TypeRef
+Parameter   = Name ":" TypeRef
 Field       = Name ":" TypeRef
 Variant     = Name ("=" Number)? ("{" Field* "}")?
 TypeRef     = Name ("<" TypeRef ("," TypeRef)* ">")?

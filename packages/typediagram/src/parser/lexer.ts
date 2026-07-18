@@ -5,6 +5,8 @@ export type TokenKind =
   | "UnionKw"
   | "UntaggedKw"
   | "AliasKw"
+  | "FunctionKw"
+  | "AsyncKw"
   | "TypeDiagramKw"
   | "Ident"
   | "Number"
@@ -18,6 +20,7 @@ export type TokenKind =
   | "Comma"
   | "Colon"
   | "Equals"
+  | "Arrow"
   | "Newline"
   | "EOF";
 
@@ -35,6 +38,8 @@ const KEYWORDS: Record<string, TokenKind> = {
   union: "UnionKw",
   untagged: "UntaggedKw",
   alias: "AliasKw",
+  function: "FunctionKw",
+  async: "AsyncKw",
   typeDiagram: "TypeDiagramKw",
 };
 
@@ -122,10 +127,18 @@ export function tokenize(source: string, diagnostics: DiagnosticBag): Token[] {
         end++;
       }
       const value = source.slice(i, end);
-      const kind = KEYWORDS[value] ?? "Ident";
+      const keyword = KEYWORDS[value];
+      const kind = typeof keyword === "string" ? keyword : "Ident";
       emit(kind, value, startLine, startCol, startOffset);
       col += end - i;
       i = end;
+      continue;
+    }
+
+    if (c === "-" && source.charAt(i + 1) === ">") {
+      emit("Arrow", "->", line, col, i);
+      i += 2;
+      col += 2;
       continue;
     }
 

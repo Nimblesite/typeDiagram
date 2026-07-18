@@ -14,7 +14,7 @@ pub mod pb {
     use super::documents;
 
     /// Protobuf event-stream envelope.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchEventBatch {
         /// Ordered diagram events.
         #[prost(message, repeated, tag = "1")]
@@ -22,7 +22,7 @@ pub mod pb {
     }
 
     /// Protobuf envelope for one event union.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchEventEnvelope {
         /// Event payload.
         #[prost(oneof = "BenchEvent", tags = "1, 2, 3, 4, 5, 6")]
@@ -30,7 +30,7 @@ pub mod pb {
     }
 
     /// Protobuf event oneof.
-    #[derive(Clone, PartialEq, prost::Oneof)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Oneof)]
     pub enum BenchEvent {
         /// A node was created.
         #[prost(message, tag = "1")]
@@ -53,7 +53,7 @@ pub mod pb {
     }
 
     /// Protobuf node-created payload.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchNodeCreated {
         /// Owning document identifier.
         #[prost(string, tag = "1")]
@@ -64,7 +64,7 @@ pub mod pb {
     }
 
     /// Protobuf node-moved payload.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchNodeMoved {
         /// Owning document identifier.
         #[prost(string, tag = "1")]
@@ -81,7 +81,7 @@ pub mod pb {
     }
 
     /// Protobuf edge-added payload.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchEdgeAdded {
         /// Owning document identifier.
         #[prost(string, tag = "1")]
@@ -92,7 +92,7 @@ pub mod pb {
     }
 
     /// Protobuf selection-changed payload.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchSelectionChanged {
         /// Owning document identifier.
         #[prost(string, tag = "1")]
@@ -106,7 +106,7 @@ pub mod pb {
     }
 
     /// Protobuf view-changed payload.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchViewChanged {
         /// Owning document identifier.
         #[prost(string, tag = "1")]
@@ -123,7 +123,7 @@ pub mod pb {
     }
 
     /// Protobuf empty heartbeat payload.
-    #[derive(Clone, Copy, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, Copy, PartialEq, prost::Message)]
     pub struct BenchHeartbeat {}
 }
 

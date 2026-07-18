@@ -1,89 +1,71 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 517" width="480" height="517" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="480" height="517" fill="none"/>
-<g data-decl="User" data-kind="record">
-  <rect x="29" y="229" width="180" height="141" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="229" width="180" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="29" y="257.2" width="180" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="29" y1="263.2" x2="209" y2="263.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="229" width="4" height="141" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="39" y="250.65" fill="#1a1d22" font-weight="600">User</text>
+<rect class="td-blueprint-bg" width="480" height="517" fill="#f6f8fc"/><rect width="480" height="517" fill="url(#td-grid)"/>
+<g data-edge="User:2:Option:field" data-source="User" data-target="Option"><polyline points="210,347 270,347" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="240" y="343" fill="#3a4a5c" font-size="11" text-anchor="middle">email</text></g>
+<g data-edge="User:2:Email:genericArg" data-source="User" data-target="Email"><polyline points="210,347 220,347 220,461 270,461" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="220" y="400" fill="#3a4a5c" font-size="11" text-anchor="middle">email</text></g>
+<g data-edge="User:4:Address:field" data-source="User" data-target="Address"><polyline points="210,323 220,323 220,211 270,211" fill="none" stroke="#60758a" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" /><text x="220" y="263" fill="#3a4a5c" font-size="11" text-anchor="middle">address</text></g>
+<g data-decl="User" class="td-node" data-kind="record" data-x="29" data-y="229" data-width="180" data-height="141" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="229" width="180" height="141" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="229" width="180" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="261.2" width="180" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="229" width="4" height="141" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="39" y="250.65" fill="#0b1326" font-weight="600">User</text>
   
-  <line x1="29" y1="263.2" x2="209" y2="263.2" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="278.35" fill="#1a1d22">id: UUID</text>
-<line x1="29" y1="284.4" x2="209" y2="284.4" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="299.55" fill="#1a1d22">name: String</text>
-<line x1="29" y1="305.6" x2="209" y2="305.6" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="320.75000000000006" fill="#1a1d22">email: Option&lt;Email&gt;</text>
-<line x1="29" y1="326.8" x2="209" y2="326.8" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="341.95000000000005" fill="#1a1d22">roles: List&lt;Role&gt;</text>
-<line x1="29" y1="348" x2="209" y2="348" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="363.15000000000003" fill="#1a1d22">address: Address</text>
+  <g data-row-index="0" data-row-y="263.2" data-row-height="21.2"><line x1="29" y1="263.2" x2="209" y2="263.2" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="278.35" fill="#26384d">id: UUID</text></g>
+<g data-row-index="1" data-row-y="284.4" data-row-height="21.2"><line x1="29" y1="284.4" x2="209" y2="284.4" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="299.55" fill="#26384d">name: String</text></g>
+<g data-row-index="2" data-row-y="305.6" data-row-height="21.2"><line x1="29" y1="305.6" x2="209" y2="305.6" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="320.75000000000006" fill="#26384d">email: Option&lt;Email&gt;</text></g>
+<g data-row-index="3" data-row-y="326.8" data-row-height="21.2"><line x1="29" y1="326.8" x2="209" y2="326.8" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="341.95000000000005" fill="#26384d">roles: List&lt;Role&gt;</text></g>
+<g data-row-index="4" data-row-y="348" data-row-height="21.2"><line x1="29" y1="348" x2="209" y2="348" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="363.15000000000003" fill="#26384d">address: Address</text></g>
 </g>
-<g data-decl="Address" data-kind="record">
-  <rect x="271" y="162" width="180" height="98" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="162" width="180" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="271" y="190.2" width="180" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="271" y1="196.2" x2="451" y2="196.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="162" width="4" height="98" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="281" y="183.65" fill="#1a1d22" font-weight="600">Address</text>
+<g data-decl="Address" class="td-node" data-kind="record" data-x="271" data-y="162" data-width="180" data-height="98" filter="url(#td-ambient-shadow)">
+  <rect x="271" y="162" width="180" height="98" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="271" y="162" width="180" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="194.2" width="180" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="162" width="4" height="98" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="281" y="183.65" fill="#0b1326" font-weight="600">Address</text>
   
-  <line x1="271" y1="196.2" x2="451" y2="196.2" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="211.35" fill="#1a1d22">line1: String</text>
-<line x1="271" y1="217.4" x2="451" y2="217.4" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="232.55" fill="#1a1d22">city: String</text>
-<line x1="271" y1="238.60000000000002" x2="451" y2="238.60000000000002" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="253.75000000000003" fill="#1a1d22">country: CountryCode</text>
+  <g data-row-index="0" data-row-y="196.2" data-row-height="21.2"><line x1="271" y1="196.2" x2="451" y2="196.2" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="211.35" fill="#26384d">line1: String</text></g>
+<g data-row-index="1" data-row-y="217.4" data-row-height="21.2"><line x1="271" y1="217.4" x2="451" y2="217.4" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="232.55" fill="#26384d">city: String</text></g>
+<g data-row-index="2" data-row-y="238.60000000000002" data-row-height="21.2"><line x1="271" y1="238.60000000000002" x2="451" y2="238.60000000000002" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="253.75000000000003" fill="#26384d">country: CountryCode</text></g>
 </g>
-<g data-decl="Shape" data-kind="union">
-  <rect x="29" y="28" width="344" height="114" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="344" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="29" y="72.2" width="344" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="28" width="4" height="114" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="39" y="49.65" fill="#1a1d22" font-weight="600">union Shape</text>
-  <text x="201" y="72.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="93.35" fill="#1a1d22">◇ Circle { radius: Float }</text>
-<line x1="29" y1="99.4" x2="373" y2="99.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="114.55" fill="#1a1d22">◇ Square { side: Float }</text>
-<line x1="29" y1="120.60000000000001" x2="373" y2="120.60000000000001" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="39" y="135.75000000000003" fill="#1a1d22">◇ Triangle { a: Float, b: Float, c: Float }</text>
+<g data-decl="Shape" class="td-node" data-kind="union" data-x="29" data-y="28" data-width="344" data-height="114" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="28" width="344" height="114" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="28" width="344" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="76.2" width="344" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="29" y="28" width="4" height="114" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="39" y="49.65" fill="#0b1326" font-weight="600">union Shape</text>
+  <text x="201" y="72.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="78.2" data-row-height="21.2"><line x1="29" y1="78.2" x2="373" y2="78.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="93.35" fill="#26384d">◇ Circle { radius: Float }</text></g>
+<g data-row-index="1" data-row-y="99.4" data-row-height="21.2"><line x1="29" y1="99.4" x2="373" y2="99.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="114.55" fill="#26384d">◇ Square { side: Float }</text></g>
+<g data-row-index="2" data-row-y="120.60000000000001" data-row-height="21.2"><line x1="29" y1="120.60000000000001" x2="373" y2="120.60000000000001" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="39" y="135.75000000000003" fill="#26384d">◇ Triangle { a: Float, b: Float, c: Float }</text></g>
 </g>
-<g data-decl="Option" data-kind="union">
-  <rect x="271" y="300" width="157" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="300" width="157" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="271" y="344.2" width="157" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="300" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="281" y="321.65000000000003" fill="#1a1d22" font-weight="600">union Option&lt;T&gt;</text>
-  <text x="349.5" y="344.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="281" y="365.35" fill="#1a1d22">◇ Some { value: T }</text>
-<line x1="271" y1="371.4" x2="428" y2="371.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="281" y="386.55" fill="#1a1d22">◇ None</text>
+<g data-decl="Option" class="td-node" data-kind="union" data-x="271" data-y="300" data-width="157" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="271" y="300" width="157" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="271" y="300" width="157" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="271" y="348.2" width="157" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="271" y="300" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="281" y="321.65000000000003" fill="#0b1326" font-weight="600">union Option&lt;T&gt;</text>
+  <text x="349.5" y="344.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="350.2" data-row-height="21.2"><line x1="271" y1="350.2" x2="428" y2="350.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="281" y="365.35" fill="#26384d">◇ Some { value: T }</text></g>
+<g data-row-index="1" data-row-y="371.4" data-row-height="21.2"><line x1="271" y1="371.4" x2="428" y2="371.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="281" y="386.55" fill="#26384d">◇ None</text></g>
 </g>
-<g data-decl="Email" data-kind="alias">
-  <rect x="271" y="433" width="110" height="56" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="433" width="110" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="271" y="461.2" width="110" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="271" y1="467.2" x2="381" y2="467.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="271" y="433" width="4" height="56" rx="2" ry="2" fill="#0a7a5e"/>
-  <text x="281" y="454.65000000000003" fill="#1a1d22" font-weight="600">alias Email</text>
+<g data-decl="Email" class="td-node" data-kind="alias" data-x="271" data-y="433" data-width="110" data-height="56" filter="url(#td-ambient-shadow)">
+  <rect x="271" y="433" width="110" height="56" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="271" y="433" width="110" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="465.2" width="110" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="271" y="433" width="4" height="56" rx="1" ry="1" fill="#0f8a7a"/>
+  <text x="281" y="454.65000000000003" fill="#0b1326" font-weight="600">alias Email</text>
   
-  <line x1="271" y1="467.2" x2="381" y2="467.2" stroke="#dadde2" stroke-width="1"/>
-<text x="281" y="482.35" fill="#1a1d22">= String</text>
+  <g data-row-index="0" data-row-y="467.2" data-row-height="21.2"><line x1="271" y1="467.2" x2="381" y2="467.2" stroke="#d8e0eb" stroke-width="1"/><text x="281" y="482.35" fill="#26384d">= String</text></g>
 </g>
-<polyline points="210,347 270,347" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="240" y="343" fill="#3b3f46" font-size="11" text-anchor="middle">email</text>
-<polyline points="210,347 220,347 220,461 270,461" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="220" y="400" fill="#3b3f46" font-size="11" text-anchor="middle">email</text>
-<polyline points="210,323 220,323 220,211 270,211" fill="none" stroke="#5b6068" stroke-width="1.5" marker-end="url(#td-arrow)" />
-<text x="220" y="263" fill="#3b3f46" font-size="11" text-anchor="middle">address</text>
 </svg>

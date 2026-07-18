@@ -2,7 +2,7 @@
 // StructCodec objects over the runtime in `src/tdbin`, with layout baked into
 // the generated code ([TDBIN-FUTURE-TS], [TDBIN-REC-ALLOC]).
 import { runInNewContext } from "node:vm";
-import ts from "typescript";
+import * as ts from "typescript-compiler";
 import { describe, expect, it } from "vitest";
 import { emitRustCodec } from "../../src/converters/rust-tdbin.js";
 import { emitTypeScriptCodec, generateTypeScriptModule } from "../../src/converters/typescript-tdbin.js";

@@ -1,10 +1,11 @@
 // [VSCODE-EXT] Extension entry point — registers preview command, wires editor events.
 import * as vscode from "vscode";
 import { warmupSyncRender, isSyncRenderReady } from "typediagram-core";
-import { openPreview } from "./preview-panel.js";
+import { consumeEditorSource, openPreview, requestVisualEditorInteractions } from "./preview-panel.js";
 import { typediagramMarkdownItPlugin, type MarkdownIt, setPluginLogger } from "./markdown-it-plugin.js";
 import { getLogger, initLogger } from "./logger.js";
 import { exportPdf, type ExportPdfDeps } from "./export-pdf.js";
+import { VISUAL_EDITOR_INTERACTION_COMMAND } from "./webview/interaction-protocol.js";
 
 let extendCallCount = 0;
 
@@ -63,7 +64,9 @@ export const activate = async (context: vscode.ExtensionContext) => {
     if (doc.languageId !== "typediagram") {
       return;
     }
-    openPreview(context, doc, panels);
+    openPreview(context, doc, panels, vscode.ViewColumn.Beside, () => {
+      diagramOnly.delete(doc.uri.toString());
+    });
   };
 
   const cmd = vscode.commands.registerCommand("typediagram.preview", () => {
@@ -72,6 +75,15 @@ export const activate = async (context: vscode.ExtensionContext) => {
       openFor(doc);
     }
   });
+
+  // [VSCODE-VISUAL-EDITOR-STATUS] Command-only black-box seam for extension-host E2E.
+  const editorStatus = vscode.commands.registerCommand("typediagram.editorStatus", () => ({
+    visualEditor: true,
+    openPanels: panels.size,
+  }));
+  const editorInteractions = vscode.commands.registerCommand(VISUAL_EDITOR_INTERACTION_COMMAND, () =>
+    requestVisualEditorInteractions(panels)
+  );
 
   // [VSCODE-OPEN-AS-DIAGRAM] Open a .td file directly as a diagram from the explorer context menu — no source editor.
   const openAsDiagram = vscode.commands.registerCommand("typediagram.openAsDiagram", async (uri?: vscode.Uri) => {
@@ -88,7 +100,9 @@ export const activate = async (context: vscode.ExtensionContext) => {
     if (sourceTabs.length > 0) {
       await vscode.window.tabGroups.close(sourceTabs, false);
     }
-    openPreview(context, doc, panels, vscode.ViewColumn.Active);
+    openPreview(context, doc, panels, vscode.ViewColumn.Active, () => {
+      diagramOnly.delete(key);
+    });
   });
 
   // [VSCODE-AUTOPREVIEW] Auto-open preview beside the editor whenever a .td doc is shown without one.
@@ -132,13 +146,25 @@ export const activate = async (context: vscode.ExtensionContext) => {
       return;
     }
     const panel = panels.get(doc.uri.toString());
-    panel?.webview.postMessage({ kind: "update", source: doc.getText() });
+    const source = doc.getText();
+    switch (panel) {
+      case undefined:
+        break;
+      default:
+        switch (consumeEditorSource(panel, source)) {
+          case true:
+            break;
+          case false:
+            void panel.webview.postMessage({ kind: "update", source });
+        }
+    }
   });
 
   const onClose = vscode.workspace.onDidCloseTextDocument((doc) => {
     const key = doc.uri.toString();
-    panels.delete(key);
-    diagramOnly.delete(key);
+    if (!panels.has(key)) {
+      diagramOnly.delete(key);
+    }
   });
 
   // [PDF] Export a markdown file to PDF next to the source. No prompts.
@@ -172,7 +198,18 @@ export const activate = async (context: vscode.ExtensionContext) => {
     await exportPdf(target, { theme }, deps);
   });
 
-  context.subscriptions.push(cmd, openAsDiagram, exportPdfCmd, onOpen, onActive, onVisible, onChange, onClose);
+  context.subscriptions.push(
+    cmd,
+    editorStatus,
+    editorInteractions,
+    openAsDiagram,
+    exportPdfCmd,
+    onOpen,
+    onActive,
+    onVisible,
+    onChange,
+    onClose
+  );
 
   if (!isSyncRenderReady()) {
     const startedAt = Date.now();

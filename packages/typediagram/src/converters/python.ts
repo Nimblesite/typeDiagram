@@ -12,7 +12,7 @@ import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
 import {
   modelReferencesType,
-  visibleDeclsForTarget,
+  visibleDataDeclsForTarget,
   type Model,
   type ResolvedDecl,
   type ResolvedTypeRef,
@@ -464,7 +464,7 @@ const emitBareEnum = (name: string, variants: readonly { name: string }[]): stri
 
 const toPython = (model: Model, opts?: PythonOpts): string => {
   const pydantic = opts?.style === "pydantic";
-  const decls = visibleDeclsForTarget(model.decls, "python");
+  const decls = visibleDataDeclsForTarget(model.decls, "python");
   const lines: string[] = pydantic ? buildPydanticImports(decls) : buildDataclassImports(decls);
   const emitRecord = pydantic ? emitPydanticRecord : emitDataclassRecord;
 
