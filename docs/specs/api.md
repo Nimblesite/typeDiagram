@@ -173,6 +173,7 @@ import { converters } from "typediagram-core";
 // Parse other languages
 const model = converters.typescript.fromSource(tsCode);
 const model = converters.python.fromSource(pyCode);
+const model = converters.typeshed.fromSource(pyiCode);
 const model = converters.rust.fromSource(rsCode);
 const model = converters.go.fromSource(goCode);
 const model = converters.csharp.fromSource(csCode);
@@ -184,6 +185,7 @@ const model = converters.protobuf.fromSource(protoCode);
 // Emit other languages
 const tsCode = converters.typescript.toSource(model);
 const pyCode = converters.python.toSource(model);
+const pyiCode = converters.typeshed.toSource(model);
 const rsCode = converters.rust.toSource(model);
 const goCode = converters.go.toSource(model);
 const csCode = converters.csharp.toSource(model);

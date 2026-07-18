@@ -1,7 +1,8 @@
 // [WEB-CONV-RENDER] Pipeline: language source ↔ typeDiagram source + SVG.
 // Lazy-loads the typediagram module like render-pane.ts.
 
-export type SupportedLang = "typescript" | "python" | "rust" | "go" | "csharp" | "fsharp" | "dart" | "protobuf" | "php";
+export type SupportedLang =
+  "typescript" | "python" | "typeshed" | "rust" | "go" | "csharp" | "fsharp" | "dart" | "protobuf" | "php";
 
 const getTheme = () =>
   window.matchMedia("(prefers-color-scheme: dark)").matches ? ("dark" as const) : ("light" as const);
@@ -18,6 +19,7 @@ const loadConverterPipeline = async () => {
   const converterMap = {
     typescript: core.converters.typescript,
     python: core.converters.python,
+    typeshed: core.converters.typeshed,
     rust: core.converters.rust,
     go: core.converters.go,
     csharp: core.converters.csharp,

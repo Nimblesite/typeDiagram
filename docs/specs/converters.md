@@ -1,6 +1,6 @@
 # Language Converters
 
-typeDiagram includes bidirectional converters for **TypeScript**, **Python**, **Rust**, **Go**, **C#**, **F#**, **Dart**, **PHP**, and **Protobuf**. Each converter can parse existing type definitions into a typeDiagram model, and emit type definitions from a model. All nine converters losslessly round-trip the canonical home-page sample (`TD → lang → TD` is byte-for-byte identical).
+typeDiagram includes converters for **Typeshed**, **TypeScript**, **Python**, **Rust**, **Go**, **C#**, **F#**, **Dart**, **PHP**, and **Protobuf**. The nine data-language converters losslessly round-trip the canonical home-page sample; Typeshed additionally imports module functions and overloads. See [Typeshed to typeDiagram](typeshed-conversion.md).
 
 ## How it works
 
@@ -80,6 +80,10 @@ Emits `export interface` for records, discriminated unions with a `kind` field f
 ### To Python
 
 Emits `@dataclass` for records, `str, Enum` for unions with no payloads, separate dataclass per variant + type alias for unions with payloads.
+
+## Typeshed
+
+The dedicated `typeshed` converter parses `.pyi` syntax with a Python concrete syntax tree. It imports ordinary classes, protocols, dataclasses, TypedDicts, NamedTuples, enums, aliases, top-level functions, async functions, conditional declarations, and overloads. Class methods are intentionally excluded. Use `typediagram-typeshed` to mirror a complete checkout into `.td` files.
 
 ## Rust
 
@@ -214,6 +218,7 @@ if (result.ok) {
 // Available converters
 converters.typescript;
 converters.python;
+converters.typeshed;
 converters.rust;
 converters.go;
 converters.csharp;

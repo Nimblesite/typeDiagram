@@ -8,6 +8,8 @@ import type {
   ResolvedAlias,
   ResolvedDecl,
   ResolvedField,
+  ResolvedFunction,
+  ResolvedFunctionSignature,
   ResolvedRecord,
   ResolvedTypeRef,
   ResolvedUnion,
@@ -21,7 +23,7 @@ export interface ModelJson {
   decls: DeclJson[];
 }
 
-export type DeclJson = RecordJson | UnionJson | AliasJson;
+export type DeclJson = RecordJson | UnionJson | AliasJson | FunctionJson;
 
 /** [MODEL-JSON-SHAPE] JSON decls mirror the resolved model minus every `resolution`
  * field: strip it recursively from the type refs and reuse the resolved shapes. */
@@ -31,6 +33,11 @@ export type VariantJson = Omit<ResolvedVariant, "fields"> & { fields: FieldJson[
 export type RecordJson = Omit<ResolvedRecord, "fields"> & { fields: FieldJson[] };
 export type UnionJson = Omit<ResolvedUnion, "variants"> & { variants: VariantJson[] };
 export type AliasJson = Omit<ResolvedAlias, "target"> & { target: TypeRefJson };
+export type FunctionSignatureJson = Omit<ResolvedFunctionSignature, "params" | "returns"> & {
+  params: FieldJson[];
+  returns: TypeRefJson;
+};
+export type FunctionJson = Omit<ResolvedFunction, "signatures"> & { signatures: FunctionSignatureJson[] };
 
 export function toJSON(model: Model): ModelJson {
   return {
@@ -67,13 +74,25 @@ function declToJson(d: ResolvedDecl): DeclJson {
       ),
     };
   }
-  return {
-    kind: "alias",
-    name: d.name,
-    generics: [...d.generics],
-    target: refToJson(d.target),
-    ...(d.targeting === undefined ? {} : { targeting: { ...d.targeting } }),
-  };
+  return d.kind === "alias"
+    ? {
+        kind: "alias",
+        name: d.name,
+        generics: [...d.generics],
+        target: refToJson(d.target),
+        ...(d.targeting === undefined ? {} : { targeting: { ...d.targeting } }),
+      }
+    : {
+        kind: "function",
+        name: d.name,
+        generics: [...d.generics],
+        signatures: d.signatures.map((signature) => ({
+          params: signature.params.map((param) => ({ name: param.name, type: refToJson(param.type) })),
+          returns: refToJson(signature.returns),
+          ...(signature.async === true ? { async: true as const } : {}),
+        })),
+        ...(d.targeting === undefined ? {} : { targeting: { ...d.targeting } }),
+      };
 }
 
 function refToJson(t: ResolvedTypeRef): TypeRefJson {
@@ -120,7 +139,7 @@ function declFromJson(d: unknown): Result<ResolvedDecl, Diagnostic[]> {
   if (typeof d !== "object" || d === null) {
     return fail("decl must be an object");
   }
-  const x = d as Partial<RecordJson | UnionJson | AliasJson> & Record<string, unknown>;
+  const x = d as Partial<DeclJson> & Record<string, unknown>;
   if (typeof x.name !== "string") {
     return fail("decl.name must be a string");
   }
@@ -185,6 +204,22 @@ function declFromJson(d: unknown): Result<ResolvedDecl, Diagnostic[]> {
       ...(targeting.value === undefined ? {} : { targeting: targeting.value }),
     });
   }
+  if (x.kind === "function") {
+    if (!Array.isArray(x.signatures)) {
+      return fail("function.signatures must be an array");
+    }
+    const targeting = targetingFromJson(x.targeting);
+    if (!targeting.ok) {
+      return targeting;
+    }
+    return ok({
+      kind: "function",
+      name: x.name,
+      generics: x.generics,
+      signatures: x.signatures.map(signatureFromJson),
+      ...(targeting.value === undefined ? {} : { targeting: targeting.value }),
+    });
+  }
   return fail(`unknown decl kind '${String(x.kind)}'`);
 }
 
@@ -219,6 +254,14 @@ function isStringArray(value: unknown): value is string[] {
 
 function fieldFromJson(f: FieldJson): { name: string; type: ResolvedTypeRef } {
   return { name: f.name, type: refFromJson(f.type) };
+}
+
+function signatureFromJson(signature: FunctionSignatureJson): ResolvedFunctionSignature {
+  return {
+    params: signature.params.map(fieldFromJson),
+    returns: refFromJson(signature.returns),
+    ...(signature.async === true ? { async: true as const } : {}),
+  };
 }
 
 function refFromJson(t: TypeRefJson): ResolvedTypeRef {

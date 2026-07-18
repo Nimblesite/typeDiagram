@@ -5,11 +5,11 @@ import { formatVariantName, withDiscriminant } from "../variant.js";
 import {
   isTupleVariantFields,
   type Model,
-  type ResolvedDecl,
+  type ResolvedDataDecl,
   type ResolvedField,
   type ResolvedTypeRef,
   type ResolvedVariant,
-  visibleDeclsForTarget,
+  visibleDataDeclsForTarget,
 } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
@@ -295,7 +295,7 @@ const emitRustVariant = (v: ResolvedVariant, docs: boolean): string => {
 /** [CONV-RUST-DECL] Emit one Rust type declaration (no derives). Shared by the
  *  type converter and the TDBIN codec generator so neither duplicates it. With
  *  `docs`, prepends `///` comments so the output is `missing_docs`-clean. */
-export const emitRustDecl = (d: ResolvedDecl, docs = false): string[] => {
+export const emitRustDecl = (d: ResolvedDataDecl, docs = false): string[] => {
   const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
   const lead = docs ? [rustDoc("", d.name, d.kind)] : [];
   const field = (f: ResolvedField): string =>
@@ -320,7 +320,7 @@ export const emitRustDecl = (d: ResolvedDecl, docs = false): string[] => {
 };
 
 const toRust = (model: Model): string =>
-  visibleDeclsForTarget(model.decls, "rust")
+  visibleDataDeclsForTarget(model.decls, "rust")
     .flatMap((d) => emitRustDecl(d))
     .join("\n");
 

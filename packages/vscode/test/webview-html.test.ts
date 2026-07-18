@@ -1,5 +1,7 @@
 // [VSCODE-WEBVIEW-HTML-TEST] Tests for webview HTML generation.
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { parser, renderToString } from "typediagram-core";
 import { webviewHtml } from "../src/webview-html.js";
 
 describe("[VSCODE-WEBVIEW-HTML] webviewHtml", () => {
@@ -38,5 +40,29 @@ describe("[VSCODE-WEBVIEW-HTML] webviewHtml", () => {
     const html = webviewHtml(csp, scriptUri, "");
     expect(html).toContain('id="preview"');
     expect(html).toContain('id="error"');
+    expect(html).toContain('aria-label="Visual type editor"');
+    expect(html).toContain("width: 100%; height: 100%");
+  });
+
+  it("keeps an invalid visual edit recoverable from the error overlay", () => {
+    const html = webviewHtml(csp, scriptUri, "typeDiagram\ntype Safe { value: String }");
+    expect(html).toContain('id="error-panel"');
+    expect(html).toContain('id="restore-valid-source"');
+    expect(html).toContain("Undo invalid edit");
+    expect(html).toContain('aria-label="Undo invalid edit"');
+    expect(html).toContain('id="open-source"');
+    expect(html).toContain("Open source");
+  });
+
+  it("ships a renderable sample for the visual editor recovery workflow", async () => {
+    const source = readFileSync(new URL("../examples/sample.td", import.meta.url), "utf8");
+    const parsed = parser.parse(source);
+    const rendered = await renderToString(source);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.ok ? parsed.value.decls.length : 0).toBeGreaterThan(8);
+    expect(rendered.ok).toBe(true);
+    expect(rendered.ok ? rendered.value : "").toContain("<svg");
+    expect(source).toContain("union Option<T>");
+    expect(source).toContain("alias Email = String");
   });
 });

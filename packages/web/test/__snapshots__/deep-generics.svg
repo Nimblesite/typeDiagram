@@ -1,50 +1,44 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 598 266" width="598" height="266" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
 <defs>
   <marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
-    <path d="M0,0 L10,5 L0,10 z" fill="#5b6068"/>
+    <path d="M0,0 L10,5 L0,10 z" fill="#60758a"/>
   </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#0c7bb8" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="#0c7bb8" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>
 </defs>
 <rect x="0" y="0" width="598" height="266" fill="none"/>
-<g data-decl="Config" data-kind="record">
-  <rect x="29" y="47" width="321" height="56" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="47" width="321" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="29" y="75.2" width="321" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="29" y1="81.2" x2="350" y2="81.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="29" y="47" width="4" height="56" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="39" y="68.64999999999999" fill="#1a1d22" font-weight="600">Config</text>
+<rect class="td-blueprint-bg" width="598" height="266" fill="#f6f8fc"/><rect width="598" height="266" fill="url(#td-grid)"/>
+<g data-edge="Config:0:Option:genericArg" data-source="Config" data-target="Option"><polyline points="351,75 411,75" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="381" y="71" fill="#3a4a5c" font-size="11" text-anchor="middle">rules</text></g>
+<g data-edge="Config:0:Rule:genericArg" data-source="Config" data-target="Rule"><polyline points="351,75 361,75 361,200 411,200" fill="none" stroke="#60758a" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/><text x="361" y="133.5" fill="#3a4a5c" font-size="11" text-anchor="middle">rules</text></g>
+<g data-decl="Config" class="td-node" data-kind="record" data-x="29" data-y="47" data-width="321" data-height="56" filter="url(#td-ambient-shadow)">
+  <rect x="29" y="47" width="321" height="56" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="29" y="47" width="321" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="79.2" width="321" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="29" y="47" width="4" height="56" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="39" y="68.64999999999999" fill="#0b1326" font-weight="600">Config</text>
   
-  <line x1="29" y1="81.2" x2="350" y2="81.2" stroke="#dadde2" stroke-width="1"/>
-<text x="39" y="96.35" fill="#1a1d22">rules: Map&lt;String, List&lt;Option&lt;Rule&gt;&gt;&gt;</text>
+  <g data-row-index="0" data-row-y="81.2" data-row-height="21.2"><line x1="29" y1="81.2" x2="350" y2="81.2" stroke="#d8e0eb" stroke-width="1"/><text x="39" y="96.35" fill="#26384d">rules: Map&lt;String, List&lt;Option&lt;Rule&gt;&gt;&gt;</text></g>
 </g>
-<g data-decl="Rule" data-kind="record">
-  <rect x="412" y="161" width="126" height="77" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="412" y="161" width="126" height="34.2" rx="6" ry="6" fill="#eef1f5" stroke="none"/>
-  <rect x="412" y="189.2" width="126" height="6" fill="#eef1f5" stroke="none"/>
-  <line x1="412" y1="195.2" x2="538" y2="195.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="412" y="161" width="4" height="77" rx="2" ry="2" fill="#1f6feb"/>
-  <text x="422" y="182.65" fill="#1a1d22" font-weight="600">Rule</text>
+<g data-decl="Rule" class="td-node" data-kind="record" data-x="412" data-y="161" data-width="126" data-height="77" filter="url(#td-ambient-shadow)">
+  <rect x="412" y="161" width="126" height="77" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="412" y="161" width="126" height="34.2" rx="2" ry="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="412" y="193.2" width="126" height="2" fill="#e6ecf4" stroke="none"/>
+  <rect x="412" y="161" width="4" height="77" rx="1" ry="1" fill="#0c7bb8"/>
+  <text x="422" y="182.65" fill="#0b1326" font-weight="600">Rule</text>
   
-  <line x1="412" y1="195.2" x2="538" y2="195.2" stroke="#dadde2" stroke-width="1"/>
-<text x="422" y="210.35" fill="#1a1d22">name: String</text>
-<line x1="412" y1="216.4" x2="538" y2="216.4" stroke="#dadde2" stroke-width="1"/>
-<text x="422" y="231.55" fill="#1a1d22">priority: Int</text>
+  <g data-row-index="0" data-row-y="195.2" data-row-height="21.2"><line x1="412" y1="195.2" x2="538" y2="195.2" stroke="#d8e0eb" stroke-width="1"/><text x="422" y="210.35" fill="#26384d">name: String</text></g>
+<g data-row-index="1" data-row-y="216.4" data-row-height="21.2"><line x1="412" y1="216.4" x2="538" y2="216.4" stroke="#d8e0eb" stroke-width="1"/><text x="422" y="231.55" fill="#26384d">priority: Int</text></g>
 </g>
-<g data-decl="Option" data-kind="union">
-  <rect x="412" y="28" width="157" height="93" rx="6" ry="6" fill="#ffffff" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="412" y="28" width="157" height="50.2" rx="6" ry="6" fill="#f3eefa" stroke="none"/>
-  <rect x="412" y="72.2" width="157" height="6" fill="#f3eefa" stroke="none"/>
-  <line x1="412" y1="78.2" x2="569" y2="78.2" stroke="#3b3f46" stroke-width="1"/>
-  <rect x="412" y="28" width="4" height="93" rx="2" ry="2" fill="#7a4cc7"/>
-  <text x="422" y="49.65" fill="#1a1d22" font-weight="600">union Option&lt;T&gt;</text>
-  <text x="490.5" y="72.8" fill="#7a4cc7" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
-  <line x1="412" y1="78.2" x2="569" y2="78.2" stroke="#dadde2" stroke-width="1"/>
-  <line x1="412" y1="78.2" x2="569" y2="78.2" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="422" y="93.35" fill="#1a1d22">◇ Some { value: T }</text>
-<line x1="412" y1="99.4" x2="569" y2="99.4" stroke="#dadde2" stroke-width="1" stroke-dasharray="4 3"/>
-<text x="422" y="114.55" fill="#1a1d22">◇ None</text>
+<g data-decl="Option" class="td-node" data-kind="union" data-x="412" data-y="28" data-width="157" data-height="93" filter="url(#td-ambient-shadow)">
+  <rect x="412" y="28" width="157" height="93" rx="2" ry="2" fill="#ffffff" stroke="#c5ced8" stroke-width="0"/>
+  <rect x="412" y="28" width="157" height="50.2" rx="2" ry="2" fill="#eee5f8" stroke="none"/>
+  <rect x="412" y="76.2" width="157" height="2" fill="#eee5f8" stroke="none"/>
+  <rect x="412" y="28" width="4" height="93" rx="1" ry="1" fill="#7a3fd1"/>
+  <text x="422" y="49.65" fill="#0b1326" font-weight="600">union Option&lt;T&gt;</text>
+  <text x="490.5" y="72.8" fill="#7a3fd1" font-size="9" font-weight="700" text-anchor="middle" font-style="italic" letter-spacing="0.08em">ONE OF</text>
+  <line x1="412" y1="78.2" x2="569" y2="78.2" stroke="#d8e0eb" stroke-width="1"/>
+  <g data-row-index="0" data-row-y="78.2" data-row-height="21.2"><line x1="412" y1="78.2" x2="569" y2="78.2" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="422" y="93.35" fill="#26384d">◇ Some { value: T }</text></g>
+<g data-row-index="1" data-row-y="99.4" data-row-height="21.2"><line x1="412" y1="99.4" x2="569" y2="99.4" stroke="#d8e0eb" stroke-width="1" stroke-dasharray="4 3"/><text x="422" y="114.55" fill="#26384d">◇ None</text></g>
 </g>
-<polyline points="351,75 411,75" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="381" y="71" fill="#3b3f46" font-size="11" text-anchor="middle">rules</text>
-<polyline points="351,75 361,75 361,200 411,200" fill="none" stroke="#5b6068" stroke-width="1" marker-end="url(#td-arrow)" stroke-dasharray="3 3"/>
-<text x="361" y="133.5" fill="#3b3f46" font-size="11" text-anchor="middle">rules</text>
 </svg>

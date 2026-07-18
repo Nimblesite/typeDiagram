@@ -22,6 +22,9 @@ typediagram --from typescript types.ts > diagram.svg
 # DSL → source language
 typediagram --to rust schema.td > types.rs
 
+# One schema → every configured language, regenerated on save
+typediagram --config typediagram.json --watch
+
 # Read from stdin
 cat schema.td | typediagram > diagram.svg
 ```
@@ -30,6 +33,8 @@ cat schema.td | typediagram > diagram.svg
 
 | Flag            | Values                                                                              | Default |
 | --------------- | ----------------------------------------------------------------------------------- | ------- |
+| `--config FILE` | JSON source/output manifest                                                         | —       |
+| `--watch`       | watch the configured `.td` source                                                   | config  |
 | `--from <lang>` | `typescript`, `python`, `rust`, `go`, `csharp`, `fsharp`, `dart`, `protobuf`, `php` | —       |
 | `--to <lang>`   | `typescript`, `python`, `rust`, `go`, `csharp`, `fsharp`, `dart`, `protobuf`, `php` | —       |
 | `--emit <fmt>`  | `svg`, `td`, `td+svg` (for `--from`)                                                | `svg`   |
@@ -38,6 +43,21 @@ cat schema.td | typediagram > diagram.svg
 | `-h`, `--help`  | show help                                                                           |         |
 
 If no file is given, stdin is read. Output goes to stdout; errors go to stderr.
+
+Config paths are relative to the config file:
+
+```json
+{
+  "source": "schemas/user.td",
+  "watch": true,
+  "outputs": {
+    "typescript": "frontend/src/generated/user.ts",
+    "rust": "backend/src/generated/user.rs"
+  }
+}
+```
+
+Watch mode retains generated files when an edit is invalid and regenerates all selected languages after the source becomes valid again.
 
 ## Example
 

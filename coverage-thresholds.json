@@ -4,10 +4,10 @@
   "default_threshold": 90,
   "projects": {
     "packages/typediagram": {
-      "statements": 97.05,
+      "statements": 97.22,
       "branches": 91.05,
       "functions": 98.8,
-      "lines": 96.97
+      "lines": 97.18
     },
     "packages/cli": {
       "statements": 99,
@@ -18,12 +18,12 @@
     "packages/web": {
       "statements": 97.7878787878788,
       "branches": 96.46835443037975,
-      "functions": 98.05660377358491,
+      "functions": 99,
       "lines": 97.7012987012987
     },
     "packages/vscode": {
       "statements": 99,
-      "branches": 98.41,
+      "branches": 99,
       "functions": 99,
       "lines": 99
     }

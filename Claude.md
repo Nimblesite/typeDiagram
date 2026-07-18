@@ -7,11 +7,8 @@ Read this file in full. Rules below are NON-NEGOTIABLE — violations are reject
 ⚠️ **TOKEN ECONOMICS DISCIPLINE.** Check file size first. `Grep` over `Read`. Use `offset`/`limit`.
 Smallest diff that solves the problem. Delete dead code, unused imports, stale comments.
 Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
-⚠️ DON'T ASK THE USER QUESTIONS!!!
-
-- DO YOUR JOB and don't say things like "Open questions before I start"
-- USE YOUR JUDGEMENT! ⚠️
-  ⚠️ NEVER KILL ANY VSCODE PROCESS ⚠️
+⚠️ ACT AUTONOMOUSLY. DON'T ASK THE USER QUESTIONS. USE YOUR JUDGEMENT. ⚠️
+⚠️ NEVER KILL ANY VSCODE PROCESS ⚠️
 
 ## Project Overview
 

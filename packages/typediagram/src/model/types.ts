@@ -21,7 +21,8 @@ export interface Model {
   externals: string[];
 }
 
-export type ResolvedDecl = ResolvedRecord | ResolvedUnion | ResolvedAlias;
+export type ResolvedDecl = ResolvedRecord | ResolvedUnion | ResolvedAlias | ResolvedFunction;
+export type ResolvedDataDecl = Exclude<ResolvedDecl, ResolvedFunction>;
 
 export interface DeclTargeting {
   targets?: string[];
@@ -53,6 +54,21 @@ export interface ResolvedAlias {
   targeting?: DeclTargeting;
 }
 
+/** [DSL-FUNCTION] A free function; overloads share one diagram node. */
+export interface ResolvedFunction {
+  kind: "function";
+  name: string;
+  generics: string[];
+  signatures: ResolvedFunctionSignature[];
+  targeting?: DeclTargeting;
+}
+
+export interface ResolvedFunctionSignature {
+  params: ResolvedField[];
+  returns: ResolvedTypeRef;
+  async?: true;
+}
+
 export interface ResolvedField {
   name: string;
   type: ResolvedTypeRef;
@@ -82,7 +98,7 @@ export type ResolvedRefKind =
   | { kind: "typeParam"; owner: string }
   | { kind: "external" };
 
-export type EdgeKind = "field" | "variantPayload" | "genericArg";
+export type EdgeKind = "field" | "variantPayload" | "genericArg" | "parameter" | "return";
 
 export interface Edge {
   /** Decl that owns the source row. */
@@ -113,6 +129,11 @@ export function visibleDeclsForTarget<T extends { targeting?: DeclTargeting }>(
   return decls.filter((decl) => shouldEmitDeclToTarget(decl, target));
 }
 
+/** Data-only target emitters intentionally omit free-function service contracts. */
+export function visibleDataDeclsForTarget(decls: readonly ResolvedDecl[], target: string): ResolvedDataDecl[] {
+  return visibleDeclsForTarget(decls, target).filter((decl): decl is ResolvedDataDecl => decl.kind !== "function");
+}
+
 /** Visit every type ref in a decl, recursing into nested generic args. */
 export function walkDeclRefs(d: ResolvedDecl, visit: (t: ResolvedTypeRef) => void): void {
   if (d.kind === "record") {
@@ -125,8 +146,15 @@ export function walkDeclRefs(d: ResolvedDecl, visit: (t: ResolvedTypeRef) => voi
         walkRef(f.type, visit);
       }
     }
-  } else {
+  } else if (d.kind === "alias") {
     walkRef(d.target, visit);
+  } else {
+    for (const signature of d.signatures) {
+      for (const param of signature.params) {
+        walkRef(param.type, visit);
+      }
+      walkRef(signature.returns, visit);
+    }
   }
 }
 

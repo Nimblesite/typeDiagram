@@ -2,6 +2,25 @@
 
 Configure typeDiagram as the single source of truth for DTOs in a polyglot project. This guide uses a TypeScript frontend + Rust backend, but the pattern works for any combination of languages.
 
+## Configure generation once
+
+Create `typediagram.json` at the repository root. Paths are resolved relative to this file:
+
+```json
+{
+  "source": "schemas/user.td",
+  "watch": true,
+  "outputs": {
+    "typescript": "frontend/src/generated/user.ts",
+    "rust": "backend/src/generated/user.rs"
+  }
+}
+```
+
+Run `typediagram --config typediagram.json`. It generates both outputs immediately and then watches `schemas/user.td`. Every valid edit regenerates both files. Invalid edits report diagnostics while preserving the last good generated code, and the next valid edit recovers without restarting the watcher.
+
+For one-shot CI generation, omit `"watch": true`. For an ad hoc development watcher, use `typediagram --config typediagram.json --watch`.
+
 ## Project layout
 
 ```

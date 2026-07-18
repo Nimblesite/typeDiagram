@@ -4,7 +4,7 @@ export interface NodeBox {
   /** Decl name. */
   declName: string;
   /** Decl kind for renderer dispatch. */
-  declKind: "record" | "union" | "alias";
+  declKind: "record" | "union" | "alias" | "function";
   /** Pixel position (top-left). */
   x: number;
   y: number;
@@ -35,7 +35,7 @@ export interface EdgeRoute {
   points: Array<{ x: number; y: number }>;
   /** Display label, may be empty. */
   label: string;
-  kind: "field" | "variantPayload" | "genericArg";
+  kind: "field" | "variantPayload" | "genericArg" | "parameter" | "return";
 }
 
 export interface LaidOutGraph {

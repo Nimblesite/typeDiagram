@@ -14,7 +14,7 @@ const META_COUNT: usize = 16;
 /// Protobuf mirror types for the document fixture.
 pub mod pb {
     /// Protobuf diagram document.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchDocument {
         /// Stable document identifier.
         #[prost(string, tag = "1")]
@@ -40,7 +40,7 @@ pub mod pb {
     }
 
     /// Protobuf diagram node.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchNode {
         /// Stable node identifier.
         #[prost(string, tag = "1")]
@@ -72,7 +72,7 @@ pub mod pb {
     }
 
     /// Protobuf diagram edge.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchEdge {
         /// Stable edge identifier.
         #[prost(string, tag = "1")]
@@ -95,7 +95,7 @@ pub mod pb {
     }
 
     /// Protobuf style rule.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchStyle {
         /// Selector expression.
         #[prost(string, tag = "1")]
@@ -115,7 +115,7 @@ pub mod pb {
     }
 
     /// Protobuf metadata key/value pair.
-    #[derive(Clone, PartialEq, prost::Message)]
+    #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, prost::Message)]
     pub struct BenchMeta {
         /// Metadata key.
         #[prost(string, tag = "1")]

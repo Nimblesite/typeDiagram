@@ -49,8 +49,8 @@ export function renderSvg(graph: LaidOutGraph, opts: SvgOpts = {}): string {
   const body = svg`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ctx.width} ${ctx.height}" width="${ctx.width}" height="${ctx.height}" font-family="${ctx.theme.fontFamily}" font-size="${ctx.fontSize}">
 ${defs}
 <rect x="0" y="0" width="${ctx.width}" height="${ctx.height}" fill="none"/>${background}
-${nodes}
 ${edges}
+${nodes}
 </svg>`;
   return applyPostHook(body, ctx).value;
 }
@@ -59,10 +59,8 @@ ${edges}
 function renderBackgroundLine(ctx: RenderCtx): SafeSvg {
   const arg: BackgroundCtx = { ...baseCtx(ctx), width: ctx.width, height: ctx.height };
   const out = invokeSimpleHook<BackgroundCtx>(ctx.hooks?.background, arg, "background", ctx.hooks?.onError);
-  if (out === undefined) {
-    return raw("");
-  }
-  return svg`\n${out}`;
+  const background = svg`<rect class="td-blueprint-bg" width="${ctx.width}" height="${ctx.height}" fill="${ctx.theme.bg}"/><rect width="${ctx.width}" height="${ctx.height}" fill="url(#td-grid)"/>`;
+  return out === undefined ? svg`\n${background}` : svg`\n${background}\n${out}`;
 }
 
 function buildRenderCtx(graph: LaidOutGraph, opts: SvgOpts): RenderCtx {
@@ -96,7 +94,10 @@ function renderDefs(ctx: RenderCtx): SafeSvg {
 function defaultDefs(theme: Theme): SafeSvg {
   return svg`<marker id="td-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
     <path d="M0,0 L10,5 L0,10 z" fill="${theme.edgeStroke}"/>
-  </marker>`;
+  </marker>
+  <pattern id="td-grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="${theme.recordAccent}" stroke-opacity="0.055" stroke-width="1"/><circle cx="0" cy="0" r="1" fill="${theme.recordAccent}" fill-opacity="0.16"/></pattern>
+  <filter id="td-ambient-shadow" x="-30%" y="-30%" width="160%" height="180%"><feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#000" flood-opacity="0.34"/></filter>
+  <filter id="td-hover-shadow" x="-35%" y="-35%" width="170%" height="190%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#000" flood-opacity="0.46"/></filter>`;
 }
 
 function applyPostHook(body: SafeSvg, ctx: RenderCtx): SafeSvg {
@@ -114,7 +115,11 @@ function applyPostHook(body: SafeSvg, ctx: RenderCtx): SafeSvg {
 }
 
 function accentFor(declKind: NodeBox["declKind"], theme: Theme): string {
-  return declKind === "union" ? theme.unionAccent : declKind === "alias" ? theme.aliasAccent : theme.recordAccent;
+  return declKind === "union"
+    ? theme.unionAccent
+    : declKind === "alias" || declKind === "function"
+      ? theme.aliasAccent
+      : theme.recordAccent;
 }
 
 interface NodeGeometry {
@@ -194,12 +199,11 @@ function renderDefaultNode(
   const badge = geo.isUnion
     ? renderUnionBadge(geo.x, geo.y + geo.nameHeaderH, UNION_BADGE_H, n.width, ctx.theme, ctx.fontSize)
     : raw("");
-  return svg`<g data-decl="${n.declName}" data-kind="${n.declKind}">
-  <rect x="${geo.x}" y="${geo.y}" width="${n.width}" height="${n.height}" rx="6" ry="6" fill="${ctx.theme.nodeFill}" stroke="${ctx.theme.nodeStroke}" stroke-width="1"/>
-  <rect x="${geo.x}" y="${geo.y}" width="${n.width}" height="${geo.firstRowY}" rx="6" ry="6" fill="${geo.headerFill}" stroke="none"/>
-  <rect x="${geo.x}" y="${geo.y + geo.firstRowY - 6}" width="${n.width}" height="6" fill="${geo.headerFill}" stroke="none"/>
-  <line x1="${geo.x}" y1="${geo.y + geo.firstRowY}" x2="${geo.x + n.width}" y2="${geo.y + geo.firstRowY}" stroke="${ctx.theme.nodeStroke}" stroke-width="1"/>
-  <rect x="${geo.x}" y="${geo.y}" width="4" height="${n.height}" rx="2" ry="2" fill="${geo.accent}"/>
+  return svg`<g data-decl="${n.declName}" class="td-node" data-kind="${n.declKind}" data-x="${geo.x}" data-y="${geo.y}" data-width="${n.width}" data-height="${n.height}" filter="url(#td-ambient-shadow)">
+  <rect x="${geo.x}" y="${geo.y}" width="${n.width}" height="${n.height}" rx="2" ry="2" fill="${ctx.theme.nodeFill}" stroke="${ctx.theme.nodeStroke}" stroke-width="0"/>
+  <rect x="${geo.x}" y="${geo.y}" width="${n.width}" height="${geo.firstRowY}" rx="2" ry="2" fill="${geo.headerFill}" stroke="none"/>
+  <rect x="${geo.x}" y="${geo.y + geo.firstRowY - 2}" width="${n.width}" height="2" fill="${geo.headerFill}" stroke="none"/>
+  <rect x="${geo.x}" y="${geo.y}" width="4" height="${n.height}" rx="1" ry="1" fill="${geo.accent}"/>
   <text x="${geo.x + 10}" y="${headerY}" fill="${ctx.theme.headerText}" font-weight="600">${raw(escapeText(n.header))}</text>
   ${badge}
   ${rows}
@@ -253,7 +257,7 @@ function renderDefaultRow(n: NodeBox, r: NodeRow, ctx: RenderCtx, geo: NodeGeome
   const prefix = isUnion ? "\u25c7 " : "";
   const divider = svg`<line x1="${geo.x}" y1="${ry}" x2="${geo.x + n.width}" y2="${ry}" stroke="${ctx.theme.rowDivider}" stroke-width="1"${dashAttr}/>`;
   const text = svg`<text x="${geo.x + 10}" y="${textY}" fill="${ctx.theme.rowText}">${raw(escapeText(prefix + r.text))}</text>`;
-  return raw(`${divider.value}\n${text.value}`);
+  return svg`<g data-row-index="${n.rows.indexOf(r)}" data-row-y="${ry}" data-row-height="${r.height}">${divider}${text}</g>`;
 }
 
 function renderUnionBadge(
@@ -308,12 +312,12 @@ function buildEdgeCtx(e: EdgeRoute, ctx: RenderCtx): EdgeCtx {
 function renderDefaultEdge(e: EdgeRoute, ctx: RenderCtx, edgeCtx: EdgeCtx): SafeSvg {
   const points = edgeCtx.points.map((p) => `${String(p.x)},${String(p.y)}`).join(" ");
   const dash = edgeCtx.dashArray !== undefined ? raw(`stroke-dasharray="${edgeCtx.dashArray}"`) : raw("");
-  const polyline = svg`<polyline points="${points}" fill="none" stroke="${edgeCtx.stroke}" stroke-width="${edgeCtx.strokeWidth}" marker-end="url(#td-arrow)" ${dash}/>`;
+  const polyline = svg`<polyline points="${points}" fill="none" stroke="${edgeCtx.stroke}" stroke-width="${edgeCtx.strokeWidth}" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#td-arrow)" ${dash}/>`;
   const label =
     e.label === ""
       ? raw("")
       : svg`<text x="${edgeCtx.midpoint.x}" y="${edgeCtx.midpoint.y - 4}" fill="${ctx.theme.edgeText}" font-size="${Math.round(ctx.fontSize * 0.85)}" text-anchor="middle">${raw(escapeText(e.label))}</text>`;
-  return raw(`${polyline.value}\n${label.value}`);
+  return svg`<g data-edge="${e.id}" data-source="${e.sourceNodeId}" data-target="${e.targetNodeId}">${polyline}${label}</g>`;
 }
 
 function midpoint(points: ReadonlyArray<{ x: number; y: number }>): { x: number; y: number } {

@@ -4,20 +4,31 @@
 // Kept as plain ESM (.mjs) so we don't need a TS runtime step for the launcher.
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { readdirSync, existsSync } from "node:fs";
+import { readdirSync, existsSync, rmSync, mkdirSync, statSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { runTests, resolveCliArgsFromVSCodeExecutablePath, downloadAndUnzipVSCode } from "@vscode/test-electron";
+import { runTests, downloadAndUnzipVSCode, resolveCliArgsFromVSCodeExecutablePath } from "@vscode/test-electron";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PKG_ROOT = resolve(__dirname, "../..");
 const REPO_ROOT = resolve(PKG_ROOT, "../..");
+const RUN_ID = `${String(process.pid)}-${String(Date.now())}`;
+const RESULT_PATH = resolve(PKG_ROOT, `.vscode-test/electron-result-${RUN_ID}.ok`);
+const HARNESS_PATH = resolve(__dirname, "harness");
+const DARWIN_LAUNCHER = resolve(__dirname, "macos-launcher.sh");
+const PROFILE_PATH =
+  process.platform === "darwin"
+    ? resolve("/tmp", `td-vsix-${RUN_ID}`)
+    : resolve(PKG_ROOT, `.vscode-test/vsix-profile-${RUN_ID}`);
+const USER_DATA_PATH = resolve(PROFILE_PATH, "user-data");
+const EXTENSIONS_PATH = resolve(PROFILE_PATH, "extensions");
 
 function findLatestVsix() {
   const files = readdirSync(REPO_ROOT).filter((f) => /^typediagram-.*\.vsix$/.test(f));
   if (files.length === 0) {
     throw new Error("no .vsix found in repo root — run `npm run -w packages/vscode package` first");
   }
-  return resolve(REPO_ROOT, files.sort().at(-1));
+  const artifacts = files.map((file) => resolve(REPO_ROOT, file));
+  return artifacts.sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)[0];
 }
 
 // [ELECTRON-DARWIN-ARM64-LIMITATION] On Apple Silicon, @vscode/test-electron's
@@ -34,27 +45,42 @@ function checkPlatform() {
   }
 }
 
+function runNpm(args, failure) {
+  const result = spawnSync("npm", args, {
+    cwd: REPO_ROOT,
+    stdio: "inherit",
+    shell: process.platform === "win32",
+  });
+  if (result.status !== 0) throw new Error(`${failure} (status ${result.status})`);
+}
+
+function installVsix(vscodeExecutablePath, configuredCli, appPath, vsixPath) {
+  const appCli = appPath === undefined ? undefined : resolve(appPath, "Contents/Resources/app/bin/code");
+  const cli = configuredCli
+    ? [vscodeExecutablePath]
+    : appCli === undefined
+      ? resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath)
+      : [appCli];
+  const result = spawnSync(
+    cli[0],
+    [
+      ...cli.slice(1),
+      `--user-data-dir=${USER_DATA_PATH}`,
+      `--extensions-dir=${EXTENSIONS_PATH}`,
+      "--install-extension",
+      vsixPath,
+      "--force",
+    ],
+    { cwd: REPO_ROOT, stdio: "inherit", shell: process.platform === "win32" }
+  );
+  if (result.status !== 0) throw new Error(`VSIX installation failed (status ${result.status})`);
+}
+
 async function main() {
   checkPlatform();
-  if (!existsSync(resolve(REPO_ROOT, "packages/typediagram/dist/index.js"))) {
-    const r = spawnSync("npm", ["run", "-w", "typediagram-core", "build"], {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-      shell: process.platform === "win32",
-    });
-    if (r.status !== 0) throw new Error("core build failed");
-  }
-
-  if (!readdirSync(REPO_ROOT).some((f) => /^typediagram-.*\.vsix$/.test(f))) {
-    const pkg = spawnSync("npm", ["run", "-w", "packages/vscode", "package"], {
-      cwd: REPO_ROOT,
-      stdio: "inherit",
-      shell: process.platform === "win32",
-    });
-    if (pkg.status !== 0) throw new Error("vsix packaging failed");
-  }
-
-  void findLatestVsix;
+  runNpm(["run", "-w", "typediagram-core", "build"], "core build failed");
+  runNpm(["run", "-w", "packages/vscode", "package"], "VSIX packaging failed");
+  const vsixPath = findLatestVsix();
   const extensionTestsPath = resolve(__dirname, "suite/index.cjs");
 
   // [ELECTRON-DARWIN-WORKAROUND] Pre-download VS Code so we get a concrete executable
@@ -62,16 +88,32 @@ async function main() {
   // on Apple Silicon's "Electron" binary fails because we need the "code" entrypoint.
   // By calling downloadAndUnzipVSCode() + passing the executable path explicitly,
   // @vscode/test-electron routes arguments through the correct launcher.
-  const vscodeExecutablePath = await downloadAndUnzipVSCode();
-  const [cli, ...args] = resolveCliArgsFromVSCodeExecutablePath(vscodeExecutablePath);
-  void cli;
-  void args;
+  const appPath = process.env["TYPEDIAGRAM_VSCODE_APP_PATH"];
+  const configuredExecutable = process.env["TYPEDIAGRAM_VSCODE_EXECUTABLE_PATH"];
+  const configuredCli = configuredExecutable?.endsWith("/bin/code") === true;
+  const vscodeExecutablePath =
+    appPath === undefined ? (configuredExecutable ?? (await downloadAndUnzipVSCode())) : DARWIN_LAUNCHER;
+  rmSync(PROFILE_PATH, { recursive: true, force: true });
+  mkdirSync(USER_DATA_PATH, { recursive: true });
+  mkdirSync(EXTENSIONS_PATH, { recursive: true });
+  installVsix(configuredExecutable ?? vscodeExecutablePath, configuredCli, appPath, vsixPath);
+  const profileArgs = [`--user-data-dir=${USER_DATA_PATH}`, `--extensions-dir=${EXTENSIONS_PATH}`];
+  const launchArgs =
+    appPath === undefined ? (configuredCli ? ["--wait", "--new-window", ...profileArgs] : profileArgs) : profileArgs;
+  rmSync(RESULT_PATH, { force: true });
 
   const exitCode = await runTests({
     vscodeExecutablePath,
-    extensionDevelopmentPath: PKG_ROOT,
+    extensionDevelopmentPath: HARNESS_PATH,
     extensionTestsPath,
+    extensionTestsEnv: { TYPEDIAGRAM_ELECTRON_RESULT_PATH: RESULT_PATH },
+    ...(launchArgs === undefined ? {} : { launchArgs }),
   });
+  existsSync(RESULT_PATH)
+    ? undefined
+    : (() => {
+        throw new Error("VS Code exited without completing the Electron suite");
+      })();
   process.exit(exitCode);
 }
 
