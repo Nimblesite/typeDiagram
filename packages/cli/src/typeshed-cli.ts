@@ -1,5 +1,5 @@
 // [TYPESHED-BULK] Mirror a typeshed checkout into one .td file per non-empty .pyi.
-import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, join, relative, resolve } from "node:path";
 import { converters, model } from "typediagram-core";
 import { err, errorMessage, ok, type Result } from "./result.js";
@@ -37,10 +37,16 @@ const outputPath = (sourceRoot: string, outputRoot: string, source: string) => {
 
 const atomicWrite = async (path: string, content: string): Promise<Result<true, BulkError>> => {
   try {
-    await mkdir(dirname(path), { recursive: true });
-    const temporary = `${path}.${String(process.pid)}.tmp`;
-    await writeFile(temporary, content, "utf8");
-    await rename(temporary, path);
+    const parent = dirname(path);
+    await mkdir(parent, { recursive: true });
+    const temporaryRoot = await mkdtemp(join(parent, ".typediagram-"));
+    try {
+      const temporary = join(temporaryRoot, "output.td");
+      await writeFile(temporary, content, "utf8");
+      await rename(temporary, path);
+    } finally {
+      await rm(temporaryRoot, { recursive: true, force: true });
+    }
     return ok(true);
   } catch (error) {
     return err({ message: `cannot write ${path}: ${errorMessage(error)}` });

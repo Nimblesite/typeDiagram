@@ -1,5 +1,5 @@
 // [TYPESHED-BULK-TEST] Black-box repository conversion through the public CLI function.
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -46,6 +46,7 @@ describe("[TYPESHED-BULK] typeshed repository conversion", () => {
     expect(stdlib).toContain("function fetch(payload: Payload) -> Bytes");
     expect(stdlib).not.toContain("encode");
     expect(thirdParty).toContain("type Config");
+    expect(await readdir(join(output, "stdlib"))).toEqual(["sample.td"]);
   });
 
   it("reports missing arguments and invalid roots without partial success", async () => {

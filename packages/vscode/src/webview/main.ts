@@ -93,6 +93,10 @@ const boot = (preview: HTMLElement, elements: RecoveryElements) => {
     return settled;
   };
   window.addEventListener("message", (event: MessageEvent<unknown>) => {
+    switch (event.origin === window.location.origin) {
+      case false:
+        return;
+    }
     const update = isUpdate(event.data) ? event.data : undefined;
     switch (update) {
       case undefined:
