@@ -173,7 +173,7 @@
     "pdfkit": "^0.19.1",
     "svg-to-pdfkit": "^0.1.8",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10",
+    "vitest": "^4.1.11",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.1.0"
   }

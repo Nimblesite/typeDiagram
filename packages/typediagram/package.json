@@ -78,6 +78,6 @@
     "happy-dom": "^20.10.6",
     "typescript": "^7.0.2",
     "typescript-compiler": "npm:typescript@6.0.3",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   }
 }
