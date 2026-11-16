@@ -44,6 +44,7 @@ const TD_TO_TS: Record<string, string> = {
 const TS_TO_TD: Record<string, string> = {
   boolean: "Bool",
   number: "Int",
+  bigint: "Int",
   string: "String",
   void: "Unit",
   Uint8Array: "Bytes",
@@ -252,32 +253,34 @@ const fromTypeScript = (source: string): Result<Model, Diagnostic[]> => {
 
 // ── To TypeScript ──
 
-const mapTdToTs = (t: ResolvedTypeRef): string => {
+const mapTdToTs = (t: ResolvedTypeRef, integerType: "number" | "bigint"): string => {
   // Option<T> -> T | undefined. If T is itself a union type this could become
   // `A | B | undefined`, which parses back via the `T | undefined` rule below
   // as `Option<A | B>` — still lossless for the round-trip of Option<Simple>.
   if (t.name === "Option" && t.args.length === 1 && t.args[0] !== undefined) {
-    return `${mapTdToTs(t.args[0])} | undefined`;
+    return `${mapTdToTs(t.args[0], integerType)} | undefined`;
   }
-  const name = mapBuiltinName(t, TD_TO_TS);
-  return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToTs).join(", ")}>`;
+  const name = mapBuiltinName(t, { ...TD_TO_TS, Int: integerType });
+  return t.args.length === 0 ? name : `${name}<${t.args.map((arg) => mapTdToTs(arg, integerType)).join(", ")}>`;
 };
 
-const mapUntaggedVariantToTs = (variant: ResolvedVariant): string => {
+const mapUntaggedVariantToTs = (variant: ResolvedVariant, mapType: (type: ResolvedTypeRef) => string): string => {
   if (variant.fields.length === 0) {
     return "undefined";
   }
   if (isTupleVariantFields(variant.fields)) {
     if (variant.fields.length === 1) {
       const [field] = variant.fields;
-      return field === undefined ? "undefined" : mapTdToTs(field.type);
+      return field === undefined ? "undefined" : mapType(field.type);
     }
-    return `[${variant.fields.map((field) => mapTdToTs(field.type)).join(", ")}]`;
+    return `[${variant.fields.map((field) => mapType(field.type)).join(", ")}]`;
   }
-  return `{ ${variant.fields.map((field) => `${field.name}: ${mapTdToTs(field.type)}`).join("; ")} }`;
+  return `{ ${variant.fields.map((field) => `${field.name}: ${mapType(field.type)}`).join("; ")} }`;
 };
 
-const toTypeScript = (model: Model): string => {
+const toTypeScript = (model: Model, opts?: Parameters<Converter["toSource"]>[1]): string => {
+  const integerType = opts !== undefined && "integerType" in opts ? (opts.integerType ?? "number") : "number";
+  const mapType = (type: ResolvedTypeRef) => mapTdToTs(type, integerType);
   const lines: string[] = [];
   const decls = visibleDataDeclsForTarget(model.decls, "typescript");
 
@@ -287,22 +290,22 @@ const toTypeScript = (model: Model): string => {
     if (d.kind === "record") {
       lines.push(`export interface ${d.name}${genericsStr} {`);
       for (const f of d.fields) {
-        lines.push(`  ${f.name}: ${mapTdToTs(f.type)};`);
+        lines.push(`  ${f.name}: ${mapType(f.type)};`);
       }
       lines.push("}", "");
     } else if (d.kind === "union") {
       const variants =
         d.untagged === true
-          ? d.variants.map(mapUntaggedVariantToTs)
+          ? d.variants.map((variant) => mapUntaggedVariantToTs(variant, mapType))
           : d.variants.map((v) => {
               if (v.fields.length === 0) {
                 return `{ kind: "${v.name}" }`;
               }
-              return `{ kind: "${v.name}"; ${v.fields.map((f) => `${f.name}: ${mapTdToTs(f.type)}`).join("; ")} }`;
+              return `{ kind: "${v.name}"; ${v.fields.map((f) => `${f.name}: ${mapType(f.type)}`).join("; ")} }`;
             });
       lines.push(`export type ${d.name}${genericsStr} =`, `  | ${variants.join("\n  | ")};`, "");
     } else {
-      lines.push(`export type ${d.name}${genericsStr} = ${mapTdToTs(d.target)};`, "");
+      lines.push(`export type ${d.name}${genericsStr} = ${mapType(d.target)};`, "");
     }
   }
 

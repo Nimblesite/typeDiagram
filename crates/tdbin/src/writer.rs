@@ -329,7 +329,7 @@ impl Writer {
             .body
             .get_mut(byte_start..)
             .ok_or(EncodeError::LimitExceeded)?;
-        let mut words = dst.chunks_exact_mut(WORD_BYTES);
+        let mut words = dst.as_chunks_mut::<WORD_BYTES>().0.iter_mut();
         let (mut acc, mut filled) = (0_u64, 0_u32);
         for value in values {
             acc |= u64::from(value).wrapping_shl(filled);
@@ -363,7 +363,7 @@ impl Writer {
 
 /// Write one packed bit word into the next reserved 8-byte chunk.
 fn flush_bit_word(
-    words: &mut core::slice::ChunksExactMut<'_, u8>,
+    words: &mut core::slice::IterMut<'_, [u8; WORD_BYTES]>,
     acc: u64,
 ) -> Result<(), EncodeError> {
     words

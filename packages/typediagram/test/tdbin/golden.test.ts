@@ -229,6 +229,47 @@ const assertGolden = <T>(codec: StructCodec<T>, value: T, hex: string) => {
 };
 
 describe("[TDBIN-FUTURE-TS] TypeScript runtime golden conformance", () => {
+  // [CONV-TS-EXACT-INTEGERS] Full-width identities must survive the real wire runtime.
+  it("roundtrips exact signed bigint boundaries through framed and packed messages", () => {
+    const codec: StructCodec<bigint> = {
+      dataWords: 1,
+      ptrWords: 0,
+      write: (writer, at, value) => {
+        const bits = tdbin.scalar.i64Bits(value);
+        return bits.ok ? tdbin.writer.scalar(writer, at, 0, bits.value) : bits;
+      },
+      read: (reader, at) => {
+        const word = tdbin.reader.scalar(reader, at, 0);
+        return word.ok ? ok(BigInt.asIntN(64, word.value)) : word;
+      },
+    };
+    expect(tdbin.scalar.i64Bits(-0)).toEqual(ok(0n));
+    expect(tdbin.scalar.i64Bits(Number.MIN_SAFE_INTEGER)).toEqual(
+      ok(BigInt.asUintN(64, BigInt(Number.MIN_SAFE_INTEGER)))
+    );
+    expect(tdbin.scalar.i64Bits(Number.MAX_SAFE_INTEGER)).toEqual(ok(BigInt(Number.MAX_SAFE_INTEGER)));
+    const values = [
+      -(1n << 63n),
+      -9007199254740993n,
+      -1n,
+      0n,
+      1n,
+      9007199254740992n,
+      9007199254740993n,
+      (1n << 63n) - 1n,
+    ];
+    for (const value of values) {
+      expect(tdbin.decodeAuto(codec, expectOk(tdbin.encodeFramed(codec, value, 42n)), 42n)).toEqual(ok(value));
+      expect(tdbin.decodeAuto(codec, expectOk(tdbin.encodePackedFramed(codec, value, 42n)), 42n)).toEqual(ok(value));
+    }
+    for (const value of [-(1n << 63n) - 1n, 1n << 63n, 1n << 100n]) {
+      expect(tdbin.encode(codec, value)).toMatchObject({ ok: false, error: { code: "LimitExceeded" } });
+    }
+    for (const value of [NaN, Infinity, -Infinity, 0.5, Number.MAX_SAFE_INTEGER + 1, Number.MIN_SAFE_INTEGER - 1]) {
+      expect(tdbin.scalar.i64Bits(value)).toMatchObject({ ok: false, error: { code: "LimitExceeded" } });
+    }
+  });
+
   it("matches the Rust Person and Contact frozen golden vectors byte-for-byte", () => {
     assertGolden(PersonCodec, PERSON_FULL.value, PERSON_FULL.hex);
     assertGolden(PersonCodec, PERSON_MINIMAL.value, PERSON_MINIMAL.hex);

@@ -205,7 +205,7 @@ impl Writer {
             .checked_mul(WORD_BYTES)
             .ok_or(EncodeError::LimitExceeded)?;
         let dst = self.bytes_mut(start, len)?;
-        for (chunk, value) in dst.chunks_exact_mut(WORD_BYTES).zip(values) {
+        for (chunk, value) in dst.as_chunks_mut::<WORD_BYTES>().0.iter_mut().zip(values) {
             chunk.copy_from_slice(&value.to_le_bytes());
         }
         self.set_list_ptr(ptr_word, start, ELEM_EIGHT_BYTES, count)
@@ -265,7 +265,11 @@ impl Writer {
             .checked_mul(WORD_BYTES)
             .ok_or(EncodeError::LimitExceeded)?;
         let first = start.checked_add(1).ok_or(EncodeError::LimitExceeded)?;
-        let body = self.bytes_mut(first, len)?.chunks_exact_mut(WORD_BYTES * 2);
+        let body = self
+            .bytes_mut(first, len)?
+            .as_chunks_mut::<{ WORD_BYTES * 2 }>()
+            .0
+            .iter_mut();
         for (chunk, (lo, hi)) in body.zip(values.iter().copied()) {
             write_pair(chunk, lo, hi);
         }

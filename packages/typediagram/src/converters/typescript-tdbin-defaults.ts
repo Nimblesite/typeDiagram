@@ -42,9 +42,10 @@ export const diag = (message: string): Diagnostic[] => [{ severity: "error", mes
 export const pointerDefault = (plan: PointerPlan): string =>
   plan.kind === "string" ? `""` : plan.kind === "bytes" ? "new Uint8Array(0)" : `default${plan.typeName}()`;
 
-const fieldDefault = (plan: FieldPlan): string => {
+const fieldDefault = (plan: FieldPlan, integerZero: string): string => {
   switch (plan.kind) {
     case "int":
+      return integerZero;
     case "float":
       return "0";
     case "bool":
@@ -61,8 +62,10 @@ const fieldDefault = (plan: FieldPlan): string => {
 export const variantPayloadDefault = (payload: NonNullable<VariantPlan>): string =>
   payload.kind === "string" ? `""` : `default${payload.typeName}()`;
 
-const emitRecordDefault = (record: ResolvedRecord, plan: RecordPlan): string => {
-  const fields = plan.fields.map(({ name, plan: fieldPlan }) => `${name}: ${fieldDefault(fieldPlan)}`).join(", ");
+const emitRecordDefault = (record: ResolvedRecord, plan: RecordPlan, integerZero: string): string => {
+  const fields = plan.fields
+    .map(({ name, plan: fieldPlan }) => `${name}: ${fieldDefault(fieldPlan, integerZero)}`)
+    .join(", ");
   return `const default${record.name} = (): ${record.name} => (${fields === "" ? "{}" : `{ ${fields} }`});`;
 };
 
@@ -114,12 +117,14 @@ const findDefaultCycle = (
   return null;
 };
 
-const emitDefaultFactory = (plan: DeclPlan): Result<string, Diagnostic[]> =>
-  plan.kind === "record" ? ok(emitRecordDefault(plan.decl, plan.plan)) : emitUnionDefault(plan.decl, plan.plan);
+const emitDefaultFactory = (plan: DeclPlan, integerZero: string): Result<string, Diagnostic[]> =>
+  plan.kind === "record"
+    ? ok(emitRecordDefault(plan.decl, plan.plan, integerZero))
+    : emitUnionDefault(plan.decl, plan.plan);
 
 /** Emit `default<Type>()` factories for every type reachable from a required
  *  child slot, rejecting non-terminating (recursive) defaults loudly. */
-export const emitDefaultFactories = (plans: readonly DeclPlan[]): Result<string[], Diagnostic[]> => {
+export const emitDefaultFactories = (plans: readonly DeclPlan[], integerZero = "0"): Result<string[], Diagnostic[]> => {
   const byName: ReadonlyMap<string, DeclPlan> = new Map(plans.map((plan) => [plan.decl.name, plan]));
   const needed = new Set(plans.flatMap(codecDefaultRefs));
   const blocks: string[] = [];
@@ -131,7 +136,7 @@ export const emitDefaultFactories = (plans: readonly DeclPlan[]): Result<string[
         diag(`tdbin-ts: cannot derive [TDBIN-PTR-NULL] default for recursive type '${plan.decl.name}' (${trail})`)
       );
     }
-    const block = emitDefaultFactory(plan);
+    const block = emitDefaultFactory(plan, integerZero);
     if (!block.ok) {
       return block;
     }

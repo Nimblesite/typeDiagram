@@ -12,7 +12,6 @@ import {
   type ResolvedUnion,
   visibleDataDeclsForTarget,
 } from "../model/types.js";
-import type { Language } from "./types.js";
 
 /** Per-decl emitters. Each returns the source lines for one declaration. */
 export interface DeclEmitters {
@@ -37,7 +36,7 @@ const emitOne = (d: Model["decls"][number], emit: DeclEmitters): string[] =>
  */
 export const emitDecls = (
   model: Model,
-  language: Language,
+  language: string,
   emit: DeclEmitters,
   options: EmitDeclsOptions = {}
 ): string => {

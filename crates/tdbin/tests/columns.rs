@@ -623,8 +623,8 @@ fn unknown_union_tag_is_a_typed_error() {
 /// so find the last 0x01 byte whose word is otherwise zero.
 fn find_tag_offset(bytes: &[u8]) -> usize {
     let mut offset = 0;
-    for (index, chunk) in bytes.chunks_exact(8).enumerate() {
-        let word = u64::from_le_bytes(<[u8; 8]>::try_from(chunk).unwrap_or_default());
+    for (index, chunk) in bytes.as_chunks::<8>().0.iter().enumerate() {
+        let word = u64::from_le_bytes(*chunk);
         if word == 1 {
             offset = index.wrapping_mul(8);
         }

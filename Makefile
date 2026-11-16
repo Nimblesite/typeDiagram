@@ -63,7 +63,7 @@ lint:
 	@echo "==> Pre-building typediagram-core (needed for consumer typecheck)..."
 	npm run -w typediagram-core build
 	@echo "==> Typechecking..."
-	npm run -ws --if-present typecheck
+	npm run --workspaces --if-present typecheck
 	@$(MAKE) _eslint
 	@$(MAKE) _banned_deps
 	@$(MAKE) _cargo_clippy

@@ -27,6 +27,7 @@ import {
   variantPayloadDefault,
   type VariantPlan,
 } from "./typescript-tdbin-defaults.js";
+import type { TypeScriptOpts } from "./types.js";
 import { typescript } from "./typescript.js";
 
 const tsNum = (value: number): string => String(value);
@@ -258,14 +259,18 @@ const fieldResultNames = (field: string, plan: FieldPlan): string[] => {
   }
 };
 
-const fieldValue = (field: string, plan: FieldPlan): string => {
+const fieldValue = (field: string, plan: FieldPlan, options: TypeScriptOpts): string => {
+  const integer =
+    options.integerType === "bigint"
+      ? `BigInt.asIntN(64, ${field}Word.value)`
+      : `tdbin.scalar.i64From(${field}Word.value)`;
   switch (plan.kind) {
     case "int":
-      return `tdbin.scalar.i64From(${field}Word.value)`;
+      return integer;
     case "float":
       return `tdbin.scalar.f64From(${field}Word.value)`;
     case "optInt":
-      return `${field}Present.value ? tdbin.scalar.i64From(${field}Word.value) : undefined`;
+      return `${field}Present.value ? ${integer} : undefined`;
     case "optFloat":
       return `${field}Present.value ? tdbin.scalar.f64From(${field}Word.value) : undefined`;
     case "optBool":
@@ -279,7 +284,7 @@ const fieldValue = (field: string, plan: FieldPlan): string => {
   }
 };
 
-const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan): string => {
+const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, options: TypeScriptOpts): string => {
   const codec = `${record.name}Codec`;
   // Write results always bind to the plain field name; `fieldResultName` is the
   // READ-path binding (`${field}Word` for scalars) and must not guard writes.
@@ -300,7 +305,7 @@ const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan): string => {
     `  read: (reader, at) => {`,
     ...readLines,
     ...resultNames.map((name) => `    if (!${name}.ok) return ${name};`),
-    `    return ok({ ${plan.fields.map(({ name, plan: fieldPlan }) => `${name}: ${fieldValue(name, fieldPlan)}`).join(", ")} });`,
+    `    return ok({ ${plan.fields.map(({ name, plan: fieldPlan }) => `${name}: ${fieldValue(name, fieldPlan, options)}`).join(", ")} });`,
     `  },`,
     `};`,
   ].join("\n");
@@ -392,23 +397,23 @@ const planDecls = (model: Model): Result<DeclPlan[], Diagnostic[]> => {
   return ok(plans);
 };
 
-export const emitTypeScriptCodec = (model: Model): Result<string, Diagnostic[]> => {
+export const emitTypeScriptCodec = (model: Model, options: TypeScriptOpts = {}): Result<string, Diagnostic[]> => {
   const plans = planDecls(model);
   if (!plans.ok) {
     return plans;
   }
-  const defaults = emitDefaultFactories(plans.value);
+  const defaults = emitDefaultFactories(plans.value, options.integerType === "bigint" ? "0n" : "0");
   if (!defaults.ok) {
     return defaults;
   }
   const codecs = plans.value.map((plan) =>
-    plan.kind === "record" ? emitRecordCodec(plan.decl, plan.plan) : emitUnionCodec(plan.decl, plan.plan)
+    plan.kind === "record" ? emitRecordCodec(plan.decl, plan.plan, options) : emitUnionCodec(plan.decl, plan.plan)
   );
   return ok([...defaults.value, ...codecs].join("\n\n"));
 };
 
-export const generateTypeScriptModule = (model: Model): Result<string, Diagnostic[]> => {
-  const codec = emitTypeScriptCodec(model);
+export const generateTypeScriptModule = (model: Model, options: TypeScriptOpts = {}): Result<string, Diagnostic[]> => {
+  const codec = emitTypeScriptCodec(model, options);
   if (!codec.ok) {
     return codec;
   }
@@ -417,7 +422,7 @@ export const generateTypeScriptModule = (model: Model): Result<string, Diagnosti
       `import { ok } from "typediagram-core";`,
       `import * as tdbin from "typediagram-core/tdbin";`,
       ``,
-      typescript.toSource(model),
+      typescript.toSource(model, options),
       codec.value,
       ``,
     ].join("\n")

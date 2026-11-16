@@ -4,10 +4,10 @@
   "default_threshold": 90,
   "projects": {
     "packages/typediagram": {
-      "statements": 97.22,
+      "statements": 97.24,
       "branches": 91.05,
       "functions": 98.8,
-      "lines": 97.18
+      "lines": 97.19
     },
     "packages/cli": {
       "statements": 99,

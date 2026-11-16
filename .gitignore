@@ -104,3 +104,7 @@ deslop-*.log
 
 
 *.log
+
+.deslop/
+.vscode/code-navigator/
+.deslop/cache/

@@ -8,7 +8,7 @@
 // Option<T> <-> T?. Alias <-> `using X = Y;`.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Result, err } from "../result.js";
-import { type Model, type ResolvedTypeRef } from "../model/types.js";
+import { visibleDataDeclsForTarget, type Model, type ResolvedTypeRef } from "../model/types.js";
 import { ModelBuilder, record, union, alias } from "../model/builder.js";
 import type { Converter } from "./types.js";
 import { emitDecls } from "./emit-decls.js";
@@ -86,6 +86,12 @@ const mapCsType = (t: string): string => {
 };
 
 // `using Email = System.String;`  or  `using Email = string;`
+const aliasOrderMarker = (name: string) => `// typeDiagram alias-order: ${name}\n`;
+const aliasOffset = (source: string, name: string, offset: number) => {
+  const marker = source.indexOf(aliasOrderMarker(name));
+  return marker < 0 ? offset : marker;
+};
+
 const USING_ALIAS_RE = /using\s+(\w+)\s*=\s*([^;]+);/g;
 
 // Primary-constructor record: `public sealed record ChatRequest(string Message, ...);`
@@ -179,7 +185,7 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
       /* v8 ignore next 3 — regex guarantees both captures */
       return name === undefined || target === undefined
         ? null
-        : { kind: "alias", name, target: target.trim(), offset: m.index };
+        : { kind: "alias", name, target: target.trim(), offset: aliasOffset(source, name, m.index) };
     }),
   ];
 
@@ -226,34 +232,36 @@ const fromCSharp = (source: string): Result<Model, Diagnostic[]> => {
 
 // ── To C# ──
 
-const mapTdToCs = (t: ResolvedTypeRef): string => {
+const mapTdToCs = (t: ResolvedTypeRef, integerWidth: 32 | 64): string => {
   if (isOption(t) && t.args.length === 1) {
     const inner = t.args[0];
     if (inner !== undefined) {
-      return `${mapTdToCs(inner)}?`;
+      return `${mapTdToCs(inner, integerWidth)}?`;
     }
   }
-  const name = mapBuiltinName(t, TD_TO_CS);
-  return t.args.length === 0 ? name : `${name}<${t.args.map(mapTdToCs).join(", ")}>`;
+  const name = mapBuiltinName(t, { ...TD_TO_CS, Int: integerWidth === 64 ? "long" : "int" });
+  return t.args.length === 0 ? name : `${name}<${t.args.map((arg) => mapTdToCs(arg, integerWidth)).join(", ")}>`;
 };
 
 const emitRecord = (
   name: string,
   fields: readonly { name: string; type: ResolvedTypeRef }[],
-  generics: string[]
+  generics: string[],
+  mapType: (type: ResolvedTypeRef) => string
 ): string[] => {
   const genericsStr = formatGenericsDecl(generics);
   if (fields.length === 0) {
     return [`public sealed record ${name}${genericsStr}();`];
   }
-  const params = fields.map((f) => `${mapTdToCs(f.type)} ${f.name}`).join(", ");
+  const params = fields.map((f) => `${mapType(f.type)} ${f.name}`).join(", ");
   return [`public sealed record ${name}${genericsStr}(${params});`];
 };
 
 const emitUnion = (
   name: string,
   variants: readonly { name: string; fields: readonly { name: string; type: ResolvedTypeRef }[] }[],
-  generics: string[]
+  generics: string[],
+  mapType: (type: ResolvedTypeRef) => string
 ): string[] => {
   const genericsStr = formatGenericsDecl(generics);
   const allEmpty = variants.every((v) => v.fields.length === 0);
@@ -271,7 +279,7 @@ const emitUnion = (
     if (v.fields.length === 0) {
       lines.push(`    public sealed record ${v.name} : ${name}${genericsStr};`);
     } else {
-      const params = v.fields.map((f) => `${mapTdToCs(f.type)} ${f.name}`).join(", ");
+      const params = v.fields.map((f) => `${mapType(f.type)} ${f.name}`).join(", ");
       lines.push(`    public sealed record ${v.name}(${params}) : ${name}${genericsStr};`);
     }
     if (idx < variants.length - 1) {
@@ -282,26 +290,27 @@ const emitUnion = (
   return lines;
 };
 
-const emitAlias = (name: string, target: ResolvedTypeRef): string => {
-  // `using Email = string;` style. System.String-prefixed primitives read
-  // cleaner unqualified, so emit the mapped C# name directly.
-  return `using ${name} = ${mapTdToCs(target)};`;
-};
-
-// Emit decls in their original model order. `using X = Y;` is valid at file
-// scope wherever it appears, so keeping aliases in source order preserves
-// round-trip order at the cost of the more idiomatic "usings-at-top" layout.
-const toCSharp = (model: Model): string =>
-  emitDecls(
+// C# requires every using directive before the first declaration.
+const toCSharp = (model: Model, opts?: Parameters<Converter["toSource"]>[1]): string => {
+  const width = opts !== undefined && "integerWidth" in opts && opts.integerWidth === 64 ? 64 : 32;
+  const mapType = (type: ResolvedTypeRef) => mapTdToCs(type, width);
+  const aliases = visibleDataDeclsForTarget(model.decls, "csharp")
+    .filter((decl) => decl.kind === "alias")
+    .map(
+      (decl) =>
+        `using ${decl.name} = ${decl.target.resolution.kind === "primitive" && decl.target.name === "Uuid" ? "System.Guid" : mapType(decl.target)};`
+    );
+  return emitDecls(
     model,
     "csharp",
     {
-      record: (d) => emitRecord(d.name, d.fields, d.generics),
-      union: (d) => emitUnion(d.name, d.variants, d.generics),
-      alias: (d) => [emitAlias(d.name, d.target)],
+      record: (d) => emitRecord(d.name, d.fields, d.generics, mapType),
+      union: (d) => emitUnion(d.name, d.variants, d.generics, mapType),
+      alias: (d) => [aliasOrderMarker(d.name).trimEnd()],
     },
-    { prelude: ["#nullable enable", ""] }
+    { prelude: ["#nullable enable", "using System;", "using System.Collections.Generic;", ...aliases, ""] }
   );
+};
 
 export const csharp: Converter = {
   language: "csharp",

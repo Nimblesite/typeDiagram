@@ -6,6 +6,7 @@ import {
   expectLosslessRoundTrip,
   findDecl,
   modelFromSource,
+  modelFromTd,
   recordFields,
   toSourceFromTd,
   unionVariants,
@@ -416,5 +417,38 @@ alias Tag = String
 describe("[CONV-TS-RT] TypeScript round-trip TD -> TS -> TD", () => {
   it("losslessly round-trips the home-page example through TypeScript (TD text preserved)", () => {
     expectLosslessRoundTrip(typescript);
+  });
+});
+
+describe("[CONV-TS-EXACT-INTEGERS] bridge identity generation", () => {
+  it("preserves integer identity types across aliases, containers and union payloads", () => {
+    const model = modelFromTd(`typeDiagram
+alias Sequence = Int
+type Lease { serial: Int previous: Option<Int> samples: List<Int> values: Map<String, Int> elapsed: Float }
+union Outcome { Accepted { sequence: Int } Empty {} }
+untagged union Payload { Counter(Int) Pair(Int, Float) Named { serial: Int } }
+`);
+    const output = typescript.toSource(model, { integerType: "bigint" });
+    for (const fragment of [
+      "export type Sequence = bigint;",
+      "serial: bigint",
+      "previous: bigint | undefined",
+      "samples: Array<bigint>",
+      "values: Map<string, bigint>",
+      "elapsed: number",
+      "sequence: bigint",
+      "| bigint",
+      "[bigint, number]",
+    ]) {
+      expect(output).toContain(fragment);
+    }
+    const roundTrip = modelFromSource(typescript, output);
+    expectFieldTypes(recordFields(roundTrip, "Lease"), {
+      serial: "Int",
+      previous: "Option<Int>",
+      samples: "List<Int>",
+      values: "Map<String, Int>",
+    });
+    expect(typescript.toSource(model)).toContain("export type Sequence = number;");
   });
 });

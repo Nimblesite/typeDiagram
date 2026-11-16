@@ -462,8 +462,11 @@ impl<'a> Reader<'a> {
             .get(start_byte..end_byte)
             .ok_or(DecodeError::PointerOutOfBounds { word_index: start })?;
         Ok(src
-            .chunks_exact(4)
-            .map(|chunk| u32::from_le_bytes(<[u8; 4]>::try_from(chunk).unwrap_or([0; 4])))
+            .as_chunks::<4>()
+            .0
+            .iter()
+            .copied()
+            .map(u32::from_le_bytes)
             .collect())
     }
 }

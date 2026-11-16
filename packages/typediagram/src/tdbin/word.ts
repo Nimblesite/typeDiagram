@@ -6,8 +6,8 @@ export const WORD_BYTES = 8;
 export const WORD_BITS = WORD_BYTES * 8;
 const SCRATCH = new ArrayBuffer(WORD_BYTES);
 const SCRATCH_VIEW = new DataView(SCRATCH);
-const MAX_SAFE_I64 = 9_007_199_254_740_991;
-const MIN_SAFE_I64 = -MAX_SAFE_I64;
+const MIN_I64 = -(1n << 63n);
+const MAX_I64 = (1n << 63n) - 1n;
 
 export const readWord = (bytes: Uint8Array, view: DataView, idx: number): Result<bigint, TdbinError> => {
   const start = idx * WORD_BYTES;
@@ -33,8 +33,9 @@ export const wordsToBytes = (words: readonly bigint[]): Uint8Array => {
   return out;
 };
 
-export const i64Bits = (value: number): Result<bigint, TdbinError> =>
-  Number.isSafeInteger(value) && value >= MIN_SAFE_I64 && value <= MAX_SAFE_I64
+// [CONV-TS-EXACT-INTEGERS] Reject overflow before converting to wire bits.
+export const i64Bits = (value: number | bigint): Result<bigint, TdbinError> =>
+  (typeof value === "bigint" || Number.isSafeInteger(value)) && value >= MIN_I64 && value <= MAX_I64
     ? ok(BigInt.asUintN(64, BigInt(value)))
     : tdbinErr("LimitExceeded");
 

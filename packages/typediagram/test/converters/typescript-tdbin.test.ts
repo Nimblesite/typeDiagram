@@ -132,6 +132,38 @@ type IdleInfo {
 }`;
 
 describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
+  it("preserves exact integers in generated records, optional fields and child defaults", () => {
+    const model = modelFor("type Counter { count: Int maybe: Option<Int> ratio: Float }\ntype Root { child: Counter }");
+    const code = unwrap(emitTypeScriptCodec(model, { integerType: "bigint" }));
+    const codec = codecFor<{ count: bigint; maybe: bigint | undefined; ratio: number }>(code, "CounterCodec");
+    for (const count of [-(1n << 63n), 9007199254740992n, 9007199254740993n, (1n << 63n) - 1n]) {
+      for (const maybe of [undefined, 0n, count]) {
+        const value = { count, maybe, ratio: 1.25 };
+        expect(tdbin.decode(codec, unwrap(tdbin.encode(codec, value)))).toEqual(ok(value));
+        expect(tdbin.decodeAuto(codec, unwrap(tdbin.encodePackedFramed(codec, value, 7n)), 7n)).toEqual(ok(value));
+      }
+    }
+    expect(tdbin.encode(codec, { count: 1n << 63n, maybe: undefined, ratio: 0 })).toMatchObject({
+      ok: false,
+      error: { code: "LimitExceeded" },
+    });
+    const root = codecFor<{ child: { count: bigint; maybe: bigint | undefined; ratio: number } }>(code, "RootCodec");
+    const nullChild = tdbin.scalar.wordsToBytes([1n << 48n, 0n]);
+    expect(tdbin.decode(root, nullChild)).toEqual(ok({ child: { count: 0n, maybe: undefined, ratio: 0 } }));
+    const moduleText = unwrap(generateTypeScriptModule(model, { integerType: "bigint" }));
+    expect(moduleText).toContain("count: bigint;");
+    expect(moduleText).toContain("BigInt.asIntN(64, countWord.value)");
+    expect(moduleText).toContain("count: 0n");
+    const ordinary = codecFor<{ count: number; maybe: number | undefined; ratio: number }>(
+      unwrap(emitTypeScriptCodec(model)),
+      "CounterCodec"
+    );
+    const value = { count: 42, maybe: 0, ratio: 1.25 };
+    expect(unwrap(tdbin.encode(ordinary, value))).toEqual(
+      unwrap(tdbin.encode(codec, { ...value, count: 42n, maybe: 0n }))
+    );
+  });
+
   it("emits slot-addressed record codecs over the TypeScript runtime", () => {
     const code = unwrap(emitTypeScriptCodec(modelFor(PERSON_TD)));
     expect(code).toContain("export const PersonCodec: tdbin.StructCodec<Person>");

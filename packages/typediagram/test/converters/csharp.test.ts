@@ -382,3 +382,23 @@ describe("[CONV-CS-RT] C# round-trip TD -> C# -> TD", () => {
     expectLosslessRoundTrip(csharp);
   });
 });
+
+// [CONV-CS-INTEGER-WIDTH] Native identities must retain all signed 64 bits.
+describe("native C# model emission", () => {
+  it("emits 64-bit nested integers and puts late aliases before declarations", () => {
+    const td = `type Owner { serial: Int counts: List<Int> previous: Option<Int> }
+      alias AllocationId = Int
+      alias App = Uuid
+      union Delivery { Empty {} Accepted { identity: AllocationId sequence: Int } }`;
+    const source = toSourceFromTd(csharp, td, { integerWidth: 64 });
+    expect(source).toContain("using App = System.Guid;");
+    expect(source).toContain("long serial");
+    expect(source).toContain("List<long> counts");
+    expect(source).toContain("long? previous");
+    expect(source).toContain("using AllocationId = long;");
+    expect(source).toContain("Accepted(AllocationId identity, long sequence)");
+    expect(source.indexOf("using AllocationId")).toBeLessThan(source.indexOf("public sealed record Owner"));
+    expect(recordFields(modelFromSource(csharp, source), "Owner")[0]?.type.name).toBe("Int");
+    expect(toSourceFromTd(csharp, td)).toContain("int serial");
+  });
+});

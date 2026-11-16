@@ -247,8 +247,11 @@ impl<'a> Reader<'a> {
         self.charge(len)?;
         let bytes = self.word_body_bytes(start, len)?;
         Ok(bytes
-            .chunks_exact(WORD_BYTES)
-            .map(|chunk| convert(word_array(chunk)))
+            .as_chunks::<WORD_BYTES>()
+            .0
+            .iter()
+            .copied()
+            .map(convert)
             .collect())
     }
 
@@ -414,11 +417,6 @@ impl<'a> Reader<'a> {
 fn append_bool_word(out: &mut Vec<bool>, word: u64, count: usize) {
     let take = u32::try_from(count).unwrap_or(64).min(64);
     out.extend((0..take).map(|bit| word.wrapping_shr(bit) & 1 != 0));
-}
-
-/// Convert an exact 8-byte chunk to an array (total for `chunks_exact` output).
-fn word_array(chunk: &[u8]) -> [u8; WORD_BYTES] {
-    <[u8; WORD_BYTES]>::try_from(chunk).unwrap_or([0; WORD_BYTES])
 }
 
 impl CompositeList {

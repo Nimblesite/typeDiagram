@@ -51,6 +51,22 @@
     "./tdbin": {
       "types": "./dist/tdbin/index.d.ts",
       "import": "./dist/tdbin/index.js"
+    },
+    "./converters/osprey": {
+      "types": "./dist/converters/osprey.d.ts",
+      "import": "./dist/converters/osprey.js"
+    },
+    "./converters/swift": {
+      "types": "./dist/converters/swift.d.ts",
+      "import": "./dist/converters/swift.js"
+    },
+    "./converters/shared-layout": {
+      "types": "./dist/converters/shared-layout.d.ts",
+      "import": "./dist/converters/shared-layout.js"
+    },
+    "./converters/shared-c": {
+      "types": "./dist/converters/shared-c.d.ts",
+      "import": "./dist/converters/shared-c.js"
     }
   },
   "files": [
