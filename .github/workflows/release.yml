@@ -67,6 +67,11 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "npm_tag=$NPM_TAG" >> "$GITHUB_OUTPUT"
 
+      # The stamper parses src/Cargo.toml with smol-toml (no regex on TOML), so the
+      # frozen dependency tree must exist before it runs.
+      - name: Install stamper dependencies
+        run: npm ci --ignore-scripts
+
       # [SWR-VERSION-BUILD-STAMPING] First-class stamper — covered by
       # src/cli/test/stamp-version.e2e.test.ts. Runner working tree only.
       - name: Stamp version in all carriers
@@ -124,7 +129,9 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           V="${{ steps.derive.outputs.version }}"
-          if curl -fsS -A "typediagram-release" "https://crates.io/api/v1/src/tdbin/$V" >/dev/null 2>&1; then
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::warning title=tdbin not published::CARGO_REGISTRY_TOKEN secret is missing — tdbin@$V was NOT published to crates.io"
+          elif curl -fsS -A "typediagram-release" "https://crates.io/api/v1/crates/tdbin/$V" >/dev/null 2>&1; then
             echo "tdbin@$V already published — skipping"
           else
             cargo publish --manifest-path src/Cargo.toml -p tdbin --allow-dirty
