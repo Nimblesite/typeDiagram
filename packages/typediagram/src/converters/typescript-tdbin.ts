@@ -448,7 +448,7 @@ export const generateTypeScriptModule = (model: Model, options: TypeScriptOpts =
   }
   return ok(
     [
-      `import { ok } from "typediagram-core";`,
+      `import { ok } from "typediagram-core/tdbin";`,
       `import * as tdbin from "typediagram-core/tdbin";`,
       ``,
       typescript.toSource(model, options),

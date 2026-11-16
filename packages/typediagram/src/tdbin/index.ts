@@ -5,6 +5,7 @@ import { message as readMessage } from "./reader.js";
 import type { StructCodec, TdbinError } from "./types.js";
 import { message as writeMessage } from "./writer.js";
 
+export { err, ok, type Result } from "../result.js";
 export type { FrameMessage, Reader, StructCodec, TdbinError, TdbinErrorCode, Writer } from "./types.js";
 export * as frame from "./frame.js";
 export * as pack from "./pack.js";

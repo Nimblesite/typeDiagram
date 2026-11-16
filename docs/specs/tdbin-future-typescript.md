@@ -67,7 +67,13 @@ The implementation lives in:
       `HashMismatch`, … as typed errors.
 - [ ] Compile and execute generated codecs, run Rust-to-TypeScript-to-Rust byte
       identity in both directions, and cover browser as well as Node execution.
-- [ ] Measure and record bundle-size impact.
+- [x] Measure and record bundle-size impact ([TDBIN-TS-BUNDLE]). Generated
+      modules import only `typediagram-core/tdbin` (`ok` is re-exported there)
+      and the package is `"sideEffects": false`, so esbuild tree-shakes the
+      parser, layout, and renderer away. A three-type generated module (record,
+      union, `Option` child) plus the base64 framed round-trip bundles to
+      **18.5 KB minified / 6.3 KB gzipped** (esbuild `--bundle --minify`,
+      ESM), with no elkjs or lezer code.
 
 ## Pickup order
 

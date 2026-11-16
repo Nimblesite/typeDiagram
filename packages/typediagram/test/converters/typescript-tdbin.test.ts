@@ -198,6 +198,8 @@ describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
   it("generates a self-contained module with type declarations and runtime imports", () => {
     const moduleText = unwrap(generateTypeScriptModule(modelFor(PERSON_TD)));
     expect(moduleText).toContain('import * as tdbin from "typediagram-core/tdbin";');
+    expect(moduleText).toContain('import { ok } from "typediagram-core/tdbin";');
+    expect(moduleText).not.toContain('from "typediagram-core";');
     expect(moduleText).toContain("export interface Person");
     expect(moduleText).toContain('export type Contact =\n  | { kind: "Email"; _0: EmailContact }');
     expect(moduleText).toContain("const defaultContact = ");
