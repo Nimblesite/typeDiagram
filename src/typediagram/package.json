@@ -92,7 +92,7 @@
   "devDependencies": {
     "@types/node": "^26.1.1",
     "esbuild": "^0.28.1",
-    "happy-dom": "^20.10.6",
+    "happy-dom": "^21.0.4",
     "typescript": "^7.0.2",
     "typescript-compiler": "npm:typescript@6.0.3",
     "vitest": "^4.1.12"
