@@ -9,6 +9,7 @@ import {
   type Diagnostic,
 } from "typediagram-core";
 import { emitRustCodec, generateRustModule } from "typediagram-core/converters/rust-tdbin";
+import { generateTypeScriptModule } from "typediagram-core/converters/typescript-tdbin";
 import { HELP_TEXT, parseArgs, type CliArgs } from "./args.js";
 import { runGenerationConfig } from "./generation-config.js";
 import { readSource } from "./io.js";
@@ -46,22 +47,31 @@ const versionFlow = (args: CliArgs, stdout: NodeJS.WritableStream, stderr: NodeJ
   return r.ok ? (stdout.write(`${r.value}\n`), 0) : (stderr.write(`${r.error.message}\n`), 1);
 };
 
-/** [TDBIN-CLI] `.td` schema → generated Rust TDBIN glue or schema verification. */
+/** [TDBIN-CLI] [CLI-TDBIN-LANG] `.td` schema → generated TDBIN glue for the
+ *  `--to` target (Rust by default, or TypeScript), or schema verification. */
 const tdbinFlow = async (
   args: CliArgs,
   stdout: NodeJS.WritableStream,
   stderr: NodeJS.WritableStream
 ): Promise<number> => {
+  const typescript = args.to === "typescript";
+  if (typescript && args.tdbinCommand === "decode") {
+    return (stderr.write("decode --to typescript is not supported; use encode --to typescript\n"), 1);
+  }
   const model = await readTdModel(args.file, stderr);
   if (!model.ok) {
     return 1;
   }
-  const codegenDiags = modelLayer.validateForCodegen(model.value, "rust");
+  const codegenDiags = modelLayer.validateForCodegen(model.value, typescript ? "typescript" : "rust");
   if (codegenDiags.length > 0) {
     return (writeDiagnostics(codegenDiags, stderr), 1);
   }
   const command = args.tdbinCommand;
-  const generated = command === "decode" ? emitRustCodec(model.value) : generateRustModule(model.value);
+  const generated = typescript
+    ? generateTypeScriptModule(model.value)
+    : command === "decode"
+      ? emitRustCodec(model.value)
+      : generateRustModule(model.value);
   if (!generated.ok) {
     return (writeDiagnostics(generated.error, stderr), 1);
   }

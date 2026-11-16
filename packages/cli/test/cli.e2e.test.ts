@@ -189,6 +189,45 @@ describe("[CLI-TDBIN] generated Rust TDBIN glue", () => {
     }
   });
 
+  it("encode/verify --to typescript emit and check the TS codec; --to selects the target [CLI-TDBIN-LANG] #62", async () => {
+    const ts = await run(["encode", "--to", "typescript", fixturePath("wire.td")]);
+    expect(ts.stderr).toBe("");
+    expect(ts.code).toBe(0);
+    expect(ts.stdout).toContain('import * as tdbin from "typediagram-core/tdbin";');
+    expect(ts.stdout).toContain("export interface Canvas {");
+    expect(ts.stdout).toContain("export const CanvasCodec: tdbin.StructCodec<Canvas> = {");
+    expect(ts.stdout).toContain("export const ShapeCodec: tdbin.StructCodec<Shape> = {");
+    expect(ts.stdout).toMatch(/layoutHash: 0x[0-9a-f]{16}n,/);
+    expect(ts.stdout).not.toContain("impl tdbin::Struct");
+    const rs = await run(["encode", "--to", "rust", fixturePath("wire.td")]);
+    expect(rs.code).toBe(0);
+    expect(rs.stdout).toContain("impl tdbin::Struct for Canvas");
+    expect(rs.stdout).toContain("pub is_pinned: bool,");
+    const tsHash = ts.stdout.slice(ts.stdout.indexOf("CanvasCodec"));
+    const rsHash = rs.stdout.slice(rs.stdout.indexOf("impl tdbin::Struct for Canvas"));
+    const tsValue = BigInt(
+      tsHash.slice(tsHash.indexOf("layoutHash: ") + 12, tsHash.indexOf("n,", tsHash.indexOf("layoutHash")))
+    );
+    const rsValue = BigInt(
+      rsHash
+        .slice(rsHash.indexOf("LAYOUT_HASH: u64 = ") + 19, rsHash.indexOf(";", rsHash.indexOf("LAYOUT_HASH")))
+        .replaceAll("_", "")
+    );
+    expect(tsValue).toBe(rsValue);
+    const verify = await run(["verify", "--to", "typescript", fixturePath("wire.td")]);
+    expect(verify).toMatchObject({ code: 0, stdout: "tdbin schema ok\n", stderr: "" });
+    const unsupported = await run(["verify", "--to", "typescript", fixturePath("scalars.td")]);
+    expect(unsupported.code).toBe(1);
+    expect(unsupported.stderr).toContain("tdbin-ts:");
+    const decodeTs = await run(["decode", "--to", "typescript", fixturePath("wire.td")]);
+    expect(decodeTs.code).toBe(1);
+    expect(decodeTs.stdout).toBe("");
+    expect(decodeTs.stderr).toContain("decode --to typescript is not supported; use encode --to typescript");
+    const go = await run(["encode", "--to", "go", fixturePath("wire.td")]);
+    expect(go.code).toBe(1);
+    expect(go.stderr).toContain("tdbin commands support --to rust or --to typescript");
+  });
+
   it("verify reports Rust codegen validation errors before TDBIN generation", async () => {
     const { code, stdout, stderr } = await run(["verify", fixturePath("unknown-types.td")]);
     expect(code).toBe(1);

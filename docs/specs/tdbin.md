@@ -169,9 +169,14 @@ produces TypeScript interfaces/unions plus a `StructCodec<T>` for every
 supported type. It returns a `Result`, so diagnostics stay values instead of
 becoming thrown exceptions.
 
-This is a build-time script that reads the same `person.td` schema and writes a
-module named `person.ts`. The current CLI has TDBIN commands for Rust only; use
-this public API for TypeScript generation.
+Generate it from the CLI, the same way as the Rust module ([CLI-TDBIN-LANG]):
+
+```sh
+typediagram verify --to typescript person.td
+typediagram encode --to typescript person.td > src/person.ts
+```
+
+Or call the same generator from a build script:
 
 ```ts
 import { readFile, writeFile } from "node:fs/promises";

@@ -42,9 +42,15 @@ describe("[CLI-ARGS] parseArgs", () => {
     expect(r.ok && r.value.file).toBeNull();
   });
 
-  it("rejects TDBIN commands combined with --to", () => {
-    const r = parseArgs(["decode", "--to", "rust"]);
-    expect(r.ok).toBe(false);
+  it("accepts TDBIN commands with --to rust|typescript and rejects other targets or --from", () => {
+    const rs = parseArgs(["decode", "--to", "rust"]);
+    expect(rs.ok && rs.value.to).toBe("rust");
+    const ts = parseArgs(["encode", "--to", "typescript", "a.td"]);
+    expect(ts.ok && [ts.value.tdbinCommand, ts.value.to, ts.value.file]).toEqual(["encode", "typescript", "a.td"]);
+    const go = parseArgs(["encode", "--to", "go"]);
+    expect(go.ok ? "" : go.error.message).toBe("tdbin commands support --to rust or --to typescript");
+    const from = parseArgs(["verify", "--from", "rust"]);
+    expect(from.ok ? "" : from.error.message).toBe("tdbin commands cannot be combined with --from");
   });
 
   it("parses --theme dark", () => {

@@ -83,11 +83,13 @@ export const parseArgs = (argv: readonly string[]): Result<CliArgs, ArgError> =>
         ? err({ message: "--config cannot be combined with --from, --to, or a tdbin command" })
         : state.from !== null && state.to !== null
           ? err({ message: "--from and --to are mutually exclusive" })
-          : state.tdbinCommand !== null && (state.from !== null || state.to !== null)
-            ? err({ message: "tdbin commands cannot be combined with --from or --to" })
-            : state.json && !state.version
-              ? err({ message: "--json requires --version" })
-              : ok(state);
+          : state.tdbinCommand !== null && state.from !== null
+            ? err({ message: "tdbin commands cannot be combined with --from" })
+            : state.tdbinCommand !== null && state.to !== null && state.to !== "rust" && state.to !== "typescript"
+              ? err({ message: "tdbin commands support --to rust or --to typescript" })
+              : state.json && !state.version
+                ? err({ message: "--json requires --version" })
+                : ok(state);
 };
 
 const applyArg = (
@@ -179,9 +181,9 @@ export const HELP_TEXT = `typediagram — render typeDiagram DSL to SVG, or conv
 Usage:
   typediagram [options] [file]
   typediagram --config FILE [--watch]
-  typediagram encode [file]
+  typediagram encode [--to rust|typescript] [file]
   typediagram decode [file]
-  typediagram verify [file]
+  typediagram verify [--to rust|typescript] [file]
 
 Options:
   --config FILE        Generate configured language outputs from one .td source
@@ -200,7 +202,7 @@ If file is omitted, reads from stdin.
 SVG (or language source with --to) is written to stdout.
 With --emit td, outputs the intermediate typeDiagram source.
 With --emit td+svg, outputs typeDiagram source then a --- separator then SVG.
-TDBIN encode emits a generated Rust ADT+codec module; decode emits codec impls for generated Rust ADTs; verify validates schema support.
+TDBIN encode emits a generated ADT+codec module (Rust by default, or --to typescript); decode emits Rust codec impls for generated Rust ADTs; verify validates schema support for the --to target.
 Config paths are resolved relative to FILE. Invalid watched edits retain the last generated outputs and recover on the next valid edit.
 Errors go to stderr; exit code 1 on failure.
 `;
