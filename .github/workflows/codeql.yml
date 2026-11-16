@@ -11,7 +11,7 @@ name: CodeQL
 #
 # Matrix = (languages in this repo) ∩ (CodeQL-supported at skill-run time):
 #   javascript-typescript — the src/* monorepo (core, cli, web, vscode)
-#   rust                   — the incoming src/* workspace (build-mode: none)
+#   rust                   — the src/Cargo.toml workspace (build-mode: none)
 #   actions                — always, scans the workflow files themselves
 # Action SHAs are kept current by the github-actions Dependabot group.
 on:

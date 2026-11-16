@@ -162,8 +162,8 @@ Hooks are exported from [`src/typediagram/src/render-svg/index.ts`](../../src/ty
 
 Three strictly-stacked layers. Each layer knows nothing about the one above it. **Breaking this layering is a review-rejection.**
 
-| Layer       | Name                        | Artifact                                                                           | Location                              | Who depends on it             |
-| ----------- | --------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------- |
+| Layer       | Name                        | Artifact                                                                           | Location                         | Who depends on it             |
+| ----------- | --------------------------- | ---------------------------------------------------------------------------------- | -------------------------------- | ----------------------------- |
 | **Layer 1** | `RenderHooks` — core API    | TypeScript `RenderHooks` interface + phase invocation inside `renderSvg`           | `src/typediagram/src/render-svg` | everyone                      |
 | **Layer 2** | Hook **code** (user JS)     | A string of JavaScript the user writes; compiled to a Layer-1 `RenderHooks` object | `src/web/src/eval-hooks.ts`      | Layer 3, playground, docs     |
 | **Layer 3** | **Presets** — code snippets | Named strings of Layer-2 JS (with `// --- preset:<id> ---` delimiters)             | `src/web/src/hook-presets.ts`    | the playground's chip UI only |

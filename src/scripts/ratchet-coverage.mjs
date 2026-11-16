@@ -8,7 +8,7 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = resolve(HERE, "..");
+const REPO_ROOT = resolve(HERE, "../..");
 const THRESHOLDS_FILE = resolve(REPO_ROOT, "coverage-thresholds.json");
 
 const METRICS = {

@@ -49,10 +49,9 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
 
-  # Cargo / Rust — the incoming Rust workspace (src/*). Active once a crate with
-  # dependencies lands; harmless before then.
+  # Cargo / Rust — the Rust workspace rooted at src/Cargo.toml.
   - package-ecosystem: cargo
-    directory: /
+    directory: /src
     target-branch: "dependabot-upgrades"
     schedule:
       interval: weekly

@@ -117,8 +117,8 @@ No Chromium download, no extra binaries — the extension reuses VS Code's built
 
 ## Monorepo layout
 
-| Package                                        | What                                                                    |
-| ---------------------------------------------- | ----------------------------------------------------------------------- |
+| Package                              | What                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------- |
 | [src/typediagram/](src/typediagram/) | Core framework: parser, model, layout, render-svg, converters           |
 | [src/cli/](src/cli/)                 | `typediagram` CLI binary                                                |
 | [src/web/](src/web/)                 | Web playground + docs site ([typediagram.dev](https://typediagram.dev)) |

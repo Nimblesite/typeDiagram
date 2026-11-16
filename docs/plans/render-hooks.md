@@ -8,8 +8,8 @@ Add six render hooks (`defs`, `node`, `row`, `edge`, `background`, `post`) to th
 
 ## Layering (read spec [HOOK-LAYERS] first)
 
-| Layer | Concern                                    | Module                                                      | Depends on           |
-| ----- | ------------------------------------------ | ----------------------------------------------------------- | -------------------- |
+| Layer | Concern                                    | Module                                                 | Depends on           |
+| ----- | ------------------------------------------ | ------------------------------------------------------ | -------------------- |
 | 1     | `RenderHooks` interface + phase invocation | `src/typediagram/src/render-svg/hooks.ts`, `render.ts` | nothing              |
 | 2     | User JS compiled to Layer 1                | `src/web/src/eval-hooks.ts`                            | Layer 1 (types only) |
 | 3     | Preset snippets (strings) + splice helpers | `src/web/src/hook-presets.ts`                          | Layer 2 (tests only) |

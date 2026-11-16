@@ -49,8 +49,10 @@ export const createVitestConfig = (options: VitestConfigOptions) => {
         provider: "v8",
         reporter: ["text", "html", "json-summary", ...(options.extraReporters ?? [])],
         ...(options.reportsDirectory === undefined ? {} : { reportsDirectory: options.reportsDirectory }),
-        include: ["src/**/*.ts"],
-        exclude: ["src/**/*.d.ts", ...(options.exclude ?? [])],
+        // Anchored to the package dir: packages live under the repo's src/, so a
+        // bare "src/**" glob would also match each package's test/ helpers.
+        include: [resolve(options.configDir, "src/**/*.ts")],
+        exclude: ["**/*.d.ts", ...(options.exclude ?? []).map((glob) => resolve(options.configDir, glob))],
         ...(thresholds === undefined ? {} : { thresholds }),
       },
     },

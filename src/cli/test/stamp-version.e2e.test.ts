@@ -118,6 +118,15 @@ describe("[SWR-VERSION-BUILD-STAMPING] stamp-version.mjs", () => {
     expect(manifest.product.version).toBe("0.1.0");
     expect(stdout).toContain("src/Cargo.toml");
     expect((await cargoVersion(root)).text).toBe(CARGO_FIXTURE);
+    // Without --root the script must default to the real repo root (release.yml
+    // invokes it that way), not src/ — which would resolve src/src/... carriers.
+    const repoRoot = fileURLToPath(new URL("../../../", import.meta.url)).replace(/\/$/, "");
+    const dflt = await run("node", [SCRIPT, "--version", "2.0.0", "--dry-run"]);
+    expect(dflt.stdout).toContain(`stamping 2.0.0 into ${repoRoot}\n`);
+    for (const rel of PKG_RELS) {
+      expect(dflt.stdout).toContain(`${rel}: version=2.0.0`);
+    }
+    expect(dflt.stdout).toContain("src/Cargo.toml: workspace.package.version=2.0.0");
   });
 
   it("rejects a non-semver version with exit 1", async () => {
