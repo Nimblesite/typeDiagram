@@ -64,7 +64,7 @@ const writeBytes16List = (
 };
 
 const enumOrdinalArm = (rustType: string, name: string, ordinal: number): string =>
-  `                &${rustType}::${name} => ${rsNumber(ordinal)}u8,`;
+  `                ${rustType}::${name} => ${rsNumber(ordinal)}u8,`;
 
 const writeEnumList = (
   name: string,
@@ -467,6 +467,11 @@ export const emitUnionDefault = (u: ResolvedUnion, plan: UnionPlan): Result<stri
   const first = plan.variants[0];
   if (first === undefined) {
     return err(diag(`tdbin: union '${u.name}' has no variants, so no schema default exists`));
+  }
+  if (first.payload === null) {
+    // A bare first variant is `#[derive(Default)]` + `#[default]` on the type
+    // (clippy `derivable_impls`), emitted by `emitRustDecl`.
+    return ok("");
   }
   return ok(
     [

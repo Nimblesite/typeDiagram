@@ -110,7 +110,7 @@ Supports struct variants, tuple variants, and unit variants in enums. Generic bo
 
 - Every struct and enum derives `Debug, Clone, PartialEq`.
 - Field names are snake_case (`typeText` → `type_text`, `isHTTPServer` → `is_http_server`). When the name changes, `#[serde(rename = "typeText")]` keeps the schema name as the JSON name, and reading the Rust back restores `typeText`.
-- A type that carries a serde attribute (a renamed field or `untagged`) also derives `serde::Serialize, serde::Deserialize`, so add `serde` (with `derive`) to the crate. Snake_case schemas need no serde.
+- If any type in the output carries a serde attribute (a renamed field or `untagged`), every type in that output also derives `serde::Serialize, serde::Deserialize`, because a serialisable type needs serialisable contents. Add `serde` (with `derive`) to the crate in that case. All-snake_case schemas need no serde.
 - The TDBIN module (`typediagram encode`) uses the same declarations and adds `Default` to records.
 
 ## Go

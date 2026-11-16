@@ -245,19 +245,23 @@ such as `HashMismatch`, `BadMagic`, `InvalidUtf8`, `UnknownVariant`, or
 
 ### TypeScript support boundary
 
-The TypeScript implementation is deliberately conservative in its current
-state. It supports generated records with `Bool`, `Int`, `Float`, `String`,
-`Bytes`, optional pointer fields, and nested generated records/unions. It also
-supports unions with bare variants, a single generated-record payload, or a
-single `String` payload.
+The TypeScript generator supports records with `Bool`, `Int`, `Float`,
+`String`, `Bytes`, scalar `Option<T>` (`Bool`/`Int`/`Float`), optional pointer
+fields, and nested records/unions. Every layout-1 list form is supported as
+`List<T>` or `Option<List<T>>` ([TDBIN-TS-LIST]): `Bool`, `Int`, `Float`,
+`String`, `Bytes`, records, unions, and all-bare enum-unions (one ordinal byte
+per element). Unions may have bare variants, a single record or `String`
+payload, or struct-form / multi-field tuple payloads ([TDBIN-UNION-STRUCT]).
+`integerType: "bigint"` keeps the full i64 domain; the default `number` mode
+rejects unsafe integers on encode with `LimitExceeded`.
 
-It does **not** yet generate codecs for lists, scalar `Option<T>`, semantic
-scalars (`DateTime`, `Uuid`, `Decimal`), generics, inline enum-unions, or every
-Rust-supported schema form. Generated modules are not yet compiled and
-executed across the full browser and Rust interoperability matrix. Keep a
-schema inside the supported subset and use the Rust codec when you need the
-broader implemented feature set. See the [TypeScript codec roadmap](tdbin-future-typescript.md)
-for the release criteria.
+A golden vector (`crates/tdbin/tests/golden/report_lists.hex`) pins the bytes:
+the Rust and TypeScript codecs generated from the same schema must both
+reproduce it exactly.
+
+Not yet generated for TypeScript: semantic scalars (`DateTime`, `Uuid`,
+`Decimal`), nested lists, maps, generics, and layout-2 columnar groups. Use the
+Rust codec for those. See the [TypeScript codec roadmap](tdbin-future-typescript.md).
 
 ## What the bytes guarantee
 

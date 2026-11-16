@@ -15,6 +15,7 @@ import {
 import { type Result, err, ok } from "../result.js";
 import { printTypeRef } from "./parse-typeref.js";
 import { fnv1a64, layoutManifest } from "./rust-tdbin-hash.js";
+import { listPlanOf, listResultNames, listValue, readListLines, writeListLines } from "./typescript-tdbin-lists.js";
 import { allocateBit, allocatePtr, allocateWord, type LayoutCursor, newLayoutCursor } from "./tdbin-alloc.js";
 import {
   type DeclPlan,
@@ -86,6 +87,16 @@ const allocateOptScalar = (inner: ResolvedTypeRef, cursor: LayoutCursor): FieldP
 };
 
 const pointerField = (
+  decls: readonly ResolvedDecl[],
+  t: ResolvedTypeRef,
+  slot: number,
+  optional: boolean
+): FieldPlan | null => {
+  const list = listPlanOf(decls, t);
+  return list !== null ? { kind: "list", slot, optional, list } : scalarPointer(decls, t, slot, optional);
+};
+
+const scalarPointer = (
   decls: readonly ResolvedDecl[],
   t: ResolvedTypeRef,
   slot: number,
@@ -176,6 +187,8 @@ const writePresenceLines = (field: string, plan: { presenceSlot: number; presenc
 const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[] => {
   const value = `value.${field}`;
   switch (plan.kind) {
+    case "list":
+      return writeListLines(codec, field, plan);
     case "int":
       return [
         `    const ${field}Bits = tdbin.scalar.i64Bits(${value});`,
@@ -224,6 +237,8 @@ const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[]
 
 const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] => {
   switch (plan.kind) {
+    case "list":
+      return readListLines(codec, field, plan);
     case "int":
       return [`    const ${field}Word = tdbin.reader.scalar(reader, at, ${tsNum(plan.slot)});`];
     case "float":
@@ -255,6 +270,8 @@ const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] 
 /** READ-path result bindings the ok-guards must check, in emission order. */
 const fieldResultNames = (field: string, plan: FieldPlan): string[] => {
   switch (plan.kind) {
+    case "list":
+      return listResultNames(field, plan);
     case "int":
     case "float":
       return [`${field}Word`];
@@ -269,11 +286,12 @@ const fieldResultNames = (field: string, plan: FieldPlan): string[] => {
 };
 
 const fieldValue = (field: string, plan: FieldPlan, options: TypeScriptOpts): string => {
-  const integer =
-    options.integerType === "bigint"
-      ? `BigInt.asIntN(64, ${field}Word.value)`
-      : `tdbin.scalar.i64From(${field}Word.value)`;
+  const toInt = (word: string): string =>
+    options.integerType === "bigint" ? `BigInt.asIntN(64, ${word})` : `tdbin.scalar.i64From(${word})`;
+  const integer = toInt(`${field}Word.value`);
   switch (plan.kind) {
+    case "list":
+      return listValue(field, plan, toInt);
     case "int":
       return integer;
     case "float":

@@ -136,7 +136,17 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
     expect(code).toContain(
       "impl Default for Msg {\n    fn default() -> Self {\n        Self::Mail(E::default())\n    }\n}"
     );
-    expect(code).toContain("impl Default for Color {\n    fn default() -> Self {\n        Self::Red\n    }\n}");
+    // A bare first variant is derived (clippy `derivable_impls`), not hand-written.
+    expect(code).not.toContain("impl Default for Color");
+    const module = unwrap(
+      generateRustModule(
+        unwrap(buildModel(unwrap(parse(`union Color {\n  Red\n  Green\n}\ntype P {\n  c: Color\n}`))))
+      )
+    );
+    expect(module).toContain(
+      "#[derive(Debug, Clone, PartialEq, Default)]\npub enum Color {\n    /// The `Red` variant.\n    #[default]\n    Red,"
+    );
+    expect(module).not.toContain("impl Default for Color");
     // A String-payload first variant defaults to the empty string.
     expect(code).toContain(
       "impl Default for Note {\n    fn default() -> Self {\n        Self::Text(String::default())\n    }\n}"
@@ -224,7 +234,8 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
     expect(code).toContain("w.bytes_list(at, Self::DATA_WORDS, 3, Some(&self.blobs))?;");
     expect(code).toContain("w.child_list(at, Self::DATA_WORDS, 4, Some(&self.points))?;");
     expect(code).toContain("w.bytes16_list(at, Self::DATA_WORDS, 5, Some(&ids_words))?;");
-    expect(code).toContain("&Color::Red => 0u8,");
+    expect(code).toContain("                Color::Red => 0u8,");
+    expect(code).not.toContain("&Color::Red");
     expect(code).toContain("w.byte_list(at, Self::DATA_WORDS, 6, Some(&colors_ordinals))?;");
     expect(code).toContain("w.i64_list(at, Self::DATA_WORDS, 7, self.maybe_scores.as_deref())?;");
     expect(code).not.toContain("maybeScores_words");

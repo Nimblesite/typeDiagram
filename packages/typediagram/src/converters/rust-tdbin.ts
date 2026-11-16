@@ -11,7 +11,7 @@
 // the layout manifest/hash in rust-tdbin-hash.ts.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Model, type ResolvedDataDecl, type ResolvedDecl, visibleDataDeclsForTarget } from "../model/types.js";
-import { emitRustDecl, rustNamedDecls } from "./rust.js";
+import { emitRustDecl, moduleNeedsSerde, rustNamedDecls } from "./rust.js";
 import { err, ok, type Result } from "../result.js";
 import { classifyRecord, classifyUnion, diag, type Layout } from "./rust-tdbin-plan.js";
 import { emitRecordCodec, emitUnionCodec, emitUnionDefault } from "./rust-tdbin-fields.js";
@@ -81,7 +81,8 @@ const unionBlocks = (ctx: EmitCtx, d: Extract<ResolvedDecl, { kind: "union" }>):
     return dflt;
   }
   const hash = hashLiteralFor(ctx, d);
-  return hash.ok ? appendGroup(ctx, d, [dflt.value, emitUnionCodec(d, plan.value, hash.value)]) : hash;
+  const blocks = [dflt.value, emitUnionCodec(d, plan.value, hash.ok ? hash.value : "")].filter((b) => b !== "");
+  return hash.ok ? appendGroup(ctx, d, blocks) : hash;
 };
 
 const declBlocks = (ctx: EmitCtx, d: ResolvedDecl): Result<string[], Diagnostic[]> => {
@@ -122,8 +123,11 @@ export const emitRustCodec = (model: Model, options?: RustCodecOptions): Result<
 /** Emit one ADT type: doc comment, shared derives (records add `Default` so
  *  required pointer fields can decode null as the schema default
  *  [TDBIN-PTR-NULL]; unions get a generated `impl Default`), then the body. */
-const emitTypeWithDocs = (d: ResolvedDataDecl): string =>
-  emitRustDecl(d, true, d.kind === "record" ? ["Default"] : []).join("\n");
+const derivesDefault = (d: ResolvedDataDecl): boolean =>
+  d.kind === "record" || (d.kind === "union" && d.variants[0]?.fields.length === 0);
+
+const emitTypeWithDocs = (d: ResolvedDataDecl, serde: boolean): string =>
+  emitRustDecl(d, true, derivesDefault(d) ? ["Default"] : [], serde).join("\n");
 
 /** Emit a self-contained Rust module: derived ADT types (from the existing
  *  Rust converter) plus their TDBIN codec — deny-all-clean (doc comments,
@@ -137,6 +141,8 @@ export const generateRustModule = (model: Model, options?: RustCodecOptions): Re
   // [TDBIN-UNION-STRUCT] synthetic payload records ship beside the ADT so the
   // struct-form variant codec has a concrete `tdbin::Struct` to point at.
   const visible = visibleDataDeclsForTarget(model.decls, "rust");
-  const types = [...visible, ...variantRecords(rustNamedDecls(visible))].map(emitTypeWithDocs).join("\n");
+  const all = [...visible, ...variantRecords(rustNamedDecls(visible))];
+  const serde = moduleNeedsSerde(all);
+  const types = all.map((d) => emitTypeWithDocs(d, serde)).join("\n");
   return ok(`${types}\n${codec.value}\n`);
 };

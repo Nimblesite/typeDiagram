@@ -99,7 +99,7 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [x] #61 `[TDBIN-UNION-STRUCT]` struct-form union variants encode/decode/verify in the Rust and TS generators (payload = pointer to a struct laid out by `[TDBIN-REC-ALLOC]`). Layout 1 only; layout 2 rejects with a diagnostic.
 - [x] #71 `[CONV-RUST-IDIOM]` `--to rust` derives `Debug, Clone, PartialEq`, snake_case fields with `#[serde(rename)]` (round-trips), serde derives only when needed; tdbin codecs bind the same names.
 - [x] #62 `[CLI-TDBIN-LANG]` `typediagram encode|verify --to typescript` emits/checks the TS codec module (Rust stays the default).
-- [ ] #62 TS codec `List<T>` support (all list forms the Rust emitter supports).
+- [x] #62 `[TDBIN-TS-LIST]` TS codec supports every layout-1 `List<T>` / `Option<List<T>>` form; Rust↔TS golden byte identity (`golden/report_lists.hex`).
 - [ ] #61 follow-up: struct-form variants in layout 2 column groups (`[TDBIN-COL-UNION]` dense groups).
 
 ## Exit criteria (v1 = phases 0–4)

@@ -321,11 +321,18 @@ type Plain {
     expect(output).toContain('    #[serde(rename = "defaultValue")]\n    pub default_value: Option<String>,');
     expect(output).toContain("    pub name: String,");
     expect(output).not.toContain("typeText:");
-    expect(output).toContain("#[derive(Debug, Clone, PartialEq)]\npub enum DeclKind {");
+    expect(output).toContain(
+      "#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\npub enum DeclKind {"
+    );
     expect(output).toContain(
       '#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\npub enum Event {\n    Moved { #[serde(rename = "deltaX")] delta_x: f64, y: f64 },'
     );
-    expect(output).toContain("#[derive(Debug, Clone, PartialEq)]\npub struct Plain {\n    pub snake_case: i64,");
+    expect(output).toContain(
+      "#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\npub struct Plain {\n    pub snake_case: i64,"
+    );
+    expect(toSourceFromTd(rust, "type Plain {\n  snake_case: Int\n}")).toContain(
+      "#[derive(Debug, Clone, PartialEq)]\npub struct Plain {"
+    );
     const back = unwrap(rust.fromSource(output));
     expect(recordFields(back, "RawParam").map((f) => f.name)).toEqual([
       "name",

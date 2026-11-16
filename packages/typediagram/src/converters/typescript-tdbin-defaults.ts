@@ -16,7 +16,14 @@ export type FieldPlan =
   | { kind: "optBool"; presenceSlot: number; presenceBit: number; valueSlot: number; valueBit: number }
   | { kind: "string"; slot: number; optional: boolean }
   | { kind: "bytes"; slot: number; optional: boolean }
-  | { kind: "child"; slot: number; optional: boolean; typeName: string };
+  | { kind: "child"; slot: number; optional: boolean; typeName: string }
+  | { kind: "list"; slot: number; optional: boolean; list: TsListPlan };
+
+/** [TDBIN-TS-LIST] element encodings, one per Rust layout-1 list form. */
+export type TsListPlan =
+  | { readonly kind: "bool" | "int" | "float" | "string" | "bytes" }
+  | { readonly kind: "child"; readonly typeName: string }
+  | { readonly kind: "enum"; readonly variants: readonly string[] };
 
 export interface RecordPlan {
   readonly dataWords: number;
@@ -54,7 +61,13 @@ export type PointerPlan = Extract<FieldPlan, { optional: boolean }>;
 export const diag = (message: string): Diagnostic[] => [{ severity: "error", message, line: 0, col: 0, length: 0 }];
 
 export const pointerDefault = (plan: PointerPlan): string =>
-  plan.kind === "string" ? `""` : plan.kind === "bytes" ? "new Uint8Array(0)" : `default${plan.typeName}()`;
+  plan.kind === "string"
+    ? `""`
+    : plan.kind === "bytes"
+      ? "new Uint8Array(0)"
+      : plan.kind === "list"
+        ? "[]"
+        : `default${plan.typeName}()`;
 
 const fieldDefault = (plan: FieldPlan, integerZero: string): string => {
   switch (plan.kind) {

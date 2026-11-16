@@ -209,10 +209,12 @@ describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
   });
 
   it("rejects unsupported shapes loudly", () => {
-    const result = emitTypeScriptCodec(modelFor("type R {\n  items: List<Int>\n}"));
-    expectErrorMessages(result, ["unsupported field type 'List<Int>'"]);
-    const moduleResult = generateTypeScriptModule(modelFor("type R {\n  items: List<Int>\n}"));
-    expectErrorMessages(moduleResult, ["unsupported field type 'List<Int>'"]);
+    const result = emitTypeScriptCodec(modelFor("type R {\n  items: Map<String, Int>\n}"));
+    expectErrorMessages(result, ["unsupported field type 'Map<String, Int>'"]);
+    const moduleResult = generateTypeScriptModule(modelFor("type R {\n  items: List<List<Int>>\n}"));
+    expectErrorMessages(moduleResult, ["unsupported field type 'List<List<Int>>'"]);
+    const semantic = emitTypeScriptCodec(modelFor("type R {\n  at: List<DateTime>\n}"));
+    expectErrorMessages(semantic, ["unsupported field type 'List<DateTime>'"]);
   });
 
   it("emits bytes, optional bytes, bare variants, and string-payload variants", () => {
@@ -588,5 +590,147 @@ union Notice {
       shape: { kind: "Circle", radius: 0, label: "" },
       backup: undefined,
     });
+  });
+
+  it("round-trips every List<T> form and Option<List<T>> with Rust-identical hashes [TDBIN-TS-LIST] #62", () => {
+    const td = `union Level {
+  Low
+  High
+}
+type Tag {
+  key: String
+  weight: Float
+}
+type Report {
+  flags: List<Bool>
+  counts: List<Int>
+  ratios: List<Float>
+  names: List<String>
+  blobs: List<Bytes>
+  tags: List<Tag>
+  levels: List<Level>
+  maybeCounts: Option<List<Int>>
+  maybeTags: Option<List<Tag>>
+  maybeLevels: Option<List<Level>>
+  title: String
+}`;
+    type Level = { readonly kind: "Low" } | { readonly kind: "High" };
+    interface Report {
+      readonly flags: boolean[];
+      readonly counts: number[];
+      readonly ratios: number[];
+      readonly names: string[];
+      readonly blobs: Uint8Array[];
+      readonly tags: { readonly key: string; readonly weight: number }[];
+      readonly levels: Level[];
+      readonly maybeCounts: number[] | undefined;
+      readonly maybeTags: { readonly key: string; readonly weight: number }[] | undefined;
+      readonly maybeLevels: Level[] | undefined;
+      readonly title: string;
+    }
+    const tsSource = unwrap(emitTypeScriptCodec(modelFor(td)));
+    const rust = unwrap(emitRustCodec(modelFor(td)));
+    const reportCodec = codecFor<Report>(tsSource, "ReportCodec");
+    const rustBlock = rust.slice(rust.indexOf("impl tdbin::Struct for Report {"));
+    const rustHash = BigInt(
+      rustBlock
+        .slice(rustBlock.indexOf("LAYOUT_HASH: u64 = ") + 19, rustBlock.indexOf(";", rustBlock.indexOf("LAYOUT_HASH")))
+        .replaceAll("_", "")
+    );
+    expect(reportCodec.layoutHash).toBe(rustHash);
+    expect(reportCodec.ptrWords).toBe(11);
+    expect(reportCodec.dataWords).toBe(0);
+    const full: Report = {
+      flags: [true, false, true, true, false, false, false, false, true],
+      counts: [0, -1, Number.MAX_SAFE_INTEGER, Number.MIN_SAFE_INTEGER],
+      ratios: [0.5, -0, Number.POSITIVE_INFINITY, 1e-300],
+      names: ["", "α", "two words"],
+      blobs: [new Uint8Array([]), new Uint8Array([0, 255, 7])],
+      tags: [
+        { key: "a", weight: 1.5 },
+        { key: "", weight: -2 },
+      ],
+      levels: [{ kind: "High" }, { kind: "Low" }, { kind: "High" }],
+      maybeCounts: [42],
+      maybeTags: [],
+      maybeLevels: [{ kind: "Low" }],
+      title: "full",
+    };
+    expect(unwrap(tdbin.decode(reportCodec, unwrap(tdbin.encode(reportCodec, full))))).toEqual(full);
+    const empty: Report = {
+      flags: [],
+      counts: [],
+      ratios: [],
+      names: [],
+      blobs: [],
+      tags: [],
+      levels: [],
+      maybeCounts: undefined,
+      maybeTags: undefined,
+      maybeLevels: undefined,
+      title: "",
+    };
+    expect(unwrap(tdbin.decode(reportCodec, unwrap(tdbin.encode(reportCodec, empty))))).toEqual(empty);
+    expect(unwrap(tdbin.decodeFramedBase64(reportCodec, unwrap(tdbin.encodeFramedBase64(reportCodec, full))))).toEqual(
+      full
+    );
+    const tooBig = tdbin.encode(reportCodec, { ...full, counts: [2 ** 60] });
+    expect(tooBig.ok ? "" : tooBig.error.code).toBe("LimitExceeded");
+    const shortWriter = codecFor<Record<string, never>>(
+      unwrap(emitTypeScriptCodec(modelFor("type Report {\n}"))),
+      "ReportCodec"
+    );
+    expect(unwrap(tdbin.decode(reportCodec, unwrap(tdbin.encode(shortWriter, {}))))).toEqual({
+      ...empty,
+      title: "",
+    });
+    const bigSource = unwrap(emitTypeScriptCodec(modelFor(td), { integerType: "bigint" }));
+    const bigCodec = codecFor<{ counts: bigint[] }>(bigSource, "ReportCodec");
+    const huge = { ...full, counts: [-(2n ** 63n), 2n ** 63n - 1n], maybeCounts: [0n] };
+    expect(unwrap(tdbin.decode(bigCodec, unwrap(tdbin.encode(bigCodec, huge))))).toEqual(huge);
+    const rawLevels = td.replace("levels: List<Level>", "levels: Bytes");
+    const rawCodec = codecFor<Report & { levels: Uint8Array }>(
+      unwrap(emitTypeScriptCodec(modelFor(rawLevels))),
+      "ReportCodec"
+    );
+    const unknown = tdbin.decode(
+      reportCodec,
+      unwrap(tdbin.encode(rawCodec, { ...full, levels: new Uint8Array([1, 9]) }))
+    );
+    expect(unknown.ok ? null : unknown.error).toMatchObject({ code: "UnknownVariant", ordinal: 9n });
+    const known = tdbin.decode(
+      reportCodec,
+      unwrap(tdbin.encode(rawCodec, { ...full, levels: new Uint8Array([1, 0]) }))
+    );
+    expect(unwrap(known).levels).toEqual([{ kind: "High" }, { kind: "Low" }]);
+  });
+
+  it("reproduces the Rust golden bytes for every List<T> form byte for byte [TDBIN-TS-LIST] [TDBIN-TEST-GOLDEN] #85", () => {
+    const fixture = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+    const golden = fixture("../../../../crates/tdbin/tests/golden/report_lists.hex").trim();
+    const codec = codecFor<Record<string, unknown>>(
+      unwrap(emitTypeScriptCodec(modelFor(fixture("./fixtures/reports.td")), { integerType: "bigint" })),
+      "ReportCodec"
+    );
+    const value = {
+      flags: [true, false, true, true, false, false, false, false, true],
+      counts: [0n, -1n, 2n ** 63n - 1n, -(2n ** 63n)],
+      ratios: [0.5, -0, Number.POSITIVE_INFINITY, 1e-300],
+      names: ["", "α", "two words"],
+      blobs: [new Uint8Array([]), new Uint8Array([0, 255, 7])],
+      tags: [
+        { key: "a", weight: 1.5 },
+        { key: "", weight: -2 },
+      ],
+      levels: [{ kind: "High" }, { kind: "Low" }, { kind: "High" }],
+      maybeCounts: [42n],
+      maybeTags: [],
+      maybeLevels: undefined,
+      title: "golden",
+    };
+    const bytes = unwrap(tdbin.encodePackedFramed(codec, value));
+    expect(tdbin.toHex(bytes)).toBe(golden);
+    expect(unwrap(tdbin.decodeFramed(codec, unwrap(tdbin.fromHex(golden))))).toEqual(value);
+    expect(unwrap(tdbin.frame.decodeFrame(bytes)).schemaHash).toBe(codec.layoutHash);
   });
 });

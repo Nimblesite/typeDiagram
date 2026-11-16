@@ -51,8 +51,11 @@ The implementation lives in:
       equivalent lossless representation.
 - [ ] Emit enum-unions as inline discriminant scalars, including
       `List<enum-union>`, rather than pointer child structs.
-- [ ] Complete generated support for lists, semantic scalars, scalar options,
-      generics, and every Rust codegen schema form.
+- [x] Generated support for every layout-1 list form and scalar options
+      ([TDBIN-TS-LIST]); a Rust-produced golden vector is reproduced byte for
+      byte by the generated TypeScript codec.
+- [ ] Generated support for semantic scalars, nested lists, maps, generics,
+      and layout-2 columnar groups.
 - [ ] Apply required-pointer null/default semantics consistently with the wire
       specification.
 - [x] Generate the compatibility-major layout hash and require it during normal

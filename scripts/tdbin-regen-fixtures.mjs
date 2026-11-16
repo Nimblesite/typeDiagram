@@ -92,6 +92,18 @@ const FIXTURES = [
 `,
   },
   {
+    out: "crates/tdbin/tests/generated_reports/mod.rs",
+    td: "packages/typediagram/test/converters/fixtures/reports.td",
+    layout: 1,
+    marker: MARKER_V1,
+    header: `//! [TDBIN-TS-LIST] GENERATED list-form fixture, emitted by
+//! \`packages/typediagram/src/converters/rust-tdbin.ts\` (\`generateRustModule\`)
+//! from \`packages/typediagram/test/converters/fixtures/reports.td\`. Included
+//! only by \`cross_lang.rs\`, which pins the Rust bytes the TypeScript codec
+//! must reproduce. Regenerate with \`node scripts/tdbin-regen-fixtures.mjs\`.
+`,
+  },
+  {
     out: "crates/tdbin/tests/generated_corpus/mod.rs",
     td: "docs/benchmarks/tdbin-corpus.td",
     layout: 2,

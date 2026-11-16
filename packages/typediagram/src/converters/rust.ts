@@ -323,11 +323,16 @@ const needsSerde = (d: ResolvedDataDecl): boolean =>
       (d.untagged === true ||
         d.variants.some((v) => !isTupleVariantFields(v.fields) && v.fields.some((f) => renameAttr(f) !== "")));
 
-const deriveLine = (d: ResolvedDataDecl, extra: readonly string[]): string[] =>
+/** Serde derives are module-wide: a type deriving `Serialize` needs every
+ *  type it contains to derive it too, so one serde attribute anywhere in the
+ *  emitted module turns them on for all of its types. */
+export const moduleNeedsSerde = (decls: readonly ResolvedDataDecl[]): boolean => decls.some(needsSerde);
+
+const deriveLine = (d: ResolvedDataDecl, extra: readonly string[], serde: boolean): string[] =>
   d.kind === "alias"
     ? []
     : [
-        `#[derive(${["Debug", "Clone", "PartialEq", ...extra, ...(needsSerde(d) ? ["serde::Serialize", "serde::Deserialize"] : [])].join(", ")})]`,
+        `#[derive(${["Debug", "Clone", "PartialEq", ...extra, ...(serde ? ["serde::Serialize", "serde::Deserialize"] : [])].join(", ")})]`,
       ];
 
 const emitRustVariant = (v: ResolvedVariant, docs: boolean): string => {
@@ -343,13 +348,18 @@ const emitRustVariant = (v: ResolvedVariant, docs: boolean): string => {
 };
 
 /** [CONV-RUST-DECL] [CONV-RUST-IDIOM] Emit one Rust type declaration: derives
- *  (`Debug, Clone, PartialEq`, plus `extraDerives`, plus serde when a serde
- *  attribute is needed), snake_case fields with `#[serde(rename)]` preserving
+ *  (`Debug, Clone, PartialEq`, plus `extraDerives`, plus serde when the
+ *  module needs a serde attribute — see `moduleNeedsSerde`), snake_case fields with `#[serde(rename)]` preserving
  *  the schema name. Shared by the type converter and the TDBIN codec generator.
  *  With `docs`, prepends `///` comments so the output is `missing_docs`-clean. */
-export const emitRustDecl = (d: ResolvedDataDecl, docs = false, extraDerives: readonly string[] = []): string[] => {
+export const emitRustDecl = (
+  d: ResolvedDataDecl,
+  docs = false,
+  extraDerives: readonly string[] = [],
+  serde = needsSerde(d)
+): string[] => {
   const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
-  const lead = [...(docs ? [rustDoc("", d.name, d.kind)] : []), ...deriveLine(d, extraDerives)];
+  const lead = [...(docs ? [rustDoc("", d.name, d.kind)] : []), ...deriveLine(d, extraDerives, serde)];
   const field = (f: ResolvedField): string =>
     [
       ...(docs ? [rustDoc("    ", f.name, "field")] : []),
@@ -365,7 +375,13 @@ export const emitRustDecl = (d: ResolvedDataDecl, docs = false, extraDerives: re
       ...lead,
       ...header,
       `pub enum ${d.name}${genericsStr} {`,
-      ...d.variants.map((v) => emitRustVariant(v, docs)),
+      ...d.variants.map((v, i) => {
+        const line = emitRustVariant(v, docs);
+        // [TDBIN-PTR-NULL] a derived `Default` on an enum names its first variant.
+        return i === 0 && extraDerives.includes("Default")
+          ? line.replace(`    ${v.name}`, `    #[default]\n    ${v.name}`)
+          : line;
+      }),
       "}",
       "",
     ];
@@ -373,10 +389,11 @@ export const emitRustDecl = (d: ResolvedDataDecl, docs = false, extraDerives: re
   return [...lead, `pub type ${d.name}${genericsStr} = ${mapTdToRs(d.target)};`, ""];
 };
 
-const toRust = (model: Model): string =>
-  visibleDataDeclsForTarget(model.decls, "rust")
-    .flatMap((d) => emitRustDecl(d))
-    .join("\n");
+const toRust = (model: Model): string => {
+  const decls = visibleDataDeclsForTarget(model.decls, "rust");
+  const serde = moduleNeedsSerde(decls);
+  return decls.flatMap((d) => emitRustDecl(d, false, [], serde)).join("\n");
+};
 
 export const rust: Converter = {
   language: "rust",
