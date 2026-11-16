@@ -10,13 +10,15 @@
 // codegen unknown-type validation [MODEL-CODEGEN-UNKNOWN] measure ~81 KB,
 // so that budget was 84 KB. The Typeshed AST adapter, function declarations,
 // and emitters add ~8 KB; @lezer/python remains an external runtime engine.
+// Width-refined integers + Path [MODEL-WIDTH] across all 12 converters and the
+// TS tdbin width/list/struct-variant codegen measure ~95 KB, so the budget is 96 KB.
 import { build } from "esbuild";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const entry = resolve(here, "..", "src", "index.ts");
-const BUDGET_KB = 93;
+const BUDGET_KB = 96;
 
 const result = await build({
   entryPoints: [entry],
