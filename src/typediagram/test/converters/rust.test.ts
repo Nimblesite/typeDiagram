@@ -348,7 +348,9 @@ type Plain {
       "#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]\npub struct RawParam {"
     );
     expect(module).toContain("w.string(at, Self::DATA_WORDS, 1, self.type_text.as_deref())?;");
-    expect(module).toContain("Ok(Self { name, type_text, is_named, is_http_server, default_value })");
+    expect(module).toContain(
+      "Ok(Self { name: f0, type_text: f1, is_named: f2, is_http_server: f3, default_value: f4 })"
+    );
     expect(module).toContain("Self::Moved { delta_x: f0, y: f1 } => {");
     expect(module).toContain(
       "pub struct EventMovedTdbinPayload {\n    /// The `delta_x` field.\n    pub delta_x: f64,"

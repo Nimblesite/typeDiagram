@@ -41,8 +41,7 @@ const names = (list: Extract<TsListPlan, { kind: "enum" }>): string => JSON.stri
 const at = (codec: string, slot: number): string => `writer, at, ${codec}.dataWords, ${String(slot)}`;
 
 /** Write lines; the final binding is `${field}` (a write Result). */
-export const writeListLines = (codec: string, field: string, plan: ListField): string[] => {
-  const v = `value.${field}`;
+export const writeListLines = (codec: string, field: string, v: string, plan: ListField): string[] => {
   const orNull = (expr: string): string => (plan.optional ? `${v} === undefined ? null : ${expr}` : expr);
   const target = at(codec, plan.slot);
   switch (plan.list.kind) {

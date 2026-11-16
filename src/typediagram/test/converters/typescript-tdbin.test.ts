@@ -3,17 +3,15 @@
 // the generated code ([TDBIN-FUTURE-TS], [TDBIN-REC-ALLOC]).
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { runInNewContext } from "node:vm";
-import * as ts from "typescript-compiler";
 import { describe, expect, it } from "vitest";
 import { emitRustCodec } from "../../src/converters/rust-tdbin.js";
 import { emitTypeScriptCodec, generateTypeScriptModule } from "../../src/converters/typescript-tdbin.js";
 import { buildModel } from "../../src/model/index.js";
 import { parse } from "../../src/parser/index.js";
-import type { Model } from "../../src/model/types.js";
 import { ok } from "../../src/result.js";
+import type { Model } from "../../src/model/types.js";
 import * as tdbin from "../../src/tdbin/index.js";
-import { expectErrorMessages, unwrap } from "./helpers.js";
+import { codecFor, expectErrorMessages, instantiateCodecs, unwrap } from "./helpers.js";
 
 const PERSON_TD = `type Address {
   street: String
@@ -41,27 +39,6 @@ type Person {
 }`;
 
 const modelFor = (td: string): Model => unwrap(buildModel(unwrap(parse(td))));
-
-// Executes generated codec source for behavior tests: the emitted TypeScript is
-// transpiled with the real compiler (never regex on code) and evaluated against
-// the real runtime, exactly as a consumer module would run it. The host-realm
-// Uint8Array is injected so generated defaults share the test realm.
-const instantiateCodecs = (source: string): Record<string, unknown> => {
-  const js = ts.transpileModule(source, {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
-  }).outputText;
-  const moduleExports: Record<string, unknown> = {};
-  runInNewContext(js, { exports: moduleExports, tdbin, ok, Uint8Array });
-  return moduleExports;
-};
-
-const codecFor = <T>(source: string, name: string): tdbin.StructCodec<T> => {
-  const generated = instantiateCodecs(source)[name];
-  expect(generated).toBeDefined();
-  // Safe: the generator declares every exported `${Type}Codec` as
-  // tdbin.StructCodec<Type>, pinned by the text assertions in this file.
-  return generated as tdbin.StructCodec<T>;
-};
 
 interface Sensor {
   readonly id: number;
@@ -154,7 +131,7 @@ describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
     expect(tdbin.decode(root, nullChild)).toEqual(ok({ child: { count: 0n, maybe: undefined, ratio: 0 } }));
     const moduleText = unwrap(generateTypeScriptModule(model, { integerType: "bigint" }));
     expect(moduleText).toContain("count: bigint;");
-    expect(moduleText).toContain("BigInt.asIntN(64, countWord.value)");
+    expect(moduleText).toContain("BigInt.asIntN(64, f0Word.value)");
     expect(moduleText).toContain("count: 0n");
     const ordinary = codecFor<{ count: number; maybe: number | undefined; ratio: number }>(
       unwrap(emitTypeScriptCodec(model)),
@@ -172,17 +149,17 @@ describe("[CONV-TS-TDBIN] TypeScript codec generator", () => {
     expect(code).toContain("dataWords: 3");
     expect(code).toContain("ptrWords: 4");
     expect(code).toContain("tdbin.writer.string(writer, at, PersonCodec.dataWords, 0, value.name)");
-    expect(code).toContain("const ageBits = tdbin.scalar.i64Bits(value.age);");
-    expect(code).toContain("if (!age.ok) return age;");
+    expect(code).toContain("const f1Bits = tdbin.scalar.i64Bits(value.age);");
+    expect(code).toContain("if (!f1.ok) return f1;");
     expect(code).toContain("tdbin.writer.boolBit(writer, at, 1, 0, value.active)");
     expect(code).toContain(
       "tdbin.writer.child(writer, at, PersonCodec.dataWords, 1, AddressCodec, value.address ?? null)"
     );
-    expect(code).toContain("const scoreWord = tdbin.reader.scalar(reader, at, 2);");
-    expect(code).toContain("age: tdbin.scalar.i64From(ageWord.value)");
-    expect(code).toContain("address: address.value ?? undefined");
-    expect(code).toContain('name: name.value ?? ""');
-    expect(code).toContain("contact: contact.value ?? defaultContact()");
+    expect(code).toContain("const f3Word = tdbin.reader.scalar(reader, at, 2);");
+    expect(code).toContain("age: tdbin.scalar.i64From(f1Word.value)");
+    expect(code).toContain("address: f4.value ?? undefined");
+    expect(code).toContain('name: f0.value ?? ""');
+    expect(code).toContain("contact: f6.value ?? defaultContact()");
     expect(code).not.toContain('tdbin.readerError("UnexpectedNull")');
   });
 
@@ -232,8 +209,8 @@ union Notice {
     );
     expect(code).toContain("tdbin.writer.bytes(writer, at, BlobCodec.dataWords, 0, value.raw)");
     expect(code).toContain("tdbin.writer.bytes(writer, at, BlobCodec.dataWords, 1, value.maybe ?? null)");
-    expect(code).toContain("raw: raw.value ?? new Uint8Array(0)");
-    expect(code).toContain("maybe: maybe.value ?? undefined");
+    expect(code).toContain("raw: f0.value ?? new Uint8Array(0)");
+    expect(code).toContain("maybe: f1.value ?? undefined");
     expect(code).toContain("const inactive = tdbin.reader.requireNullPointer(reader, at, 0);");
     expect(code).toContain('return inactive.ok ? ok({ kind: "Empty" }) : inactive;');
     expect(code).toContain("tdbin.writer.string(writer, at, NoticeCodec.dataWords, 0, value._0)");
@@ -277,7 +254,7 @@ union Notice {
     );
     expect(chain).toContain('const defaultLeaf = (): Leaf => ({ tag: "" });');
     expect(chain).toContain("const defaultMid = (): Mid => ({ leaf: defaultLeaf() });");
-    expect(chain).toContain("mid: mid.value ?? defaultMid()");
+    expect(chain).toContain("mid: f0.value ?? defaultMid()");
     const blob = unwrap(
       emitTypeScriptCodec(
         modelFor(
@@ -288,15 +265,15 @@ union Notice {
     expect(blob).toContain(
       "const defaultBlob = (): Blob => ({ raw: new Uint8Array(0), flag: false, ratio: 0, maybe: undefined });"
     );
-    expect(blob).toContain("blob: blob.value ?? defaultBlob()");
+    expect(blob).toContain("blob: f0.value ?? defaultBlob()");
     const emptyRec = unwrap(emitTypeScriptCodec(modelFor("type Empty {}\ntype Holder {\n  e: Empty\n}")));
     expect(emptyRec).toContain("const defaultEmpty = (): Empty => ({});");
-    expect(emptyRec).toContain("e: e.value ?? defaultEmpty()");
+    expect(emptyRec).toContain("e: f0.value ?? defaultEmpty()");
     const bareFirst = unwrap(
       emitTypeScriptCodec(modelFor("union Notice {\n  Empty\n  Text(String)\n}\ntype Holder {\n  notice: Notice\n}"))
     );
     expect(bareFirst).toContain('const defaultNotice = (): Notice => ({ kind: "Empty" });');
-    expect(bareFirst).toContain("notice: notice.value ?? defaultNotice()");
+    expect(bareFirst).toContain("notice: f0.value ?? defaultNotice()");
     const stringFirst = unwrap(
       emitTypeScriptCodec(modelFor("union Label {\n  Text(String)\n}\ntype Tag {\n  label: Label\n}"))
     );
@@ -338,19 +315,19 @@ union Notice {
     // flagged-VALUE bit 2, ratio-presence bit 3; count value w1, ratio w2.
     expect(code).toContain("dataWords: 3");
     expect(code).toContain("tdbin.writer.boolBit(writer, at, 0, 0, value.count !== undefined)");
-    expect(code).toContain("const countBits = tdbin.scalar.i64Bits(value.count ?? 0);");
-    expect(code).toContain("const count = tdbin.writer.scalar(writer, at, 1, countBits.value);");
+    expect(code).toContain("const f1Bits = tdbin.scalar.i64Bits(value.count ?? 0);");
+    expect(code).toContain("const f1 = tdbin.writer.scalar(writer, at, 1, f1Bits.value);");
     expect(code).toContain("tdbin.writer.boolBit(writer, at, 0, 1, value.flagged !== undefined)");
-    expect(code).toContain("const flagged = tdbin.writer.boolBit(writer, at, 0, 2, value.flagged ?? false);");
+    expect(code).toContain("const f2 = tdbin.writer.boolBit(writer, at, 0, 2, value.flagged ?? false);");
     expect(code).toContain("tdbin.writer.boolBit(writer, at, 0, 3, value.ratio !== undefined)");
-    expect(code).toContain("const ratio = tdbin.writer.scalar(writer, at, 2, tdbin.scalar.f64Bits(value.ratio ?? 0));");
-    expect(code).toContain("const countPresent = tdbin.reader.boolBit(reader, at, 0, 0);");
-    expect(code).toContain("const countWord = tdbin.reader.scalar(reader, at, 1);");
-    expect(code).toContain("count: countPresent.value ? tdbin.scalar.i64From(countWord.value) : undefined");
-    expect(code).toContain("const flaggedValue = tdbin.reader.boolBit(reader, at, 0, 2);");
-    expect(code).toContain("flagged: flaggedPresent.value ? flaggedValue.value : undefined");
-    expect(code).toContain("ratio: ratioPresent.value ? tdbin.scalar.f64From(ratioWord.value) : undefined");
-    expect(code).toContain("if (!countPresent.ok) return countPresent;");
+    expect(code).toContain("const f3 = tdbin.writer.scalar(writer, at, 2, tdbin.scalar.f64Bits(value.ratio ?? 0));");
+    expect(code).toContain("const f1Present = tdbin.reader.boolBit(reader, at, 0, 0);");
+    expect(code).toContain("const f1Word = tdbin.reader.scalar(reader, at, 1);");
+    expect(code).toContain("count: f1Present.value ? tdbin.scalar.i64From(f1Word.value) : undefined");
+    expect(code).toContain("const f2Value = tdbin.reader.boolBit(reader, at, 0, 2);");
+    expect(code).toContain("flagged: f2Present.value ? f2Value.value : undefined");
+    expect(code).toContain("ratio: f3Present.value ? tdbin.scalar.f64From(f3Word.value) : undefined");
+    expect(code).toContain("if (!f1Present.ok) return f1Present;");
   });
 
   it("bakes the SAME slot/bit numbers as the Rust emitter (cross-language layout parity)", () => {
@@ -368,7 +345,7 @@ union Notice {
     expect(rust).toContain("w.bool_bit(at, 0, 1, self.b.is_some())?;");
     expect(tsCode).toContain("tdbin.writer.boolBit(writer, at, 0, 1, value.b !== undefined)");
     expect(rust).toContain("w.scalar(at, 1, self.b.map_or(0, tdbin::scalar::i64_bits))?;");
-    expect(tsCode).toContain("tdbin.writer.scalar(writer, at, 1, bBits.value)");
+    expect(tsCode).toContain("tdbin.writer.scalar(writer, at, 1, f1Bits.value)");
     expect(rust).toContain("w.bool_bit(at, 0, 2, self.c.is_some())?;");
     expect(rust).toContain("w.bool_bit(at, 0, 3, self.c.unwrap_or_default())?;");
     expect(tsCode).toContain("tdbin.writer.boolBit(writer, at, 0, 2, value.c !== undefined)");
@@ -380,7 +357,7 @@ union Notice {
     expect(tsCode).toContain("tdbin.writer.boolBit(writer, at, 0, 5, value.e !== undefined)");
     expect(tsCode).toContain("tdbin.writer.scalar(writer, at, 2, tdbin.scalar.f64Bits(value.e ?? 0))");
     expect(rust).toContain("w.scalar(at, 3, tdbin::scalar::i64_bits(self.f))?;");
-    expect(tsCode).toContain("const f = tdbin.writer.scalar(writer, at, 3, fBits.value);");
+    expect(tsCode).toContain("const f5 = tdbin.writer.scalar(writer, at, 3, f5Bits.value);");
   });
 
   it("executes generated Option<scalar> codecs: present and absent round-trips [TDBIN-PRIM-OPTION]", () => {

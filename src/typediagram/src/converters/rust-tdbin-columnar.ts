@@ -113,7 +113,7 @@ const recordColumns = (decls: readonly ResolvedDecl[], rec: ResolvedRecord): Res
   const columns = columnPlans(decls, rec);
   return isFieldError(columns)
     ? err(diag(columns.error))
-    : ok(columns.map((c) => ({ ...c, read: readColumn(c.name, c.slot, c.plan) })));
+    : ok(columns.map((c, i) => ({ ...c, read: readColumn(`f${String(i)}`, c.slot, c.plan) })));
 };
 
 const recordReadBody = (columns: RecordColumn[]): string[] => {
@@ -148,7 +148,8 @@ const emitRecordGroup = (decls: readonly ResolvedDecl[], rec: ResolvedRecord): R
 
 type UnionVariant = UnionPlan["variants"][number];
 
-/** A union variant with its allocated payload slot and snake_case local name. */
+/** [TDBIN-CODEGEN-LOCALS] A union variant with its allocated payload slot and positional local name
+ *  (`v0`, `v0_count`): variant-derived names could shadow `w`/`r`/`at`/`items`. */
 export interface UnionColumn extends UnionVariant {
   slot: number;
   local: string;
@@ -158,18 +159,16 @@ type PayloadColumn = UnionColumn & { payload: Exclude<UnionVariant["payload"], n
 
 const hasPayload = (v: UnionColumn): v is PayloadColumn => v.payload !== null;
 
-const snake = (name: string): string => name.replace(/([a-z0-9])([A-Z])/g, "$1_$2").toLowerCase();
-
 /** Column slots a variant's payload occupies ([TDBIN-COL-UNION]). */
 export const payloadSlots = (v: UnionVariant): number => (v.payload === null ? 0 : v.payload.kind === "child" ? 1 : 2);
 
 /** Per-variant payload column slots, allocated after the tag column at slot 0. */
 export const unionColumns = (plan: UnionPlan): UnionColumn[] => {
   let slot = 1;
-  return plan.variants.map((v) => {
+  return plan.variants.map((v, i) => {
     const at = slot;
     slot = slot + payloadSlots(v);
-    return { ...v, slot: at, local: snake(v.name) };
+    return { ...v, slot: at, local: `v${String(i)}` };
   });
 };
 

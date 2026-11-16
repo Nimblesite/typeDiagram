@@ -82,9 +82,9 @@ impl tdbin::Struct for Point {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let x = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let y = tdbin::scalar::f64_from(r.scalar(at, 1)?);
-        Ok(Self { x, y })
+        let f0 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f1 = tdbin::scalar::f64_from(r.scalar(at, 1)?);
+        Ok(Self { x: f0, y: f1 })
     }
 }
 
@@ -218,15 +218,15 @@ impl tdbin::Struct for Canvas {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let name = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let shape = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r
             .child::<Shape>(at, Self::DATA_WORDS, 1)?
             .unwrap_or_default();
-        let backup = r.child::<Shape>(at, Self::DATA_WORDS, 2)?;
+        let f2 = r.child::<Shape>(at, Self::DATA_WORDS, 2)?;
         Ok(Self {
-            name,
-            shape,
-            backup,
+            name: f0,
+            shape: f1,
+            backup: f2,
         })
     }
 }
@@ -243,9 +243,12 @@ impl tdbin::Struct for ShapeCircleTdbinPayload {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let radius = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let label = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        Ok(Self { radius, label })
+        let f0 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f1 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        Ok(Self {
+            radius: f0,
+            label: f1,
+        })
     }
 }
 
@@ -262,12 +265,16 @@ impl tdbin::Struct for ShapeRectTdbinPayload {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let w = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let h = tdbin::scalar::f64_from(r.scalar(at, 1)?);
-        let corner = r
+        let f0 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f1 = tdbin::scalar::f64_from(r.scalar(at, 1)?);
+        let f2 = r
             .child::<Point>(at, Self::DATA_WORDS, 0)?
             .unwrap_or_default();
-        Ok(Self { w, h, corner })
+        Ok(Self {
+            w: f0,
+            h: f1,
+            corner: f2,
+        })
     }
 }
 
@@ -283,8 +290,8 @@ impl tdbin::Struct for ShapePairTdbinPayload {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let v0 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let v1 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        Ok(Self { v0, v1 })
+        let f0 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f1 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        Ok(Self { v0: f0, v1: f1 })
     }
 }

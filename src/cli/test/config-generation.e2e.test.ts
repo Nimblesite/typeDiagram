@@ -257,7 +257,7 @@ describe("[CLI-CONFIG-GENERATE] configured ADT generation", () => {
     const firstRustHash = hashOf(rustCodec, "LAYOUT_HASH: u64 = ", ";");
     await writeFile(sourcePath, source("  id: Int\n  name: String"), "utf8");
     await vi.waitFor(async () => {
-      expect(await readFile(out("codec.rs"), "utf8")).toContain("let name = r.string(");
+      expect(await readFile(out("codec.rs"), "utf8")).toContain("Ok(Self { id: f0, name: f1 })");
       expect(await readFile(out("wire.ts"), "utf8")).toContain(
         "tdbin.writer.string(writer, at, PersonCodec.dataWords, 0, value.name)"
       );

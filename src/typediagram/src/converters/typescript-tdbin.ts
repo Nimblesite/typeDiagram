@@ -33,19 +33,22 @@ import { typescript } from "./typescript.js";
 const tsNum = (value: number): string => String(value);
 
 /** Write the 1-bit presence flag; absent values write zero lanes ([TDBIN-ENC-ZERO]). */
-const writePresenceLines = (field: string, plan: { presenceSlot: number; presenceBit: number }): string[] => [
-  `    const ${field}Present = tdbin.writer.boolBit(writer, at, ${tsNum(plan.presenceSlot)}, ${tsNum(plan.presenceBit)}, value.${field} !== undefined);`,
+const writePresenceLines = (
+  field: string,
+  src: string,
+  plan: { presenceSlot: number; presenceBit: number }
+): string[] => [
+  `    const ${field}Present = tdbin.writer.boolBit(writer, at, ${tsNum(plan.presenceSlot)}, ${tsNum(plan.presenceBit)}, ${src} !== undefined);`,
   `    if (!${field}Present.ok) return ${field}Present;`,
 ];
 
-const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[] => {
-  const value = `value.${field}`;
+const emitWriteField = (codec: string, field: string, value: string, plan: FieldPlan): string[] => {
   switch (plan.kind) {
     case "width":
     case "optWidth":
-      return writeWidthLines(field, plan);
+      return writeWidthLines(field, value, plan);
     case "list":
-      return writeListLines(codec, field, plan);
+      return writeListLines(codec, field, value, plan);
     case "int":
       return [
         `    const ${field}Bits = tdbin.scalar.i64Bits(${value});`,
@@ -62,19 +65,19 @@ const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[]
       ];
     case "optInt":
       return [
-        ...writePresenceLines(field, plan),
+        ...writePresenceLines(field, value, plan),
         `    const ${field}Bits = tdbin.scalar.i64Bits(${value} ?? 0);`,
         `    if (!${field}Bits.ok) return ${field}Bits;`,
         `    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.valueSlot)}, ${field}Bits.value);`,
       ];
     case "optFloat":
       return [
-        ...writePresenceLines(field, plan),
+        ...writePresenceLines(field, value, plan),
         `    const ${field} = tdbin.writer.scalar(writer, at, ${tsNum(plan.valueSlot)}, tdbin.scalar.f64Bits(${value} ?? 0));`,
       ];
     case "optBool":
       return [
-        ...writePresenceLines(field, plan),
+        ...writePresenceLines(field, value, plan),
         `    const ${field} = tdbin.writer.boolBit(writer, at, ${tsNum(plan.valueSlot)}, ${tsNum(plan.valueBit)}, ${value} ?? false);`,
       ];
     case "string":
@@ -179,14 +182,17 @@ const fieldValue = (field: string, plan: FieldPlan, options: TypeScriptOpts): st
 
 const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, hash: bigint, options: TypeScriptOpts): string => {
   const codec = `${record.name}Codec`;
-  // Write results always bind to the plain field name; `fieldResultName` is the
-  // READ-path binding (`${field}Word` for scalars) and must not guard writes.
-  const writeLines = plan.fields.flatMap(({ name, plan: fieldPlan }) => [
-    ...emitWriteField(codec, name, fieldPlan),
-    `    if (!${name}.ok) return ${name};`,
+  // Locals are positional (`f0`, `f0Word`, …), never the field name: a field
+  // called `value`, `writer`, `at`, `tdbin` or a reserved word would otherwise
+  // shadow the codec's parameters/imports or fail to parse ([TDBIN-CODEGEN-LOCALS]).
+  // Write results bind to the plain local; `fieldResultNames` lists READ-path bindings.
+  const local = (i: number): string => `f${String(i)}`;
+  const writeLines = plan.fields.flatMap(({ name, plan: fieldPlan }, i) => [
+    ...emitWriteField(codec, local(i), `value.${name}`, fieldPlan),
+    `    if (!${local(i)}.ok) return ${local(i)};`,
   ]);
-  const readLines = plan.fields.flatMap(({ name, plan: fieldPlan }) => emitReadField(codec, name, fieldPlan));
-  const resultNames = plan.fields.flatMap(({ name, plan: fieldPlan }) => fieldResultNames(name, fieldPlan));
+  const readLines = plan.fields.flatMap(({ plan: fieldPlan }, i) => emitReadField(codec, local(i), fieldPlan));
+  const resultNames = plan.fields.flatMap(({ plan: fieldPlan }, i) => fieldResultNames(local(i), fieldPlan));
   return [
     `export const ${codec}: tdbin.StructCodec<${record.name}> = {`,
     hashLine(hash),
@@ -199,7 +205,7 @@ const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, hash: bigint,
     `  read: (reader, at) => {`,
     ...readLines,
     ...resultNames.map((name) => `    if (!${name}.ok) return ${name};`),
-    `    return ok({ ${plan.fields.map(({ name, plan: fieldPlan }) => `${name}: ${fieldValue(name, fieldPlan, options)}`).join(", ")} });`,
+    `    return ok({ ${plan.fields.map(({ name, plan: fieldPlan }, i) => `${name}: ${fieldValue(local(i), fieldPlan, options)}`).join(", ")} });`,
     `  },`,
     `};`,
   ].join("\n");

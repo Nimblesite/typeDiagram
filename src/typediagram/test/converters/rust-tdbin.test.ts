@@ -42,8 +42,8 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
     expect(code).toContain("w.scalar(at, 0, tdbin::scalar::i64_bits(self.age))?;");
     expect(code).toContain("w.bool_bit(at, 1, 0, self.active)?;");
     expect(code).toContain("w.scalar(at, 2, tdbin::scalar::f64_bits(self.score))?;");
-    expect(code).toContain("let age = tdbin::scalar::i64_from(r.scalar(at, 0)?);");
-    expect(code).toContain("let active = r.bool_bit(at, 1, 0)?;");
+    expect(code).toContain("let f1 = tdbin::scalar::i64_from(r.scalar(at, 0)?);");
+    expect(code).toContain("let f2 = r.bool_bit(at, 1, 0)?;");
   });
 
   it("distinguishes required vs optional pointer fields on read and write", () => {
@@ -51,17 +51,17 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
     // Required String: write Some(&..), read decodes null as the schema
     // default ([TDBIN-PTR-NULL], [TDBIN-REC-SHORT]).
     expect(code).toContain("w.string(at, Self::DATA_WORDS, 0, Some(&self.name))?;");
-    expect(code).toContain("let name = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
+    expect(code).toContain("let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
     expect(code).not.toContain("UnexpectedNull");
     // Optional String: write as_deref(), read keeps the Option.
     expect(code).toContain("w.string(at, Self::DATA_WORDS, 2, self.nickname.as_deref())?;");
-    expect(code).toContain("let nickname = r.string(at, Self::DATA_WORDS, 2)?;");
+    expect(code).toContain("let f5 = r.string(at, Self::DATA_WORDS, 2)?;");
     // Optional child record: write as_ref(), read keeps the Option.
     expect(code).toContain("w.child(at, Self::DATA_WORDS, 1, self.address.as_ref())?;");
-    expect(code).toContain("let address = r.child::<Address>(at, Self::DATA_WORDS, 1)?;");
+    expect(code).toContain("let f4 = r.child::<Address>(at, Self::DATA_WORDS, 1)?;");
     // Required child union: write Some(&..), read defaults null.
     expect(code).toContain("w.child(at, Self::DATA_WORDS, 3, Some(&self.contact))?;");
-    expect(code).toContain("let contact = r.child::<Contact>(at, Self::DATA_WORDS, 3)?.unwrap_or_default();");
+    expect(code).toContain("let f6 = r.child::<Contact>(at, Self::DATA_WORDS, 3)?.unwrap_or_default();");
   });
 
   it("emits union discriminant arms as Self:: with a slot-verified UnknownVariant fallback and a first-variant Default", () => {
@@ -98,9 +98,9 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
   it("routes Bytes and Option<Bytes> through the pointer section", () => {
     const code = codecFor(`type Blob {\n  avatar: Bytes\n  thumb: Option<Bytes>\n}`);
     expect(code).toContain("w.bytes(at, Self::DATA_WORDS, 0, Some(&self.avatar))?;");
-    expect(code).toContain("let avatar = r.bytes(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
+    expect(code).toContain("let f0 = r.bytes(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
     expect(code).toContain("w.bytes(at, Self::DATA_WORDS, 1, self.thumb.as_deref())?;");
-    expect(code).toContain("let thumb = r.bytes(at, Self::DATA_WORDS, 1)?;");
+    expect(code).toContain("let f1 = r.bytes(at, Self::DATA_WORDS, 1)?;");
   });
 
   it("packs direct Bool fields into reusable bitset words", () => {
@@ -112,7 +112,7 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
     expect(code).toContain("w.scalar(at, 1, tdbin::scalar::i64_bits(self.count))?;");
     expect(code).toContain("w.bool_bit(at, 0, 1, self.b)?;");
     expect(code).toContain("w.bool_bit(at, 0, 2, self.c)?;");
-    expect(code).toContain("let b = r.bool_bit(at, 0, 1)?;");
+    expect(code).toContain("let f2 = r.bool_bit(at, 0, 1)?;");
   });
 
   it("emits string-payload, bare, and all-bare union arms", () => {
@@ -169,13 +169,13 @@ describe("[CONV-RUST-TDBIN] Option<scalar> presence + value slots", () => {
     expect(code).toContain("w.bool_bit(at, 0, 3, self.ratio.is_some())?;");
     expect(code).toContain("w.scalar(at, 2, self.ratio.map_or(0, tdbin::scalar::f64_bits))?;");
     // Read: the presence bit gates then_some over the decoded value.
-    expect(code).toContain("let count_present = r.bool_bit(at, 0, 0)?;");
-    expect(code).toContain("let count_value = tdbin::scalar::i64_from(r.scalar(at, 1)?);");
-    expect(code).toContain("let count = count_present.then_some(count_value);");
-    expect(code).toContain("let flagged_value = r.bool_bit(at, 0, 2)?;");
-    expect(code).toContain("let flagged = flagged_present.then_some(flagged_value);");
-    expect(code).toContain("let ratio_value = tdbin::scalar::f64_from(r.scalar(at, 2)?);");
-    expect(code).toContain("let ratio = ratio_present.then_some(ratio_value);");
+    expect(code).toContain("let f1_present = r.bool_bit(at, 0, 0)?;");
+    expect(code).toContain("let f1_value = tdbin::scalar::i64_from(r.scalar(at, 1)?);");
+    expect(code).toContain("let f1 = f1_present.then_some(f1_value);");
+    expect(code).toContain("let f2_value = r.bool_bit(at, 0, 2)?;");
+    expect(code).toContain("let f2 = f2_present.then_some(f2_value);");
+    expect(code).toContain("let f3_value = tdbin::scalar::f64_from(r.scalar(at, 2)?);");
+    expect(code).toContain("let f3 = f3_present.then_some(f3_value);");
     expect(code).not.toContain("u64::from(self.count.is_some())");
   });
 });
@@ -196,7 +196,7 @@ describe("[CONV-RUST-TDBIN] semantic scalar byte layouts", () => {
     expect(code).toContain(
       "w.scalar(at, 2, self.expires_at.as_ref().map_or(0, |value| tdbin::scalar::i64_bits(value.timestamp_micros())))?;"
     );
-    expect(code).toContain("let expires_at_present = r.bool_bit(at, 1, 0)?;");
+    expect(code).toContain("let f1_present = r.bool_bit(at, 1, 0)?;");
     expect(code).toContain("let id_words = tdbin::scalar::bytes16_words(self.id.as_bytes());");
     expect(code).toContain("w.scalar(at, 3, id_words.0)?;");
     expect(code).toContain("let amount_words = tdbin::scalar::bytes16_words(&self.amount.serialize());");
@@ -207,7 +207,7 @@ describe("[CONV-RUST-TDBIN] semantic scalar byte layouts", () => {
     expect(code).toContain("w.bool_bit(at, 1, 1, parent_words.is_some())?;");
     expect(code).toContain("w.scalar(at, 8, parent_lo)?;");
     expect(code).toContain("w.scalar(at, 9, parent_hi)?;");
-    expect(code).toContain("let parent_present = r.bool_bit(at, 1, 1)?;");
+    expect(code).toContain("let f4_present = r.bool_bit(at, 1, 1)?;");
     expect(code).toContain("chrono::DateTime::<chrono::Utc>::from_timestamp_micros");
     expect(code).toContain("uuid::Uuid::from_bytes(tdbin::scalar::bytes16_from_words");
     expect(code).toContain("rust_decimal::Decimal::deserialize(tdbin::scalar::bytes16_from_words");
@@ -237,16 +237,16 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
     expect(code).toContain("w.byte_list(at, Self::DATA_WORDS, 6, Some(&colors_ordinals))?;");
     expect(code).toContain("w.i64_list(at, Self::DATA_WORDS, 7, self.maybe_scores.as_deref())?;");
     expect(code).not.toContain("maybeScores_words");
-    expect(code).toContain("let flags = r.bool_list(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
-    expect(code).toContain("let scores = r.i64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();");
-    expect(code).toContain("let ratios = r.f64_list(at, Self::DATA_WORDS, 8)?.unwrap_or_default();");
-    expect(code).toContain("let tags = r.string_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();");
-    expect(code).toContain("let blobs = r.bytes_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();");
-    expect(code).toContain("let points = r.child_list::<Point>(at, Self::DATA_WORDS, 4)?.unwrap_or_default();");
-    expect(code).toContain("let ids = r.bytes16_list(at, Self::DATA_WORDS, 5)?.unwrap_or_default()");
+    expect(code).toContain("let f0 = r.bool_list(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
+    expect(code).toContain("let f1 = r.i64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();");
+    expect(code).toContain("let f8 = r.f64_list(at, Self::DATA_WORDS, 8)?.unwrap_or_default();");
+    expect(code).toContain("let f2 = r.string_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();");
+    expect(code).toContain("let f3 = r.bytes_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();");
+    expect(code).toContain("let f4 = r.child_list::<Point>(at, Self::DATA_WORDS, 4)?.unwrap_or_default();");
+    expect(code).toContain("let f5 = r.bytes16_list(at, Self::DATA_WORDS, 5)?.unwrap_or_default()");
     expect(code).toContain("0 => Ok(Color::Red),");
     expect(code).toContain("ordinal => Err(tdbin::DecodeError::UnknownVariant { ordinal: u64::from(ordinal) })");
-    expect(code).toContain("let maybe_scores = r.i64_list(at, Self::DATA_WORDS, 7)?;");
+    expect(code).toContain("let f7 = r.i64_list(at, Self::DATA_WORDS, 7)?;");
   });
 
   it("emits optional DateTime, bytes16, and enum list branches", () => {
@@ -263,10 +263,10 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
     expect(code).toContain("w.bytes16_list(at, Self::DATA_WORDS, 1, ids_words.as_deref())?;");
     expect(code).toContain("let colors_ordinals = self.colors.as_ref().map(|values| values.iter().map");
     expect(code).toContain("w.byte_list(at, Self::DATA_WORDS, 2, colors_ordinals.as_deref())?;");
-    expect(code).toContain("let history = match r.word_list(at, Self::DATA_WORDS, 0)? {");
+    expect(code).toContain("let f0 = match r.word_list(at, Self::DATA_WORDS, 0)? {");
     expect(code).toContain("Some(values) => Some(values.into_iter().map(|word| chrono::DateTime");
-    expect(code).toContain("let ids = r.bytes16_list(at, Self::DATA_WORDS, 1)?.map");
-    expect(code).toContain("let colors = match r.byte_list(at, Self::DATA_WORDS, 2)? {");
+    expect(code).toContain("let f1 = r.bytes16_list(at, Self::DATA_WORDS, 1)?.map");
+    expect(code).toContain("let f2 = match r.byte_list(at, Self::DATA_WORDS, 2)? {");
   });
 
   it("uses composite lists for mixed unions", () => {
@@ -274,7 +274,7 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
       `type Payload {\n  label: String\n}\nunion Event {\n  Seen(Payload)\n  Empty\n}\ntype Stream {\n  events: List<Event>\n}`
     );
     expect(code).toContain("w.child_list(at, Self::DATA_WORDS, 0, Some(&self.events))?;");
-    expect(code).toContain("let events = r.child_list::<Event>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
+    expect(code).toContain("let f0 = r.child_list::<Event>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
   });
 
   it("rejects List<enum> when one-byte ordinals would overflow", () => {
@@ -325,13 +325,13 @@ describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)
   it("emits Option<empty-record> with null reserved for None", () => {
     const code = unwrap(emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  maybe: Option<Empty>\n}`)));
     expect(code).toContain("w.child(at, Self::DATA_WORDS, 0, self.maybe.as_ref())?;");
-    expect(code).toContain("let maybe = r.child::<Empty>(at, Self::DATA_WORDS, 0)?;");
+    expect(code).toContain("let f0 = r.child::<Empty>(at, Self::DATA_WORDS, 0)?;");
   });
 
   it("emits required empty-record child pointers with the non-null marker", () => {
     const code = unwrap(emitRustCodec(modelFor(`type Empty {\n}\ntype Holder {\n  value: Empty\n}`)));
     expect(code).toContain("w.child(at, Self::DATA_WORDS, 0, Some(&self.value))?;");
-    expect(code).toContain("let value = r.child::<Empty>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
+    expect(code).toContain("let f0 = r.child::<Empty>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
   });
 
   it("rejects List<empty-record> before composite count would lose element identity", () => {
@@ -406,11 +406,11 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
       /impl tdbin::Struct for Batch \{\n[ ]{4}const DATA_WORDS: u16 = 0;\n[ ]{4}const PTR_WORDS: u16 = 5;/
     );
     expect(code).toContain("w.column_list(at, Self::DATA_WORDS, 0, Some(&self.rows))?;");
-    expect(code).toContain("let rows = r.column_list::<Row>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
+    expect(code).toContain("let f0 = r.column_list::<Row>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
     expect(code).toContain("w.string_var_list(at, Self::DATA_WORDS, 1, 2, Some(&self.labels))?;");
     expect(code).toContain(
       [
-        "        let labels = match r.var_list(at, Self::DATA_WORDS, 1, 2)? {",
+        "        let f1 = match r.var_list(at, Self::DATA_WORDS, 1, 2)? {",
         "            Some(column) => column.into_strings()?,",
         "            None => Vec::new(),",
         "        };",
@@ -419,9 +419,9 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     // List<Int> fields become frame-of-reference delta blocks at layout 2
     // ([TDBIN-COL-INTBLOCK]); empty round-trips as null like var lists.
     expect(code).toContain("w.i64_block_list(at, Self::DATA_WORDS, 3, Some(&self.nums))?;");
-    expect(code).toContain("let nums = r.i64_block_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();");
+    expect(code).toContain("let f2 = r.i64_block_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();");
     expect(code).toContain("w.opt_column_list(at, Self::DATA_WORDS, 4, self.extra.as_deref())?;");
-    expect(code).toContain("let extra = r.column_list::<Row>(at, Self::DATA_WORDS, 4)?;");
+    expect(code).toContain("let f3 = r.column_list::<Row>(at, Self::DATA_WORDS, 4)?;");
     // Row group plan ([TDBIN-COL-PLAN]): title 0-1, active 2, age 3, score 4,
     // nickname 5-7, detail 8-9, kind 10, tags 11-13 -> 14 columns.
     expect(code).toContain("impl tdbin::ColumnGroup for Row {\n    const COLUMNS: u16 = 14;");
@@ -437,8 +437,10 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     // Option<record>: validity bits then a DENSE child group, partitioned
     // ONCE into a ref vector whose len replaces a second counting pass.
     expect(code).toContain("w.bit_column(at, 1, 8, count, items.clone().map(|row| row.detail.is_some()))?;");
-    expect(code).toContain("let detail: Vec<&Detail> = items.clone().filter_map(|row| row.detail.as_ref()).collect();");
-    expect(code).toContain("w.dense_group(at, 1, 9, detail.len(), detail.iter().copied())?;");
+    expect(code).toContain(
+      "let detail_some: Vec<&Detail> = items.clone().filter_map(|row| row.detail.as_ref()).collect();"
+    );
+    expect(code).toContain("w.dense_group(at, 1, 9, detail_some.len(), detail_some.iter().copied())?;");
     expect(code).not.toContain("let detail_count = items.clone().filter(|row| row.detail.is_some()).count();");
     // Union field: one dense union group aligned to every row.
     expect(code).toContain("w.dense_group(at, 1, 10, count, items.clone().map(|row| &row.kind))?;");
@@ -455,30 +457,30 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     );
     // Row reads: aligned columns index by row, dense/var columns consume
     // exactly-counted iterators, nested lists take per-row slices.
-    expect(code).toContain("let mut title = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();");
-    expect(code).toContain("let active = r.bit_column(at, 2, count)?;");
-    expect(code).toContain("active: active.get(i).copied().unwrap_or_default(),");
-    expect(code).toContain("let age = r.i64_block_column(at, 3, count)?;");
-    expect(code).toContain("let score = r.f64_column(at, 4, count)?;");
-    expect(code).toContain("let nickname_valid = r.bit_column(at, 5, count)?;");
-    expect(code).toContain("let nickname_values = r.var_column(at, 6, 7, count)?.into_strings()?;");
+    expect(code).toContain("let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();");
+    expect(code).toContain("let f1 = r.bit_column(at, 2, count)?;");
+    expect(code).toContain("active: f1.get(i).copied().unwrap_or_default(),");
+    expect(code).toContain("let f2 = r.i64_block_column(at, 3, count)?;");
+    expect(code).toContain("let f3 = r.f64_column(at, 4, count)?;");
+    expect(code).toContain("let f4_valid = r.bit_column(at, 5, count)?;");
+    expect(code).toContain("let f4_values = r.var_column(at, 6, 7, count)?.into_strings()?;");
     expect(code).toContain(
-      "let mut nickname = nickname_valid.into_iter().zip(nickname_values).map(|(valid, value)| valid.then_some(value));"
+      "let mut f4 = f4_valid.into_iter().zip(f4_values).map(|(valid, value)| valid.then_some(value));"
     );
-    expect(code).toContain("let detail_count = detail_valid.iter().filter(|present| **present).count();");
-    expect(code).toContain("let mut detail = r.dense_group::<Detail>(at, 9, detail_count)?.into_iter();");
+    expect(code).toContain("let f5_count = f5_valid.iter().filter(|present| **present).count();");
+    expect(code).toContain("let mut f5 = r.dense_group::<Detail>(at, 9, f5_count)?.into_iter();");
     expect(code).toContain(
-      "detail: detail_valid.get(i).copied().unwrap_or_default().then(|| detail.next().ok_or(tdbin::DecodeError::MalformedColumn)).transpose()?,"
+      "detail: f5_valid.get(i).copied().unwrap_or_default().then(|| f5.next().ok_or(tdbin::DecodeError::MalformedColumn)).transpose()?,"
     );
-    expect(code).toContain("let mut kind = r.dense_group::<Kind>(at, 10, count)?.into_iter();");
-    expect(code).toContain("let tags_counts = r.len_column(at, 11, count)?;");
-    expect(code).toContain("let tags_total = tdbin::column_total(&tags_counts)?;");
-    expect(code).toContain("let mut tags = r.var_column(at, 12, 13, tags_total)?.into_strings()?.into_iter();");
+    expect(code).toContain("let mut f6 = r.dense_group::<Kind>(at, 10, count)?.into_iter();");
+    expect(code).toContain("let f7_counts = r.len_column(at, 11, count)?;");
+    expect(code).toContain("let f7_total = tdbin::column_total(&f7_counts)?;");
+    expect(code).toContain("let mut f7 = r.var_column(at, 12, 13, f7_total)?.into_strings()?.into_iter();");
     expect(code).toContain(
-      "let tags_take = usize::try_from(tags_counts.get(i).copied().unwrap_or(0)).map_err(|_| tdbin::DecodeError::LimitExceeded)?;"
+      "let f7_take = usize::try_from(f7_counts.get(i).copied().unwrap_or(0)).map_err(|_| tdbin::DecodeError::LimitExceeded)?;"
     );
     expect(code).toContain(
-      "tags: (0..tags_take).map(|_| tags.next().ok_or(tdbin::DecodeError::MalformedColumn)).collect::<Result<Vec<_>, _>>()?,"
+      "tags: (0..f7_take).map(|_| f7.next().ok_or(tdbin::DecodeError::MalformedColumn)).collect::<Result<Vec<_>, _>>()?,"
     );
     // Transitively reached groups: Detail via Option<record> + union payload,
     // Extra via the second union payload ([TDBIN-COL-PLAN] closure).
@@ -500,22 +502,22 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     // re-scan of the full item list, no separate matches! counting pass).
     expect(code).toContain(
       [
-        "        let basic: Vec<&Detail> = items.clone().filter_map(|row| match row {",
+        "        let v0: Vec<&Detail> = items.clone().filter_map(|row| match row {",
         "            Self::Basic(payload) => Some(payload),",
         "            Self::Extended(_) | Self::Bare => None,",
         "        }).collect();",
-        "        w.dense_group(at, 1, 1, basic.len(), basic.iter().copied())?;",
+        "        w.dense_group(at, 1, 1, v0.len(), v0.iter().copied())?;",
       ].join("\n")
     );
     expect(code).not.toContain("matches!(row, Self::Basic(_))");
     expect(code).toContain("let tags = r.byte_column(at, 0, count)?;");
     // Tag histograms sum bit-matches instead of the naive bytecount pattern.
-    expect(code).toContain("let basic_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();");
-    expect(code).toContain("let extended_count = tags.iter().map(|tag| usize::from(*tag == 1)).sum::<usize>();");
+    expect(code).toContain("let v0_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();");
+    expect(code).toContain("let v1_count = tags.iter().map(|tag| usize::from(*tag == 1)).sum::<usize>();");
     expect(code).not.toContain(".filter(|tag| **tag == 0).count()");
-    expect(code).toContain("let mut basic = r.dense_group::<Detail>(at, 1, basic_count)?.into_iter();");
-    expect(code).toContain("let mut extended = r.dense_group::<Extra>(at, 2, extended_count)?.into_iter();");
-    expect(code).toContain("0 => Self::Basic(basic.next().ok_or(tdbin::DecodeError::MalformedColumn)?),");
+    expect(code).toContain("let mut v0 = r.dense_group::<Detail>(at, 1, v0_count)?.into_iter();");
+    expect(code).toContain("let mut v1 = r.dense_group::<Extra>(at, 2, v1_count)?.into_iter();");
+    expect(code).toContain("0 => Self::Basic(v0.next().ok_or(tdbin::DecodeError::MalformedColumn)?),");
     expect(code).toContain("2 => Self::Bare,");
     // Columnar unknown tags fail typed WITHOUT re-verifying slots (every
     // column was already visited by the reads above the tag loop).
@@ -542,22 +544,22 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     expect(code).toContain("impl tdbin::ColumnGroup for Sensor {\n    const COLUMNS: u16 = 35;");
     // Bytes var column and Option<Bytes> with zero-length absent lanes.
     expect(code).toContain("w.var_column(at, 1, 0, 1, count, items.clone().map(|row| row.raw.as_slice()))?;");
-    expect(code).toContain("let mut raw = r.var_column(at, 0, 1, count)?.into_byte_vecs()?.into_iter();");
+    expect(code).toContain("let mut f0 = r.var_column(at, 0, 1, count)?.into_byte_vecs()?.into_iter();");
     expect(code).toContain(
       "w.var_column(at, 1, 14, 15, count, items.clone().map(|row| row.thumb.as_deref().unwrap_or_default()))?;"
     );
-    expect(code).toContain("let thumb_values = r.var_column(at, 14, 15, count)?.into_byte_vecs()?;");
+    expect(code).toContain("let f8_values = r.var_column(at, 14, 15, count)?.into_byte_vecs()?;");
     // DateTime: i64 micros column, per-row checked conversion.
     expect(code).toContain("w.i64_column(at, 1, 2, count, items.clone().map(|row| row.seen.timestamp_micros()))?;");
     expect(code).toContain(
-      "seen: chrono::DateTime::<chrono::Utc>::from_timestamp_micros(seen.get(i).copied().unwrap_or_default()).ok_or(tdbin::DecodeError::LimitExceeded)?,"
+      "seen: chrono::DateTime::<chrono::Utc>::from_timestamp_micros(f1.get(i).copied().unwrap_or_default()).ok_or(tdbin::DecodeError::LimitExceeded)?,"
     );
     // Uuid/Decimal: 16-byte columns converted per row.
     expect(code).toContain(
       "w.bytes16_column(at, 1, 3, count, items.clone().map(|row| tdbin::scalar::bytes16_words(row.id.as_bytes())))?;"
     );
     expect(code).toContain(
-      "let id = r.bytes16_column(at, 3, count)?.into_iter().map(|(lo, hi)| uuid::Uuid::from_bytes(tdbin::scalar::bytes16_from_words(lo, hi))).collect::<Vec<_>>();"
+      "let f2 = r.bytes16_column(at, 3, count)?.into_iter().map(|(lo, hi)| uuid::Uuid::from_bytes(tdbin::scalar::bytes16_from_words(lo, hi))).collect::<Vec<_>>();"
     );
     expect(code).toContain(
       "w.bytes16_column(at, 1, 4, count, items.clone().map(|row| tdbin::scalar::bytes16_words(&row.amount.serialize())))?;"
@@ -568,14 +570,14 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     expect(code).toContain("w.i64_column(at, 1, 8, count, items.clone().map(|row| row.hits.unwrap_or_default()))?;");
     expect(code).toContain("w.f64_column(at, 1, 10, count, items.clone().map(|row| row.ratio.unwrap_or_default()))?;");
     expect(code).toContain(
-      "let mut hits = hits_valid.into_iter().zip(hits_values).map(|(valid, value)| valid.then_some(value));"
+      "let mut f5 = f5_valid.into_iter().zip(f5_values).map(|(valid, value)| valid.then_some(value));"
     );
     // Option<DateTime>: absent lanes write zero micros, present lanes convert.
     expect(code).toContain(
       "w.i64_column(at, 1, 12, count, items.clone().map(|row| row.expires.map_or(0, |value| value.timestamp_micros())))?;"
     );
     expect(code).toContain(
-      "let expires_rows = expires_valid.into_iter().zip(expires_values).map(|(valid, value)| valid.then(|| chrono::DateTime::<chrono::Utc>::from_timestamp_micros(value).ok_or(tdbin::DecodeError::LimitExceeded)).transpose()).collect::<Result<Vec<_>, _>>()?;"
+      "let f7_rows = f7_valid.into_iter().zip(f7_values).map(|(valid, value)| valid.then(|| chrono::DateTime::<chrono::Utc>::from_timestamp_micros(value).ok_or(tdbin::DecodeError::LimitExceeded)).transpose()).collect::<Result<Vec<_>, _>>()?;"
     );
     // Required record and union fields: full-count dense groups.
     expect(code).toContain("w.dense_group(at, 1, 16, count, items.clone().map(|row| &row.item))?;");
@@ -584,7 +586,7 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     expect(code).toContain(
       "w.bit_column(at, 1, 19, bits_total, items.clone().flat_map(|row| row.bits.iter()).copied())?;"
     );
-    expect(code).toContain("let mut bits = r.bit_column(at, 19, bits_total)?.into_iter();");
+    expect(code).toContain("let mut f11 = r.bit_column(at, 19, f11_total)?.into_iter();");
     expect(code).toContain(
       "w.i64_block_column(at, 1, 21, nums_total, items.clone().flat_map(|row| row.nums.iter()).copied())?;"
     );
@@ -595,13 +597,13 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
       "w.i64_column(at, 1, 25, stamps_total, items.clone().flat_map(|row| row.stamps.iter()).map(chrono::DateTime::timestamp_micros))?;"
     );
     expect(code).toContain(
-      "let stamps_flat = r.i64_column(at, 25, stamps_total)?.into_iter().map(|value| chrono::DateTime::<chrono::Utc>::from_timestamp_micros(value).ok_or(tdbin::DecodeError::LimitExceeded)).collect::<Result<Vec<_>, _>>()?;"
+      "let f14_flat = r.i64_column(at, 25, f14_total)?.into_iter().map(|value| chrono::DateTime::<chrono::Utc>::from_timestamp_micros(value).ok_or(tdbin::DecodeError::LimitExceeded)).collect::<Result<Vec<_>, _>>()?;"
     );
     expect(code).toContain(
       "w.bytes16_column(at, 1, 27, ids_total, items.clone().flat_map(|row| row.ids.iter()).map(|value| tdbin::scalar::bytes16_words(value.as_bytes())))?;"
     );
     expect(code).toContain(
-      "let ids_flat = r.bytes16_column(at, 27, ids_total)?.into_iter().map(|(lo, hi)| uuid::Uuid::from_bytes(tdbin::scalar::bytes16_from_words(lo, hi))).collect::<Vec<_>>();"
+      "let f15_flat = r.bytes16_column(at, 27, f15_total)?.into_iter().map(|(lo, hi)| uuid::Uuid::from_bytes(tdbin::scalar::bytes16_from_words(lo, hi))).collect::<Vec<_>>();"
     );
     expect(code).toContain(
       "w.bytes16_column(at, 1, 29, amounts_total, items.clone().flat_map(|row| row.amounts.iter()).map(|value| tdbin::scalar::bytes16_words(&value.serialize())))?;"
@@ -610,24 +612,24 @@ describe("[CONV-RUST-TDBIN] layout major 2 columnar lists ([TDBIN-COL-POLICY])",
     expect(code).toContain(
       "w.var_column(at, 1, 31, 32, blobs_total, items.clone().flat_map(|row| row.blobs.iter()).map(Vec::as_slice))?;"
     );
-    expect(code).toContain("let mut blobs = r.var_column(at, 31, 32, blobs_total)?.into_byte_vecs()?.into_iter();");
+    expect(code).toContain("let mut f17 = r.var_column(at, 31, 32, f17_total)?.into_byte_vecs()?.into_iter();");
     // Nested record list: dense group over the flattened total.
     expect(code).toContain("w.dense_group(at, 1, 34, parts_total, items.clone().flat_map(|row| row.parts.iter()))?;");
-    expect(code).toContain("let mut parts = r.dense_group::<Item>(at, 34, parts_total)?.into_iter();");
+    expect(code).toContain("let mut f18 = r.dense_group::<Item>(at, 34, f18_total)?.into_iter();");
     // String-payload union variant: a dense var column pair ([TDBIN-COL-UNION]).
     expect(code).toContain("impl tdbin::ColumnGroup for Note {\n    const COLUMNS: u16 = 3;");
     expect(code).toContain(
       [
-        "        let text: Vec<&String> = items.clone().filter_map(|row| match row {",
+        "        let v0: Vec<&String> = items.clone().filter_map(|row| match row {",
         "            Self::Text(payload) => Some(payload),",
         "            Self::Zero => None,",
         "        }).collect();",
-        "        w.var_column(at, 1, 1, 2, text.len(), text.iter().copied().map(String::as_bytes))?;",
+        "        w.var_column(at, 1, 1, 2, v0.len(), v0.iter().copied().map(String::as_bytes))?;",
       ].join("\n")
     );
-    expect(code).toContain("let text_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();");
-    expect(code).toContain("let mut text = r.var_column(at, 1, 2, text_count)?.into_strings()?.into_iter();");
-    expect(code).toContain("0 => Self::Text(text.next().ok_or(tdbin::DecodeError::MalformedColumn)?),");
+    expect(code).toContain("let v0_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();");
+    expect(code).toContain("let mut v0 = r.var_column(at, 1, 2, v0_count)?.into_strings()?.into_iter();");
+    expect(code).toContain("0 => Self::Text(v0.next().ok_or(tdbin::DecodeError::MalformedColumn)?),");
     expect(code).toContain("1 => Self::Zero,");
     // A group whose rows never index by position loops without a row index.
     expect(code).toContain("impl tdbin::ColumnGroup for Item {\n    const COLUMNS: u16 = 2;");
@@ -791,8 +793,8 @@ describe("[CONV-RUST-TDBIN] drift guard vs the committed crate fixtures", () => 
     };
     expect(hashOf(intOnly)).not.toBe(hashOf(i32Only));
     const code = unwrap(emitRustCodec(unwrap(buildModel(unwrap(parse(widthsTd))))));
-    expect(code).toContain("let delta = tdbin::scalar::i32_from(r.scalar(at, 0)?)?;");
-    expect(code).toContain("let hash = tdbin::scalar::u64_from(r.scalar(at, 4)?);");
+    expect(code).toContain("let f0 = tdbin::scalar::i32_from(r.scalar(at, 0)?)?;");
+    expect(code).toContain("let f4 = tdbin::scalar::u64_from(r.scalar(at, 4)?);");
     expect(code).toContain("w.u16_list(at, Self::DATA_WORDS, 4, Some(&self.ports))?;");
     expect(code).toContain("w.string(at, Self::DATA_WORDS, 0, Some(tdbin::scalar::path_str(&self.file)?))?;");
     const columnar = generateRustModule(

@@ -211,8 +211,9 @@ const writeNested = (f: string, k: number, p: NestedPlan): string[] => [
  *  single materialized ref vector — never a second full-list scan. */
 const writeOptGroup = (f: string, k: number, p: Extract<ColPlan, { kind: "optGroup" }>): string[] => [
   validityLine(f, k),
-  `${W}let ${f}: Vec<&${p.rustType}> = items.clone().filter_map(|row| row.${f}.as_ref()).collect();`,
-  `${W}w.dense_group(at, 1, ${rsNumber(k + 1)}, ${f}.len(), ${f}.iter().copied())?;`,
+  // `_some` suffix: a bare field-named local could shadow `items`/`w`/`at`/`count`.
+  `${W}let ${f}_some: Vec<&${p.rustType}> = items.clone().filter_map(|row| row.${f}.as_ref()).collect();`,
+  `${W}w.dense_group(at, 1, ${rsNumber(k + 1)}, ${f}_some.len(), ${f}_some.iter().copied())?;`,
 ];
 
 const writeOptColumn = (

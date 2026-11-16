@@ -74,9 +74,12 @@ impl tdbin::Struct for Address {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let street = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let zip = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        Ok(Self { street, zip })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        Ok(Self {
+            street: f0,
+            zip: f1,
+        })
     }
 }
 
@@ -91,8 +94,8 @@ impl tdbin::Struct for EmailContact {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let addr = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        Ok(Self { addr })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        Ok(Self { addr: f0 })
     }
 }
 
@@ -108,9 +111,12 @@ impl tdbin::Struct for PhoneContact {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let number = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let country = tdbin::scalar::i64_from(r.scalar(at, 1)?);
-        Ok(Self { number, country })
+        let f0 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 1)?);
+        Ok(Self {
+            number: f0,
+            country: f1,
+        })
     }
 }
 
@@ -173,23 +179,23 @@ impl tdbin::Struct for Person {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let name = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let age = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let active = r.bool_bit(at, 1, 0)?;
-        let score = tdbin::scalar::f64_from(r.scalar(at, 2)?);
-        let address = r.child::<Address>(at, Self::DATA_WORDS, 1)?;
-        let nickname = r.string(at, Self::DATA_WORDS, 2)?;
-        let contact = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f2 = r.bool_bit(at, 1, 0)?;
+        let f3 = tdbin::scalar::f64_from(r.scalar(at, 2)?);
+        let f4 = r.child::<Address>(at, Self::DATA_WORDS, 1)?;
+        let f5 = r.string(at, Self::DATA_WORDS, 2)?;
+        let f6 = r
             .child::<Contact>(at, Self::DATA_WORDS, 3)?
             .unwrap_or_default();
         Ok(Self {
-            name,
-            age,
-            active,
-            score,
-            address,
-            nickname,
-            contact,
+            name: f0,
+            age: f1,
+            active: f2,
+            score: f3,
+            address: f4,
+            nickname: f5,
+            contact: f6,
         })
     }
 }

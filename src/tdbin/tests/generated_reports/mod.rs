@@ -102,9 +102,12 @@ impl tdbin::Struct for Tag {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let key = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let weight = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        Ok(Self { key, weight })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        Ok(Self {
+            key: f0,
+            weight: f1,
+        })
     }
 }
 
@@ -146,15 +149,15 @@ impl tdbin::Struct for Report {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let flags = r.bool_list(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let counts = r.i64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        let ratios = r.f64_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
-        let names = r.string_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();
-        let blobs = r.bytes_list(at, Self::DATA_WORDS, 4)?.unwrap_or_default();
-        let tags = r
+        let f0 = r.bool_list(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.i64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        let f2 = r.f64_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
+        let f3 = r.string_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();
+        let f4 = r.bytes_list(at, Self::DATA_WORDS, 4)?.unwrap_or_default();
+        let f5 = r
             .child_list::<Tag>(at, Self::DATA_WORDS, 5)?
             .unwrap_or_default();
-        let levels = r
+        let f6 = r
             .byte_list(at, Self::DATA_WORDS, 6)?
             .unwrap_or_default()
             .into_iter()
@@ -166,9 +169,9 @@ impl tdbin::Struct for Report {
                 }),
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let maybe_counts = r.i64_list(at, Self::DATA_WORDS, 7)?;
-        let maybe_tags = r.child_list::<Tag>(at, Self::DATA_WORDS, 8)?;
-        let maybe_levels = match r.byte_list(at, Self::DATA_WORDS, 9)? {
+        let f7 = r.i64_list(at, Self::DATA_WORDS, 7)?;
+        let f8 = r.child_list::<Tag>(at, Self::DATA_WORDS, 8)?;
+        let f9 = match r.byte_list(at, Self::DATA_WORDS, 9)? {
             Some(values) => Some(
                 values
                     .into_iter()
@@ -183,19 +186,19 @@ impl tdbin::Struct for Report {
             ),
             None => None,
         };
-        let title = r.string(at, Self::DATA_WORDS, 10)?.unwrap_or_default();
+        let f10 = r.string(at, Self::DATA_WORDS, 10)?.unwrap_or_default();
         Ok(Self {
-            flags,
-            counts,
-            ratios,
-            names,
-            blobs,
-            tags,
-            levels,
-            maybe_counts,
-            maybe_tags,
-            maybe_levels,
-            title,
+            flags: f0,
+            counts: f1,
+            ratios: f2,
+            names: f3,
+            blobs: f4,
+            tags: f5,
+            levels: f6,
+            maybe_counts: f7,
+            maybe_tags: f8,
+            maybe_levels: f9,
+            title: f10,
         })
     }
 }

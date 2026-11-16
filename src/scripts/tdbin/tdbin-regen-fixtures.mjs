@@ -146,6 +146,20 @@ const FIXTURES = [
 //! than hand-editing.
 `,
   },
+  {
+    out: "src/tdbin/tests/generated_names/mod.rs",
+    td: "src/typediagram/test/converters/fixtures/names.td",
+    layout: 2,
+    marker: MARKER_V2,
+    header: `//! [TDBIN-CODEGEN-LOCALS] GENERATED name-collision fixture: fields and
+//! variants named after the codec's own identifiers (\`w\`, \`r\`, \`at\`,
+//! \`count\`, \`items\`, \`rows\`, \`i\`, \`tags\`, …), emitted by
+//! \`src/typediagram/src/converters/rust-tdbin.ts\` (\`generateRustModule\`,
+//! layout 2) from \`src/typediagram/test/converters/fixtures/names.td\`.
+//! Compiling and round-tripping it under \`cargo test\` proves no shadowing.
+//! Regenerate with \`node src/scripts/tdbin/tdbin-regen-fixtures.mjs\`.
+`,
+  },
 ];
 
 for (const fixture of FIXTURES) {

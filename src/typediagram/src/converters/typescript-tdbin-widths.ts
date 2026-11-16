@@ -27,16 +27,16 @@ const read = (width: TsWidth, slot: number): string =>
     ? `tdbin.width.readU64(reader, at, ${String(slot)})`
     : `tdbin.width.readNumber(reader, at, ${String(slot)}, ${kindArg(width)})`;
 
-/** Write lines; the final binding is `${field}`. */
-export const writeWidthLines = (field: string, plan: WidthPlan): string[] =>
+/** Write lines reading `src`; the final binding is `${field}`. */
+export const writeWidthLines = (field: string, src: string, plan: WidthPlan): string[] =>
   plan.kind === "width"
     ? [
-        `    const ${field} = tdbin.width.writeScalar(writer, at, ${String(plan.slot)}, ${kindArg(plan.width)}, value.${field});`,
+        `    const ${field} = tdbin.width.writeScalar(writer, at, ${String(plan.slot)}, ${kindArg(plan.width)}, ${src});`,
       ]
     : [
-        `    const ${field}Present = tdbin.writer.boolBit(writer, at, ${String(plan.presenceSlot)}, ${String(plan.presenceBit)}, value.${field} !== undefined);`,
+        `    const ${field}Present = tdbin.writer.boolBit(writer, at, ${String(plan.presenceSlot)}, ${String(plan.presenceBit)}, ${src} !== undefined);`,
         `    if (!${field}Present.ok) return ${field}Present;`,
-        `    const ${field} = tdbin.width.writeScalar(writer, at, ${String(plan.valueSlot)}, ${kindArg(plan.width)}, value.${field} ?? ${plan.width === "u64" ? "0n" : "0"});`,
+        `    const ${field} = tdbin.width.writeScalar(writer, at, ${String(plan.valueSlot)}, ${kindArg(plan.width)}, ${src} ?? ${plan.width === "u64" ? "0n" : "0"});`,
       ];
 
 export const readWidthLines = (field: string, plan: WidthPlan): string[] =>

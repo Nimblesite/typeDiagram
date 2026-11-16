@@ -263,6 +263,15 @@ Not yet generated for TypeScript: semantic scalars (`DateTime`, `Uuid`,
 `Decimal`), nested lists, maps, generics, and layout-2 columnar groups. Use the
 Rust codec for those. See the [TypeScript codec roadmap](tdbin-future-typescript.md).
 
+**Any field or variant name is safe ([TDBIN-CODEGEN-LOCALS]).** Generated
+codecs bind positional locals (`f0`, `f0Word`, `f0_present`, `v0`), never the
+schema name. A field called `value`, `writer`, `at`, `r`, `w`, `count`,
+`items`, `tdbin` or `ok`, or a pair like `x` + `xPresent`, can never shadow a
+codec parameter, an import or another field's local. The
+`fixtures/names.td` schema proves it: `tdbin-locals.test.ts` round-trips the
+TypeScript codec, and `src/tdbin/tests/names.rs` compiles and round-trips
+the Rust struct and column-group codecs.
+
 ## What the bytes guarantee
 
 TDBIN layouts are determined by the schema rather than by per-field tags.

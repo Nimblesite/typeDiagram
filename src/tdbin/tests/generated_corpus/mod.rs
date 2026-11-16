@@ -215,29 +215,29 @@ impl tdbin::Struct for BenchDocument {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let title = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        let revision = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let nodes = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        let f2 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f3 = r
             .column_list::<BenchNode>(at, Self::DATA_WORDS, 2)?
             .unwrap_or_default();
-        let edges = r
+        let f4 = r
             .column_list::<BenchEdge>(at, Self::DATA_WORDS, 3)?
             .unwrap_or_default();
-        let styles = r
+        let f5 = r
             .column_list::<BenchStyle>(at, Self::DATA_WORDS, 4)?
             .unwrap_or_default();
-        let metadata = r
+        let f6 = r
             .column_list::<BenchMeta>(at, Self::DATA_WORDS, 5)?
             .unwrap_or_default();
         Ok(Self {
-            id,
-            title,
-            revision,
-            nodes,
-            edges,
-            styles,
-            metadata,
+            id: f0,
+            title: f1,
+            revision: f2,
+            nodes: f3,
+            edges: f4,
+            styles: f5,
+            metadata: f6,
         })
     }
 }
@@ -261,28 +261,28 @@ impl tdbin::Struct for BenchNode {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let label = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        let x = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let y = tdbin::scalar::f64_from(r.scalar(at, 1)?);
-        let width = tdbin::scalar::f64_from(r.scalar(at, 2)?);
-        let height = tdbin::scalar::f64_from(r.scalar(at, 3)?);
-        let selected = r.bool_bit(at, 4, 0)?;
-        let locked = r.bool_bit(at, 4, 1)?;
-        let tags = match r.var_list(at, Self::DATA_WORDS, 2, 3)? {
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        let f2 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f3 = tdbin::scalar::f64_from(r.scalar(at, 1)?);
+        let f4 = tdbin::scalar::f64_from(r.scalar(at, 2)?);
+        let f5 = tdbin::scalar::f64_from(r.scalar(at, 3)?);
+        let f6 = r.bool_bit(at, 4, 0)?;
+        let f7 = r.bool_bit(at, 4, 1)?;
+        let f8 = match r.var_list(at, Self::DATA_WORDS, 2, 3)? {
             Some(column) => column.into_strings()?,
             None => Vec::new(),
         };
         Ok(Self {
-            id,
-            label,
-            x,
-            y,
-            width,
-            height,
-            selected,
-            locked,
-            tags,
+            id: f0,
+            label: f1,
+            x: f2,
+            y: f3,
+            width: f4,
+            height: f5,
+            selected: f6,
+            locked: f7,
+            tags: f8,
         })
     }
 }
@@ -352,35 +352,35 @@ impl tdbin::ColumnGroup for BenchNode {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut label = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
-        let x = r.f64_column(at, 4, count)?;
-        let y = r.f64_column(at, 5, count)?;
-        let width = r.f64_column(at, 6, count)?;
-        let height = r.f64_column(at, 7, count)?;
-        let selected = r.bit_column(at, 8, count)?;
-        let locked = r.bit_column(at, 9, count)?;
-        let tags_counts = r.len_column(at, 10, count)?;
-        let tags_total = tdbin::column_total(&tags_counts)?;
-        let mut tags = r
-            .var_column(at, 11, 12, tags_total)?
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
+        let f2 = r.f64_column(at, 4, count)?;
+        let f3 = r.f64_column(at, 5, count)?;
+        let f4 = r.f64_column(at, 6, count)?;
+        let f5 = r.f64_column(at, 7, count)?;
+        let f6 = r.bit_column(at, 8, count)?;
+        let f7 = r.bit_column(at, 9, count)?;
+        let f8_counts = r.len_column(at, 10, count)?;
+        let f8_total = tdbin::column_total(&f8_counts)?;
+        let mut f8 = r
+            .var_column(at, 11, 12, f8_total)?
             .into_strings()?
             .into_iter();
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
-            let tags_take = usize::try_from(tags_counts.get(i).copied().unwrap_or(0))
+            let f8_take = usize::try_from(f8_counts.get(i).copied().unwrap_or(0))
                 .map_err(|_| tdbin::DecodeError::LimitExceeded)?;
             rows.push(Self {
-                id: id.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                label: label.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                x: x.get(i).copied().unwrap_or_default(),
-                y: y.get(i).copied().unwrap_or_default(),
-                width: width.get(i).copied().unwrap_or_default(),
-                height: height.get(i).copied().unwrap_or_default(),
-                selected: selected.get(i).copied().unwrap_or_default(),
-                locked: locked.get(i).copied().unwrap_or_default(),
-                tags: (0..tags_take)
-                    .map(|_| tags.next().ok_or(tdbin::DecodeError::MalformedColumn))
+                id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                label: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                x: f2.get(i).copied().unwrap_or_default(),
+                y: f3.get(i).copied().unwrap_or_default(),
+                width: f4.get(i).copied().unwrap_or_default(),
+                height: f5.get(i).copied().unwrap_or_default(),
+                selected: f6.get(i).copied().unwrap_or_default(),
+                locked: f7.get(i).copied().unwrap_or_default(),
+                tags: (0..f8_take)
+                    .map(|_| f8.next().ok_or(tdbin::DecodeError::MalformedColumn))
                     .collect::<Result<Vec<_>, _>>()?,
             });
         }
@@ -404,19 +404,19 @@ impl tdbin::Struct for BenchEdge {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let from = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        let to = r.string(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
-        let label = r.string(at, Self::DATA_WORDS, 3)?;
-        let weight = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let directed = r.bool_bit(at, 1, 0)?;
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        let f2 = r.string(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
+        let f3 = r.string(at, Self::DATA_WORDS, 3)?;
+        let f4 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f5 = r.bool_bit(at, 1, 0)?;
         Ok(Self {
-            id,
-            from,
-            to,
-            label,
-            weight,
-            directed,
+            id: f0,
+            from: f1,
+            to: f2,
+            label: f3,
+            weight: f4,
+            directed: f5,
         })
     }
 }
@@ -485,26 +485,26 @@ impl tdbin::ColumnGroup for BenchEdge {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut from = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
-        let mut to = r.var_column(at, 4, 5, count)?.into_strings()?.into_iter();
-        let label_valid = r.bit_column(at, 6, count)?;
-        let label_values = r.var_column(at, 7, 8, count)?.into_strings()?;
-        let mut label = label_valid
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
+        let mut f2 = r.var_column(at, 4, 5, count)?.into_strings()?.into_iter();
+        let f3_valid = r.bit_column(at, 6, count)?;
+        let f3_values = r.var_column(at, 7, 8, count)?.into_strings()?;
+        let mut f3 = f3_valid
             .into_iter()
-            .zip(label_values)
+            .zip(f3_values)
             .map(|(valid, value)| valid.then_some(value));
-        let weight = r.f64_column(at, 9, count)?;
-        let directed = r.bit_column(at, 10, count)?;
+        let f4 = r.f64_column(at, 9, count)?;
+        let f5 = r.bit_column(at, 10, count)?;
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                id: id.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                from: from.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                to: to.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                label: label.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                weight: weight.get(i).copied().unwrap_or_default(),
-                directed: directed.get(i).copied().unwrap_or_default(),
+                id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                from: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                to: f2.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                label: f3.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                weight: f4.get(i).copied().unwrap_or_default(),
+                directed: f5.get(i).copied().unwrap_or_default(),
             });
         }
         Ok(rows)
@@ -526,17 +526,17 @@ impl tdbin::Struct for BenchStyle {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let selector = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let fill = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        let stroke = r.string(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
-        let stroke_width = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let rounded = r.bool_bit(at, 1, 0)?;
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        let f2 = r.string(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
+        let f3 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f4 = r.bool_bit(at, 1, 0)?;
         Ok(Self {
-            selector,
-            fill,
-            stroke,
-            stroke_width,
-            rounded,
+            selector: f0,
+            fill: f1,
+            stroke: f2,
+            stroke_width: f3,
+            rounded: f4,
         })
     }
 }
@@ -588,19 +588,19 @@ impl tdbin::ColumnGroup for BenchStyle {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut selector = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut fill = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
-        let mut stroke = r.var_column(at, 4, 5, count)?.into_strings()?.into_iter();
-        let stroke_width = r.f64_column(at, 6, count)?;
-        let rounded = r.bit_column(at, 7, count)?;
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
+        let mut f2 = r.var_column(at, 4, 5, count)?.into_strings()?.into_iter();
+        let f3 = r.f64_column(at, 6, count)?;
+        let f4 = r.bit_column(at, 7, count)?;
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                selector: selector.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                fill: fill.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                stroke: stroke.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                stroke_width: stroke_width.get(i).copied().unwrap_or_default(),
-                rounded: rounded.get(i).copied().unwrap_or_default(),
+                selector: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                fill: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                stroke: f2.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                stroke_width: f3.get(i).copied().unwrap_or_default(),
+                rounded: f4.get(i).copied().unwrap_or_default(),
             });
         }
         Ok(rows)
@@ -619,9 +619,9 @@ impl tdbin::Struct for BenchMeta {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let key = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let value = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        Ok(Self { key, value })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        Ok(Self { key: f0, value: f1 })
     }
 }
 
@@ -662,13 +662,13 @@ impl tdbin::ColumnGroup for BenchMeta {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut key = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut value = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for _ in 0..count {
             rows.push(Self {
-                key: key.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                value: value.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                key: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                value: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
             });
         }
         Ok(rows)
@@ -776,7 +776,7 @@ impl tdbin::ColumnGroup for BenchEvent {
                 Self::Heartbeat => 5_u8,
             }),
         )?;
-        let node_created: Vec<&BenchNodeCreated> = items
+        let v0: Vec<&BenchNodeCreated> = items
             .clone()
             .filter_map(|row| match row {
                 Self::NodeCreated(payload) => Some(payload),
@@ -787,8 +787,8 @@ impl tdbin::ColumnGroup for BenchEvent {
                 | Self::Heartbeat => None,
             })
             .collect();
-        w.dense_group(at, 1, 1, node_created.len(), node_created.iter().copied())?;
-        let node_moved: Vec<&BenchNodeMoved> = items
+        w.dense_group(at, 1, 1, v0.len(), v0.iter().copied())?;
+        let v1: Vec<&BenchNodeMoved> = items
             .clone()
             .filter_map(|row| match row {
                 Self::NodeMoved(payload) => Some(payload),
@@ -799,8 +799,8 @@ impl tdbin::ColumnGroup for BenchEvent {
                 | Self::Heartbeat => None,
             })
             .collect();
-        w.dense_group(at, 1, 2, node_moved.len(), node_moved.iter().copied())?;
-        let edge_added: Vec<&BenchEdgeAdded> = items
+        w.dense_group(at, 1, 2, v1.len(), v1.iter().copied())?;
+        let v2: Vec<&BenchEdgeAdded> = items
             .clone()
             .filter_map(|row| match row {
                 Self::EdgeAdded(payload) => Some(payload),
@@ -811,8 +811,8 @@ impl tdbin::ColumnGroup for BenchEvent {
                 | Self::Heartbeat => None,
             })
             .collect();
-        w.dense_group(at, 1, 3, edge_added.len(), edge_added.iter().copied())?;
-        let selection_changed: Vec<&BenchSelectionChanged> = items
+        w.dense_group(at, 1, 3, v2.len(), v2.iter().copied())?;
+        let v3: Vec<&BenchSelectionChanged> = items
             .clone()
             .filter_map(|row| match row {
                 Self::SelectionChanged(payload) => Some(payload),
@@ -823,14 +823,8 @@ impl tdbin::ColumnGroup for BenchEvent {
                 | Self::Heartbeat => None,
             })
             .collect();
-        w.dense_group(
-            at,
-            1,
-            4,
-            selection_changed.len(),
-            selection_changed.iter().copied(),
-        )?;
-        let view_changed: Vec<&BenchViewChanged> = items
+        w.dense_group(at, 1, 4, v3.len(), v3.iter().copied())?;
+        let v4: Vec<&BenchViewChanged> = items
             .clone()
             .filter_map(|row| match row {
                 Self::ViewChanged(payload) => Some(payload),
@@ -841,7 +835,7 @@ impl tdbin::ColumnGroup for BenchEvent {
                 | Self::Heartbeat => None,
             })
             .collect();
-        w.dense_group(at, 1, 5, view_changed.len(), view_changed.iter().copied())?;
+        w.dense_group(at, 1, 5, v4.len(), v4.iter().copied())?;
         Ok(())
     }
 
@@ -851,54 +845,34 @@ impl tdbin::ColumnGroup for BenchEvent {
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
         let tags = r.byte_column(at, 0, count)?;
-        let node_created_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();
-        let mut node_created = r
-            .dense_group::<BenchNodeCreated>(at, 1, node_created_count)?
+        let v0_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();
+        let mut v0 = r
+            .dense_group::<BenchNodeCreated>(at, 1, v0_count)?
             .into_iter();
-        let node_moved_count = tags.iter().map(|tag| usize::from(*tag == 1)).sum::<usize>();
-        let mut node_moved = r
-            .dense_group::<BenchNodeMoved>(at, 2, node_moved_count)?
+        let v1_count = tags.iter().map(|tag| usize::from(*tag == 1)).sum::<usize>();
+        let mut v1 = r
+            .dense_group::<BenchNodeMoved>(at, 2, v1_count)?
             .into_iter();
-        let edge_added_count = tags.iter().map(|tag| usize::from(*tag == 2)).sum::<usize>();
-        let mut edge_added = r
-            .dense_group::<BenchEdgeAdded>(at, 3, edge_added_count)?
+        let v2_count = tags.iter().map(|tag| usize::from(*tag == 2)).sum::<usize>();
+        let mut v2 = r
+            .dense_group::<BenchEdgeAdded>(at, 3, v2_count)?
             .into_iter();
-        let selection_changed_count = tags.iter().map(|tag| usize::from(*tag == 3)).sum::<usize>();
-        let mut selection_changed = r
-            .dense_group::<BenchSelectionChanged>(at, 4, selection_changed_count)?
+        let v3_count = tags.iter().map(|tag| usize::from(*tag == 3)).sum::<usize>();
+        let mut v3 = r
+            .dense_group::<BenchSelectionChanged>(at, 4, v3_count)?
             .into_iter();
-        let view_changed_count = tags.iter().map(|tag| usize::from(*tag == 4)).sum::<usize>();
-        let mut view_changed = r
-            .dense_group::<BenchViewChanged>(at, 5, view_changed_count)?
+        let v4_count = tags.iter().map(|tag| usize::from(*tag == 4)).sum::<usize>();
+        let mut v4 = r
+            .dense_group::<BenchViewChanged>(at, 5, v4_count)?
             .into_iter();
         let mut rows = Vec::with_capacity(count);
         for tag in tags {
             rows.push(match tag {
-                0 => Self::NodeCreated(
-                    node_created
-                        .next()
-                        .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                ),
-                1 => Self::NodeMoved(
-                    node_moved
-                        .next()
-                        .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                ),
-                2 => Self::EdgeAdded(
-                    edge_added
-                        .next()
-                        .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                ),
-                3 => Self::SelectionChanged(
-                    selection_changed
-                        .next()
-                        .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                ),
-                4 => Self::ViewChanged(
-                    view_changed
-                        .next()
-                        .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                ),
+                0 => Self::NodeCreated(v0.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
+                1 => Self::NodeMoved(v1.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
+                2 => Self::EdgeAdded(v2.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
+                3 => Self::SelectionChanged(v3.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
+                4 => Self::ViewChanged(v4.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
                 5 => Self::Heartbeat,
                 ordinal => {
                     return Err(tdbin::DecodeError::UnknownVariant {
@@ -922,10 +896,10 @@ impl tdbin::Struct for BenchEventBatch {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let events = r
+        let f0 = r
             .column_list::<BenchEvent>(at, Self::DATA_WORDS, 0)?
             .unwrap_or_default();
-        Ok(Self { events })
+        Ok(Self { events: f0 })
     }
 }
 
@@ -941,11 +915,14 @@ impl tdbin::Struct for BenchNodeCreated {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let document_id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let node = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r
             .child::<BenchNode>(at, Self::DATA_WORDS, 1)?
             .unwrap_or_default();
-        Ok(Self { document_id, node })
+        Ok(Self {
+            document_id: f0,
+            node: f1,
+        })
     }
 }
 
@@ -979,15 +956,13 @@ impl tdbin::ColumnGroup for BenchNodeCreated {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut document_id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut node = r.dense_group::<BenchNode>(at, 2, count)?.into_iter();
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.dense_group::<BenchNode>(at, 2, count)?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for _ in 0..count {
             rows.push(Self {
-                document_id: document_id
-                    .next()
-                    .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                node: node.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                document_id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                node: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
             });
         }
         Ok(rows)
@@ -1008,15 +983,15 @@ impl tdbin::Struct for BenchNodeMoved {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let document_id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let node_id = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        let x = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let y = tdbin::scalar::f64_from(r.scalar(at, 1)?);
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.string(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        let f2 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f3 = tdbin::scalar::f64_from(r.scalar(at, 1)?);
         Ok(Self {
-            document_id,
-            node_id,
-            x,
-            y,
+            document_id: f0,
+            node_id: f1,
+            x: f2,
+            y: f3,
         })
     }
 }
@@ -1060,19 +1035,17 @@ impl tdbin::ColumnGroup for BenchNodeMoved {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut document_id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut node_id = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
-        let x = r.f64_column(at, 4, count)?;
-        let y = r.f64_column(at, 5, count)?;
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.var_column(at, 2, 3, count)?.into_strings()?.into_iter();
+        let f2 = r.f64_column(at, 4, count)?;
+        let f3 = r.f64_column(at, 5, count)?;
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                document_id: document_id
-                    .next()
-                    .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                node_id: node_id.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                x: x.get(i).copied().unwrap_or_default(),
-                y: y.get(i).copied().unwrap_or_default(),
+                document_id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                node_id: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                x: f2.get(i).copied().unwrap_or_default(),
+                y: f3.get(i).copied().unwrap_or_default(),
             });
         }
         Ok(rows)
@@ -1091,11 +1064,14 @@ impl tdbin::Struct for BenchEdgeAdded {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let document_id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let edge = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r
             .child::<BenchEdge>(at, Self::DATA_WORDS, 1)?
             .unwrap_or_default();
-        Ok(Self { document_id, edge })
+        Ok(Self {
+            document_id: f0,
+            edge: f1,
+        })
     }
 }
 
@@ -1129,15 +1105,13 @@ impl tdbin::ColumnGroup for BenchEdgeAdded {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut document_id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let mut edge = r.dense_group::<BenchEdge>(at, 2, count)?.into_iter();
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f1 = r.dense_group::<BenchEdge>(at, 2, count)?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for _ in 0..count {
             rows.push(Self {
-                document_id: document_id
-                    .next()
-                    .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                edge: edge.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                document_id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                edge: f1.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
             });
         }
         Ok(rows)
@@ -1157,19 +1131,19 @@ impl tdbin::Struct for BenchSelectionChanged {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let document_id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let node_ids = match r.var_list(at, Self::DATA_WORDS, 1, 2)? {
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = match r.var_list(at, Self::DATA_WORDS, 1, 2)? {
             Some(column) => column.into_strings()?,
             None => Vec::new(),
         };
-        let edge_ids = match r.var_list(at, Self::DATA_WORDS, 3, 4)? {
+        let f2 = match r.var_list(at, Self::DATA_WORDS, 3, 4)? {
             Some(column) => column.into_strings()?,
             None => Vec::new(),
         };
         Ok(Self {
-            document_id,
-            node_ids,
-            edge_ids,
+            document_id: f0,
+            node_ids: f1,
+            edge_ids: f2,
         })
     }
 }
@@ -1247,34 +1221,32 @@ impl tdbin::ColumnGroup for BenchSelectionChanged {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut document_id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let node_ids_counts = r.len_column(at, 2, count)?;
-        let node_ids_total = tdbin::column_total(&node_ids_counts)?;
-        let mut node_ids = r
-            .var_column(at, 3, 4, node_ids_total)?
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let f1_counts = r.len_column(at, 2, count)?;
+        let f1_total = tdbin::column_total(&f1_counts)?;
+        let mut f1 = r
+            .var_column(at, 3, 4, f1_total)?
             .into_strings()?
             .into_iter();
-        let edge_ids_counts = r.len_column(at, 5, count)?;
-        let edge_ids_total = tdbin::column_total(&edge_ids_counts)?;
-        let mut edge_ids = r
-            .var_column(at, 6, 7, edge_ids_total)?
+        let f2_counts = r.len_column(at, 5, count)?;
+        let f2_total = tdbin::column_total(&f2_counts)?;
+        let mut f2 = r
+            .var_column(at, 6, 7, f2_total)?
             .into_strings()?
             .into_iter();
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
-            let node_ids_take = usize::try_from(node_ids_counts.get(i).copied().unwrap_or(0))
+            let f1_take = usize::try_from(f1_counts.get(i).copied().unwrap_or(0))
                 .map_err(|_| tdbin::DecodeError::LimitExceeded)?;
-            let edge_ids_take = usize::try_from(edge_ids_counts.get(i).copied().unwrap_or(0))
+            let f2_take = usize::try_from(f2_counts.get(i).copied().unwrap_or(0))
                 .map_err(|_| tdbin::DecodeError::LimitExceeded)?;
             rows.push(Self {
-                document_id: document_id
-                    .next()
-                    .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                node_ids: (0..node_ids_take)
-                    .map(|_| node_ids.next().ok_or(tdbin::DecodeError::MalformedColumn))
+                document_id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                node_ids: (0..f1_take)
+                    .map(|_| f1.next().ok_or(tdbin::DecodeError::MalformedColumn))
                     .collect::<Result<Vec<_>, _>>()?,
-                edge_ids: (0..edge_ids_take)
-                    .map(|_| edge_ids.next().ok_or(tdbin::DecodeError::MalformedColumn))
+                edge_ids: (0..f2_take)
+                    .map(|_| f2.next().ok_or(tdbin::DecodeError::MalformedColumn))
                     .collect::<Result<Vec<_>, _>>()?,
             });
         }
@@ -1296,15 +1268,15 @@ impl tdbin::Struct for BenchViewChanged {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let document_id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let zoom = tdbin::scalar::f64_from(r.scalar(at, 0)?);
-        let offset_x = tdbin::scalar::f64_from(r.scalar(at, 1)?);
-        let offset_y = tdbin::scalar::f64_from(r.scalar(at, 2)?);
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::f64_from(r.scalar(at, 0)?);
+        let f2 = tdbin::scalar::f64_from(r.scalar(at, 1)?);
+        let f3 = tdbin::scalar::f64_from(r.scalar(at, 2)?);
         Ok(Self {
-            document_id,
-            zoom,
-            offset_x,
-            offset_y,
+            document_id: f0,
+            zoom: f1,
+            offset_x: f2,
+            offset_y: f3,
         })
     }
 }
@@ -1341,19 +1313,17 @@ impl tdbin::ColumnGroup for BenchViewChanged {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut document_id = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let zoom = r.f64_column(at, 2, count)?;
-        let offset_x = r.f64_column(at, 3, count)?;
-        let offset_y = r.f64_column(at, 4, count)?;
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let f1 = r.f64_column(at, 2, count)?;
+        let f2 = r.f64_column(at, 3, count)?;
+        let f3 = r.f64_column(at, 4, count)?;
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                document_id: document_id
-                    .next()
-                    .ok_or(tdbin::DecodeError::MalformedColumn)?,
-                zoom: zoom.get(i).copied().unwrap_or_default(),
-                offset_x: offset_x.get(i).copied().unwrap_or_default(),
-                offset_y: offset_y.get(i).copied().unwrap_or_default(),
+                document_id: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                zoom: f1.get(i).copied().unwrap_or_default(),
+                offset_x: f2.get(i).copied().unwrap_or_default(),
+                offset_y: f3.get(i).copied().unwrap_or_default(),
             });
         }
         Ok(rows)
@@ -1377,28 +1347,28 @@ impl tdbin::Struct for BenchMetricBatch {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let batch_id = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let started_at_epoch_ms = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let sample_ids = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f2 = r
             .i64_block_list(at, Self::DATA_WORDS, 1)?
             .unwrap_or_default();
-        let valid = r.bool_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
-        let latency_ms = r.f64_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();
-        let payloads = match r.var_list(at, Self::DATA_WORDS, 4, 5)? {
+        let f3 = r.bool_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
+        let f4 = r.f64_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();
+        let f5 = match r.var_list(at, Self::DATA_WORDS, 4, 5)? {
             Some(column) => column.into_byte_vecs()?,
             None => Vec::new(),
         };
-        let columns = r
+        let f6 = r
             .column_list::<BenchMetricColumn>(at, Self::DATA_WORDS, 6)?
             .unwrap_or_default();
         Ok(Self {
-            batch_id,
-            started_at_epoch_ms,
-            sample_ids,
-            valid,
-            latency_ms,
-            payloads,
-            columns,
+            batch_id: f0,
+            started_at_epoch_ms: f1,
+            sample_ids: f2,
+            valid: f3,
+            latency_ms: f4,
+            payloads: f5,
+            columns: f6,
         })
     }
 }
@@ -1415,9 +1385,12 @@ impl tdbin::Struct for BenchMetricColumn {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let name = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let values = r.f64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
-        Ok(Self { name, values })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = r.f64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();
+        Ok(Self {
+            name: f0,
+            values: f1,
+        })
     }
 }
 
@@ -1468,18 +1441,18 @@ impl tdbin::ColumnGroup for BenchMetricColumn {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut name = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let values_counts = r.len_column(at, 2, count)?;
-        let values_total = tdbin::column_total(&values_counts)?;
-        let mut values = r.f64_column(at, 3, values_total)?.into_iter();
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let f1_counts = r.len_column(at, 2, count)?;
+        let f1_total = tdbin::column_total(&f1_counts)?;
+        let mut f1 = r.f64_column(at, 3, f1_total)?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
-            let values_take = usize::try_from(values_counts.get(i).copied().unwrap_or(0))
+            let f1_take = usize::try_from(f1_counts.get(i).copied().unwrap_or(0))
                 .map_err(|_| tdbin::DecodeError::LimitExceeded)?;
             rows.push(Self {
-                name: name.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                values: (0..values_take)
-                    .map(|_| values.next().ok_or(tdbin::DecodeError::MalformedColumn))
+                name: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                values: (0..f1_take)
+                    .map(|_| f1.next().ok_or(tdbin::DecodeError::MalformedColumn))
                     .collect::<Result<Vec<_>, _>>()?,
             });
         }

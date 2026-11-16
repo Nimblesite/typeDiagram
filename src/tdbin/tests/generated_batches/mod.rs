@@ -93,23 +93,23 @@ impl tdbin::Struct for Person {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let name = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let age = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let active = r.bool_bit(at, 1, 0)?;
-        let score = tdbin::scalar::f64_from(r.scalar(at, 2)?);
-        let address = r.child::<Address>(at, Self::DATA_WORDS, 1)?;
-        let nickname = r.string(at, Self::DATA_WORDS, 2)?;
-        let contact = r
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f2 = r.bool_bit(at, 1, 0)?;
+        let f3 = tdbin::scalar::f64_from(r.scalar(at, 2)?);
+        let f4 = r.child::<Address>(at, Self::DATA_WORDS, 1)?;
+        let f5 = r.string(at, Self::DATA_WORDS, 2)?;
+        let f6 = r
             .child::<Contact>(at, Self::DATA_WORDS, 3)?
             .unwrap_or_default();
         Ok(Self {
-            name,
-            age,
-            active,
-            score,
-            address,
-            nickname,
-            contact,
+            name: f0,
+            age: f1,
+            active: f2,
+            score: f3,
+            address: f4,
+            nickname: f5,
+            contact: f6,
         })
     }
 }
@@ -145,11 +145,11 @@ impl tdbin::ColumnGroup for Person {
             count,
             items.clone().map(|row| row.address.is_some()),
         )?;
-        let address: Vec<&Address> = items
+        let address_some: Vec<&Address> = items
             .clone()
             .filter_map(|row| row.address.as_ref())
             .collect();
-        w.dense_group(at, 1, 6, address.len(), address.iter().copied())?;
+        w.dense_group(at, 1, 6, address_some.len(), address_some.iter().copied())?;
         w.bit_column(
             at,
             1,
@@ -176,35 +176,35 @@ impl tdbin::ColumnGroup for Person {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut name = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let age = r.i64_block_column(at, 2, count)?;
-        let active = r.bit_column(at, 3, count)?;
-        let score = r.f64_column(at, 4, count)?;
-        let address_valid = r.bit_column(at, 5, count)?;
-        let address_count = address_valid.iter().filter(|present| **present).count();
-        let mut address = r.dense_group::<Address>(at, 6, address_count)?.into_iter();
-        let nickname_valid = r.bit_column(at, 7, count)?;
-        let nickname_values = r.var_column(at, 8, 9, count)?.into_strings()?;
-        let mut nickname = nickname_valid
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let f1 = r.i64_block_column(at, 2, count)?;
+        let f2 = r.bit_column(at, 3, count)?;
+        let f3 = r.f64_column(at, 4, count)?;
+        let f4_valid = r.bit_column(at, 5, count)?;
+        let f4_count = f4_valid.iter().filter(|present| **present).count();
+        let mut f4 = r.dense_group::<Address>(at, 6, f4_count)?.into_iter();
+        let f5_valid = r.bit_column(at, 7, count)?;
+        let f5_values = r.var_column(at, 8, 9, count)?.into_strings()?;
+        let mut f5 = f5_valid
             .into_iter()
-            .zip(nickname_values)
+            .zip(f5_values)
             .map(|(valid, value)| valid.then_some(value));
-        let mut contact = r.dense_group::<Contact>(at, 10, count)?.into_iter();
+        let mut f6 = r.dense_group::<Contact>(at, 10, count)?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                name: name.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                age: age.get(i).copied().unwrap_or_default(),
-                active: active.get(i).copied().unwrap_or_default(),
-                score: score.get(i).copied().unwrap_or_default(),
-                address: address_valid
+                name: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                age: f1.get(i).copied().unwrap_or_default(),
+                active: f2.get(i).copied().unwrap_or_default(),
+                score: f3.get(i).copied().unwrap_or_default(),
+                address: f4_valid
                     .get(i)
                     .copied()
                     .unwrap_or_default()
-                    .then(|| address.next().ok_or(tdbin::DecodeError::MalformedColumn))
+                    .then(|| f4.next().ok_or(tdbin::DecodeError::MalformedColumn))
                     .transpose()?,
-                nickname: nickname.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                contact: contact.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                nickname: f5.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                contact: f6.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
             });
         }
         Ok(rows)
@@ -223,9 +223,12 @@ impl tdbin::Struct for Address {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let street = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let zip = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        Ok(Self { street, zip })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        Ok(Self {
+            street: f0,
+            zip: f1,
+        })
     }
 }
 
@@ -259,13 +262,13 @@ impl tdbin::ColumnGroup for Address {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut street = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
-        let zip = r.i64_block_column(at, 2, count)?;
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let f1 = r.i64_block_column(at, 2, count)?;
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                street: street.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
-                zip: zip.get(i).copied().unwrap_or_default(),
+                street: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                zip: f1.get(i).copied().unwrap_or_default(),
             });
         }
         Ok(rows)
@@ -337,22 +340,22 @@ impl tdbin::ColumnGroup for Contact {
                 Self::Phone(_) => 1_u8,
             }),
         )?;
-        let email: Vec<&EmailContact> = items
+        let v0: Vec<&EmailContact> = items
             .clone()
             .filter_map(|row| match row {
                 Self::Email(payload) => Some(payload),
                 Self::Phone(_) => None,
             })
             .collect();
-        w.dense_group(at, 1, 1, email.len(), email.iter().copied())?;
-        let phone: Vec<&PhoneContact> = items
+        w.dense_group(at, 1, 1, v0.len(), v0.iter().copied())?;
+        let v1: Vec<&PhoneContact> = items
             .clone()
             .filter_map(|row| match row {
                 Self::Phone(payload) => Some(payload),
                 Self::Email(_) => None,
             })
             .collect();
-        w.dense_group(at, 1, 2, phone.len(), phone.iter().copied())?;
+        w.dense_group(at, 1, 2, v1.len(), v1.iter().copied())?;
         Ok(())
     }
 
@@ -362,19 +365,15 @@ impl tdbin::ColumnGroup for Contact {
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
         let tags = r.byte_column(at, 0, count)?;
-        let email_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();
-        let mut email = r
-            .dense_group::<EmailContact>(at, 1, email_count)?
-            .into_iter();
-        let phone_count = tags.iter().map(|tag| usize::from(*tag == 1)).sum::<usize>();
-        let mut phone = r
-            .dense_group::<PhoneContact>(at, 2, phone_count)?
-            .into_iter();
+        let v0_count = tags.iter().map(|tag| usize::from(*tag == 0)).sum::<usize>();
+        let mut v0 = r.dense_group::<EmailContact>(at, 1, v0_count)?.into_iter();
+        let v1_count = tags.iter().map(|tag| usize::from(*tag == 1)).sum::<usize>();
+        let mut v1 = r.dense_group::<PhoneContact>(at, 2, v1_count)?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for tag in tags {
             rows.push(match tag {
-                0 => Self::Email(email.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
-                1 => Self::Phone(phone.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
+                0 => Self::Email(v0.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
+                1 => Self::Phone(v1.next().ok_or(tdbin::DecodeError::MalformedColumn)?),
                 ordinal => {
                     return Err(tdbin::DecodeError::UnknownVariant {
                         ordinal: u64::from(ordinal),
@@ -397,8 +396,8 @@ impl tdbin::Struct for EmailContact {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let addr = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        Ok(Self { addr })
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        Ok(Self { addr: f0 })
     }
 }
 
@@ -431,11 +430,11 @@ impl tdbin::ColumnGroup for EmailContact {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let mut addr = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
+        let mut f0 = r.var_column(at, 0, 1, count)?.into_strings()?.into_iter();
         let mut rows = Vec::with_capacity(count);
         for _ in 0..count {
             rows.push(Self {
-                addr: addr.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
+                addr: f0.next().ok_or(tdbin::DecodeError::MalformedColumn)?,
             });
         }
         Ok(rows)
@@ -454,9 +453,12 @@ impl tdbin::Struct for PhoneContact {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let number = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let country = tdbin::scalar::i64_from(r.scalar(at, 1)?);
-        Ok(Self { number, country })
+        let f0 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f1 = tdbin::scalar::i64_from(r.scalar(at, 1)?);
+        Ok(Self {
+            number: f0,
+            country: f1,
+        })
     }
 }
 
@@ -483,13 +485,13 @@ impl tdbin::ColumnGroup for PhoneContact {
         at: usize,
         count: usize,
     ) -> Result<Vec<Self>, tdbin::DecodeError> {
-        let number = r.i64_block_column(at, 0, count)?;
-        let country = r.i64_block_column(at, 1, count)?;
+        let f0 = r.i64_block_column(at, 0, count)?;
+        let f1 = r.i64_block_column(at, 1, count)?;
         let mut rows = Vec::with_capacity(count);
         for i in 0..count {
             rows.push(Self {
-                number: number.get(i).copied().unwrap_or_default(),
-                country: country.get(i).copied().unwrap_or_default(),
+                number: f0.get(i).copied().unwrap_or_default(),
+                country: f1.get(i).copied().unwrap_or_default(),
             });
         }
         Ok(rows)
@@ -507,10 +509,10 @@ impl tdbin::Struct for PersonBatch {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let people = r
+        let f0 = r
             .column_list::<Person>(at, Self::DATA_WORDS, 0)?
             .unwrap_or_default();
-        Ok(Self { people })
+        Ok(Self { people: f0 })
     }
 }
 
@@ -525,9 +527,9 @@ impl tdbin::Struct for ContactBatch {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let contacts = r
+        let f0 = r
             .column_list::<Contact>(at, Self::DATA_WORDS, 0)?
             .unwrap_or_default();
-        Ok(Self { contacts })
+        Ok(Self { contacts: f0 })
     }
 }

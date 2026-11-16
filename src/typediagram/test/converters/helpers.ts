@@ -1,5 +1,7 @@
 // [CONV-TEST-HELPERS] Shared test utilities for converter tests.
 import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
+import * as ts from "typescript-compiler";
 import { fileURLToPath } from "node:url";
 import { expect } from "vitest";
 import { generateRustModule, type RustCodecOptions } from "../../src/converters/rust-tdbin.js";
@@ -9,6 +11,8 @@ import { buildModel, printSource } from "../../src/model/index.js";
 import type { CSharpOpts, PythonOpts } from "../../src/converters/types.js";
 import type { Model, ResolvedField, ResolvedVariant } from "../../src/model/types.js";
 import { parse } from "../../src/parser/index.js";
+import { ok } from "../../src/result.js";
+import * as tdbin from "../../src/tdbin/index.js";
 import { HOME_PAGE_SAMPLE } from "../../src/sample.js";
 // Re-export the canonical Result-unwrap and TD->Model helpers from the shared
 // root test helpers so there is a single implementation.
@@ -110,3 +114,24 @@ export function expectLosslessRoundTrip(converter: Converter, source: string = H
 
   expect(roundTripTd).toBe(source);
 }
+
+// Executes generated codec source for behavior tests: the emitted TypeScript is
+// transpiled with the real compiler (never regex on code) and evaluated against
+// the real runtime, exactly as a consumer module would run it. The host-realm
+// Uint8Array is injected so generated defaults share the test realm.
+export const instantiateCodecs = (source: string): Record<string, unknown> => {
+  const js = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  const moduleExports: Record<string, unknown> = {};
+  runInNewContext(js, { exports: moduleExports, tdbin, ok, Uint8Array });
+  return moduleExports;
+};
+
+export const codecFor = <T>(source: string, name: string): tdbin.StructCodec<T> => {
+  const generated = instantiateCodecs(source)[name];
+  expect(generated).toBeDefined();
+  // Safe: the generator declares every exported `${Type}Codec` as
+  // tdbin.StructCodec<Type>, pinned by the text assertions in this file.
+  return generated as tdbin.StructCodec<T>;
+};

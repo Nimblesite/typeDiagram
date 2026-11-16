@@ -366,8 +366,10 @@ export const emitRecordCodec = (rec: ResolvedRecord, plan: RecordPlan, layoutHas
     `    }`,
     ``,
     `    fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {`,
-    ...plan.fields.map((f) => readField(f.name, f.plan)),
-    `        Ok(Self { ${plan.fields.map((f) => f.name).join(", ")} })`,
+    // Positional locals (`f0`, `f0_present`, …): a field named `r`/`at` would
+    // otherwise shadow the reader params mid-decode ([TDBIN-CODEGEN-LOCALS]).
+    ...plan.fields.map((f, i) => readField(`f${String(i)}`, f.plan)),
+    `        Ok(Self { ${plan.fields.map((f, i) => `${f.name}: f${String(i)}`).join(", ")} })`,
     `    }`,
     `}`,
   ].join("\n");

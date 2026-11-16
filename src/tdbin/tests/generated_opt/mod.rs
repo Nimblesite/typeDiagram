@@ -38,21 +38,21 @@ impl tdbin::Struct for Measurement {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let label = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
-        let count_present = r.bool_bit(at, 0, 0)?;
-        let count_value = tdbin::scalar::i64_from(r.scalar(at, 1)?);
-        let count = count_present.then_some(count_value);
-        let flagged_present = r.bool_bit(at, 0, 1)?;
-        let flagged_value = r.bool_bit(at, 0, 2)?;
-        let flagged = flagged_present.then_some(flagged_value);
-        let ratio_present = r.bool_bit(at, 0, 3)?;
-        let ratio_value = tdbin::scalar::f64_from(r.scalar(at, 2)?);
-        let ratio = ratio_present.then_some(ratio_value);
+        let f0 = r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+        let f1_present = r.bool_bit(at, 0, 0)?;
+        let f1_value = tdbin::scalar::i64_from(r.scalar(at, 1)?);
+        let f1 = f1_present.then_some(f1_value);
+        let f2_present = r.bool_bit(at, 0, 1)?;
+        let f2_value = r.bool_bit(at, 0, 2)?;
+        let f2 = f2_present.then_some(f2_value);
+        let f3_present = r.bool_bit(at, 0, 3)?;
+        let f3_value = tdbin::scalar::f64_from(r.scalar(at, 2)?);
+        let f3 = f3_present.then_some(f3_value);
         Ok(Self {
-            label,
-            count,
-            flagged,
-            ratio,
+            label: f0,
+            count: f1,
+            flagged: f2,
+            ratio: f3,
         })
     }
 }

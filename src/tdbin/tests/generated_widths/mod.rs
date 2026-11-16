@@ -130,62 +130,62 @@ impl tdbin::Struct for Stats {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let delta = tdbin::scalar::i32_from(r.scalar(at, 0)?)?;
-        let flags = tdbin::scalar::u8_from(r.scalar(at, 1)?)?;
-        let port = tdbin::scalar::u16_from(r.scalar(at, 2)?)?;
-        let hits = tdbin::scalar::u32_from(r.scalar(at, 3)?)?;
-        let hash = tdbin::scalar::u64_from(r.scalar(at, 4)?);
-        let count = tdbin::scalar::usize_from(r.scalar(at, 5)?)?;
-        let file = r
+        let f0 = tdbin::scalar::i32_from(r.scalar(at, 0)?)?;
+        let f1 = tdbin::scalar::u8_from(r.scalar(at, 1)?)?;
+        let f2 = tdbin::scalar::u16_from(r.scalar(at, 2)?)?;
+        let f3 = tdbin::scalar::u32_from(r.scalar(at, 3)?)?;
+        let f4 = tdbin::scalar::u64_from(r.scalar(at, 4)?);
+        let f5 = tdbin::scalar::usize_from(r.scalar(at, 5)?)?;
+        let f6 = r
             .string(at, Self::DATA_WORDS, 0)?
             .map_or_else(std::path::PathBuf::new, std::path::PathBuf::from);
-        let maybe_hash_present = r.bool_bit(at, 6, 0)?;
-        let maybe_hash_value = tdbin::scalar::u64_from(r.scalar(at, 7)?);
-        let maybe_hash = maybe_hash_present.then_some(maybe_hash_value);
-        let maybe_port_present = r.bool_bit(at, 6, 1)?;
-        let maybe_port_value = tdbin::scalar::u16_from(r.scalar(at, 8)?)?;
-        let maybe_port = maybe_port_present.then_some(maybe_port_value);
-        let maybe_file = r
+        let f7_present = r.bool_bit(at, 6, 0)?;
+        let f7_value = tdbin::scalar::u64_from(r.scalar(at, 7)?);
+        let f7 = f7_present.then_some(f7_value);
+        let f8_present = r.bool_bit(at, 6, 1)?;
+        let f8_value = tdbin::scalar::u16_from(r.scalar(at, 8)?)?;
+        let f8 = f8_present.then_some(f8_value);
+        let f9 = r
             .string(at, Self::DATA_WORDS, 1)?
             .map(std::path::PathBuf::from);
-        let deltas = r.i32_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
-        let bytes = r.byte_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();
-        let ports = r.u16_list(at, Self::DATA_WORDS, 4)?.unwrap_or_default();
-        let hits_list = r.u32_list(at, Self::DATA_WORDS, 5)?.unwrap_or_default();
-        let hashes = r.word_list(at, Self::DATA_WORDS, 6)?.unwrap_or_default();
-        let sizes = r.usize_list(at, Self::DATA_WORDS, 7)?.unwrap_or_default();
-        let files = r
+        let f10 = r.i32_list(at, Self::DATA_WORDS, 2)?.unwrap_or_default();
+        let f11 = r.byte_list(at, Self::DATA_WORDS, 3)?.unwrap_or_default();
+        let f12 = r.u16_list(at, Self::DATA_WORDS, 4)?.unwrap_or_default();
+        let f13 = r.u32_list(at, Self::DATA_WORDS, 5)?.unwrap_or_default();
+        let f14 = r.word_list(at, Self::DATA_WORDS, 6)?.unwrap_or_default();
+        let f15 = r.usize_list(at, Self::DATA_WORDS, 7)?.unwrap_or_default();
+        let f16 = r
             .string_list(at, Self::DATA_WORDS, 8)?
             .map_or_else(Vec::new, |values| {
                 values.into_iter().map(std::path::PathBuf::from).collect()
             });
-        let maybe_sizes = r.usize_list(at, Self::DATA_WORDS, 9)?;
-        let maybe_files = r.string_list(at, Self::DATA_WORDS, 10)?.map(|values| {
+        let f17 = r.usize_list(at, Self::DATA_WORDS, 9)?;
+        let f18 = r.string_list(at, Self::DATA_WORDS, 10)?.map(|values| {
             values
                 .into_iter()
                 .map(std::path::PathBuf::from)
                 .collect::<Vec<_>>()
         });
         Ok(Self {
-            delta,
-            flags,
-            port,
-            hits,
-            hash,
-            count,
-            file,
-            maybe_hash,
-            maybe_port,
-            maybe_file,
-            deltas,
-            bytes,
-            ports,
-            hits_list,
-            hashes,
-            sizes,
-            files,
-            maybe_sizes,
-            maybe_files,
+            delta: f0,
+            flags: f1,
+            port: f2,
+            hits: f3,
+            hash: f4,
+            count: f5,
+            file: f6,
+            maybe_hash: f7,
+            maybe_port: f8,
+            maybe_file: f9,
+            deltas: f10,
+            bytes: f11,
+            ports: f12,
+            hits_list: f13,
+            hashes: f14,
+            sizes: f15,
+            files: f16,
+            maybe_sizes: f17,
+            maybe_files: f18,
         })
     }
 }
@@ -206,19 +206,19 @@ impl tdbin::Struct for StatsRaw {
     }
 
     fn read_struct(r: &tdbin::Reader<'_>, at: usize) -> Result<Self, tdbin::DecodeError> {
-        let delta = tdbin::scalar::i64_from(r.scalar(at, 0)?);
-        let flags = tdbin::scalar::u64_from(r.scalar(at, 1)?);
-        let port = tdbin::scalar::u64_from(r.scalar(at, 2)?);
-        let hits = tdbin::scalar::u64_from(r.scalar(at, 3)?);
-        let hash = tdbin::scalar::u64_from(r.scalar(at, 4)?);
-        let count = tdbin::scalar::u64_from(r.scalar(at, 5)?);
+        let f0 = tdbin::scalar::i64_from(r.scalar(at, 0)?);
+        let f1 = tdbin::scalar::u64_from(r.scalar(at, 1)?);
+        let f2 = tdbin::scalar::u64_from(r.scalar(at, 2)?);
+        let f3 = tdbin::scalar::u64_from(r.scalar(at, 3)?);
+        let f4 = tdbin::scalar::u64_from(r.scalar(at, 4)?);
+        let f5 = tdbin::scalar::u64_from(r.scalar(at, 5)?);
         Ok(Self {
-            delta,
-            flags,
-            port,
-            hits,
-            hash,
-            count,
+            delta: f0,
+            flags: f1,
+            port: f2,
+            hits: f3,
+            hash: f4,
+            count: f5,
         })
     }
 }
