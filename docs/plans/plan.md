@@ -218,7 +218,7 @@ This layer is the framework's programmatic API. Importers (JSON Schema, OpenAPI,
 ### 12. Documentation
 
 - [x] `README.md`: trimmed user-facing version of spec.md (grammar, both examples, install, basic usage).
-- [x] One screenshot of the chat-model example rendered. (`docs/chat-model-example.svg`)
+- [x] One screenshot of the chat-model example rendered. (`docs/design/chat-model-example.svg`)
 
 ### 13. CLI app (`packages/cli/`)
 

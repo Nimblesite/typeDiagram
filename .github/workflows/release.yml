@@ -91,7 +91,7 @@ jobs:
       # [SWR-GATE-CI] [SWR-GATE-VERIFY-BINARIES] manifest + version contract gates.
       - name: Shipwright acceptance gates
         run: |
-          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema schemas/shipwright.schema.json shipwright.json
+          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema docs/schemas/shipwright.schema.json shipwright.json
           V="${{ steps.derive.outputs.version }}"
           OUT="$(node packages/cli/dist/bin.js --version)"
           test "$OUT" = "typediagram $V"
