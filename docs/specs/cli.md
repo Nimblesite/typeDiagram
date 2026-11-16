@@ -55,6 +55,25 @@ typediagram --config typediagram.json
 
 `"watch": true` performs initial generation and then watches the source. `--watch` enables the same behavior from the command line when the config omits it. Each valid save regenerates every selected language. Invalid source reports diagnostics without overwriting the last good generated files; the watcher recovers automatically after the next valid save.
 
+### TDBIN codecs in the config [CLI-CONFIG-TDBIN]
+
+Add a `tdbin` object to emit codec modules from the same parse as `outputs`. Under `--watch`, one save regenerates types and codecs together, so their layout hashes can't drift apart:
+
+```json
+{
+  "source": "docs/models/wire.td",
+  "outputs": { "rust": "crates/core/src/wire_types.rs", "typescript": "client/src/wire-types.ts" },
+  "tdbin": {
+    "rust": { "path": "crates/core/src/wire_codec.rs", "mode": "codec-only" },
+    "typescript": "client/src/wire.ts"
+  }
+}
+```
+
+- `rust` mode `"full"` (the default) matches `typediagram encode`: ADT types plus `impl tdbin::Struct`. `"codec-only"` matches `typediagram decode`: impls only, for types emitted elsewhere.
+- `typescript` matches `typediagram encode --to typescript` and supports only `"full"`.
+- A plain string is shorthand for `{ "path": …, "mode": "full" }`. `outputs` may be omitted when `tdbin` selects at least one target.
+
 ## Examples
 
 ### Render typeDiagram to SVG

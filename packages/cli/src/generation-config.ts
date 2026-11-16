@@ -3,11 +3,19 @@ import { watch, type FSWatcher } from "node:fs";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { basename, dirname, resolve } from "node:path";
 import { converters, model as modelLayer, parser } from "typediagram-core";
+import { emitRustCodec, generateRustModule } from "typediagram-core/converters/rust-tdbin";
+import { generateTypeScriptModule } from "typediagram-core/converters/typescript-tdbin";
 import { err, errorMessage, ok, type Result } from "./result.js";
 
 type GenerationError = { readonly message: string };
-type OutputTarget = { readonly language: converters.Language; readonly path: string };
-type GeneratedOutput = OutputTarget & { readonly content: string };
+/** One configured output: a label for reporting and a generator over the ONE
+ *  parsed model, so types and tdbin codecs can never disagree ([CLI-CONFIG-TDBIN]). */
+type OutputTarget = {
+  readonly label: string;
+  readonly path: string;
+  readonly generate: (model: modelLayer.Model) => Result<string, GenerationError>;
+};
+type GeneratedOutput = { readonly label: string; readonly path: string; readonly content: string };
 type GenerationConfig = {
   readonly source: string;
   readonly outputs: readonly OutputTarget[];
@@ -37,12 +45,66 @@ const parseJson = (text: string, path: string): Result<unknown, GenerationError>
   }
 };
 
+const diagnosticsError = (diagnostics: readonly parser.Diagnostic[]): GenerationError => ({
+  message: parser.formatDiagnostics([...diagnostics]),
+});
+
+const languageGenerator = (language: converters.Language) => (model: modelLayer.Model) => {
+  const diagnostics = modelLayer.validateForCodegen(model, language);
+  return diagnostics.length === 0
+    ? ok(converters.byLanguage[language].toSource(model))
+    : err<GenerationError>(diagnosticsError(diagnostics));
+};
+
+const nonEmptyPath = (path: unknown): path is string => typeof path === "string" && path.trim().length > 0;
+
 const parseOutput = ([language, path]: [string, unknown]): Result<OutputTarget, GenerationError> =>
   !languageValue(language)
     ? err({ message: `unsupported output language '${language}'` })
-    : typeof path !== "string" || path.trim().length === 0
+    : !nonEmptyPath(path)
       ? err({ message: `output '${language}' expects a non-empty file path` })
-      : ok({ language, path });
+      : ok({ label: language, path, generate: languageGenerator(language) });
+
+type TdbinKind = "rust:full" | "rust:codec-only" | "typescript:full";
+
+const TDBIN_GENERATORS: Record<TdbinKind, (model: modelLayer.Model) => Result<string, readonly parser.Diagnostic[]>> = {
+  "rust:full": (model) => generateRustModule(model),
+  "rust:codec-only": (model) => emitRustCodec(model),
+  "typescript:full": (model) => generateTypeScriptModule(model),
+};
+
+const tdbinGenerator = (kind: TdbinKind) => (model: modelLayer.Model) => {
+  const diagnostics = modelLayer.validateForCodegen(model, kind.startsWith("rust") ? "rust" : "typescript");
+  const generated = diagnostics.length === 0 ? TDBIN_GENERATORS[kind](model) : err(diagnostics);
+  return generated.ok ? ok(generated.value) : err<GenerationError>(diagnosticsError(generated.error));
+};
+
+const tdbinSpec = (target: string, value: unknown): Result<OutputTarget, GenerationError> => {
+  const spec = recordValue(value) ? value : { path: value };
+  const mode = spec.mode ?? "full";
+  return target !== "rust" && target !== "typescript"
+    ? err({ message: `unsupported tdbin target '${target}' (use 'rust' or 'typescript')` })
+    : !nonEmptyPath(spec.path)
+      ? err({ message: `tdbin '${target}' expects a non-empty file path` })
+      : mode !== "full" && mode !== "codec-only"
+        ? err({ message: `tdbin '${target}' mode must be 'full' or 'codec-only'` })
+        : target === "typescript" && mode !== "full"
+          ? err({ message: "tdbin 'typescript' supports only mode 'full'" })
+          : ok({
+              label: `tdbin-${target}`,
+              path: spec.path,
+              generate: tdbinGenerator(
+                target === "typescript" ? "typescript:full" : mode === "full" ? "rust:full" : "rust:codec-only"
+              ),
+            });
+};
+
+const parseTdbin = (value: unknown): Result<OutputTarget[], GenerationError> =>
+  value === undefined
+    ? ok([])
+    : !recordValue(value)
+      ? err({ message: "config.tdbin must be an object keyed by 'rust' / 'typescript'" })
+      : collectResults(Object.entries(value).map(([target, spec]) => tdbinSpec(target, spec)));
 
 const collectResults = <T, E>(results: readonly Result<T, E>[]) => {
   const values: T[] = [];
@@ -58,13 +120,20 @@ const collectResults = <T, E>(results: readonly Result<T, E>[]) => {
   return ok(values);
 };
 
-const parseOutputs = (value: unknown) => {
+const parseOutputs = (value: unknown, tdbin: Result<OutputTarget[], GenerationError>) => {
   const results = recordValue(value) ? Object.entries(value).map(parseOutput) : [];
-  return !recordValue(value)
-    ? err<GenerationError>({ message: "config.outputs must be an object keyed by language" })
-    : results.length === 0
-      ? err<GenerationError>({ message: "config.outputs must select at least one language" })
-      : collectResults(results);
+  const languages = collectResults(results);
+  return !tdbin.ok
+    ? tdbin
+    : value === undefined && tdbin.value.length > 0
+      ? ok(tdbin.value)
+      : !recordValue(value)
+        ? err<GenerationError>({ message: "config.outputs must be an object keyed by language" })
+        : results.length === 0 && tdbin.value.length === 0
+          ? err<GenerationError>({ message: "config.outputs must select at least one language" })
+          : languages.ok
+            ? ok([...languages.value, ...tdbin.value])
+            : languages;
 };
 
 const parseWatch = (value: unknown) =>
@@ -79,13 +148,13 @@ const resolveConfig = (path: string, source: string, outputs: readonly OutputTar
   const collision = resolvedOutputs.find((output) => output.path === resolvedSource);
   return collision === undefined
     ? ok({ source: resolvedSource, outputs: resolvedOutputs, watch: watchEnabled })
-    : err<GenerationError>({ message: `output '${collision.language}' cannot overwrite the .td source` });
+    : err<GenerationError>({ message: `output '${collision.label}' cannot overwrite the .td source` });
 };
 
 const parseConfig = (value: unknown, path: string): Result<GenerationConfig, GenerationError> => {
   const config = recordValue(value) ? value : undefined;
   const source = config?.source;
-  const outputs = parseOutputs(config?.outputs);
+  const outputs = parseOutputs(config?.outputs, parseTdbin(config?.tdbin));
   const watchEnabled = parseWatch(config?.watch);
   return config === undefined
     ? err({ message: "generation config must be a JSON object" })
@@ -113,10 +182,8 @@ const modelFromSource = (source: string) => {
 };
 
 const generateOutput = (model: modelLayer.Model, output: OutputTarget) => {
-  const diagnostics = modelLayer.validateForCodegen(model, output.language);
-  return diagnostics.length === 0
-    ? ok({ ...output, content: converters.byLanguage[output.language].toSource(model) })
-    : err<GenerationError>({ message: parser.formatDiagnostics(diagnostics) });
+  const content = output.generate(model);
+  return content.ok ? ok({ label: output.label, path: output.path, content: content.value }) : content;
 };
 
 const generateAll = async (config: GenerationConfig) => {
@@ -152,7 +219,7 @@ const reportError = (error: GenerationError, stderr: NodeJS.WritableStream) => {
 
 const reportGenerated = (outputs: readonly GeneratedOutput[], stdout: NodeJS.WritableStream) => {
   outputs.forEach((output) => {
-    stdout.write(`generated ${output.language} -> ${output.path}\n`);
+    stdout.write(`generated ${output.label} -> ${output.path}\n`);
   });
   return true;
 };

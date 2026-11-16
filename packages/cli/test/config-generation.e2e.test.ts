@@ -219,4 +219,102 @@ describe("[CLI-CONFIG-GENERATE] configured ADT generation", () => {
     expect(signalErr.text()).toBe("");
     expect(process.listeners("SIGINT")).toEqual([...originalSignals]);
   });
+
+  it("emits tdbin codecs from config and regenerates them with the types under --watch [CLI-CONFIG-TDBIN] #65", async () => {
+    const root = await mkdtemp(join(tmpdir(), "td-config-tdbin-"));
+    const configPath = join(root, "typediagram.json");
+    const sourcePath = join(root, "wire.td");
+    const out = (name: string) => join(root, "gen", name);
+    await writeFile(sourcePath, source("  id: Int"), "utf8");
+    await writeFile(
+      configPath,
+      JSON.stringify({
+        source: "wire.td",
+        watch: true,
+        outputs: { rust: "gen/types.rs", typescript: "gen/types.ts" },
+        tdbin: {
+          rust: { path: "gen/codec.rs", mode: "codec-only" },
+          typescript: "gen/wire.ts",
+        },
+      }),
+      "utf8"
+    );
+    const stdout = makeStream();
+    const stderr = makeStream();
+    const controller = new AbortController();
+    const watched = main(["--config", configPath], stdout.stream, stderr.stream, controller.signal);
+    await vi.waitFor(() => {
+      expect(stdout.text()).toContain(`watching ${sourcePath}`);
+    });
+    expect(stdout.text()).toContain(`generated tdbin-rust -> ${out("codec.rs")}`);
+    expect(stdout.text()).toContain(`generated tdbin-typescript -> ${out("wire.ts")}`);
+    const rustCodec = await readFile(out("codec.rs"), "utf8");
+    expect(rustCodec).toContain("impl tdbin::Struct for Person");
+    expect(rustCodec).not.toContain("pub struct Person");
+    expect(await readFile(out("wire.ts"), "utf8")).toContain("export const PersonCodec: tdbin.StructCodec<Person>");
+    const hashOf = (text: string, marker: string, end: string) =>
+      text.slice(text.indexOf(marker) + marker.length, text.indexOf(end, text.indexOf(marker))).replaceAll("_", "");
+    const firstRustHash = hashOf(rustCodec, "LAYOUT_HASH: u64 = ", ";");
+    await writeFile(sourcePath, source("  id: Int\n  name: String"), "utf8");
+    await vi.waitFor(async () => {
+      expect(await readFile(out("codec.rs"), "utf8")).toContain("let name = r.string(");
+      expect(await readFile(out("wire.ts"), "utf8")).toContain(
+        "tdbin.writer.string(writer, at, PersonCodec.dataWords, 0, value.name)"
+      );
+      expect(await readFile(out("types.rs"), "utf8")).toContain("pub name: String");
+      expect(await readFile(out("types.ts"), "utf8")).toContain("name: string");
+    });
+    const rustAfter = await readFile(out("codec.rs"), "utf8");
+    const tsAfter = await readFile(out("wire.ts"), "utf8");
+    expect(hashOf(rustAfter, "LAYOUT_HASH: u64 = ", ";")).not.toBe(firstRustHash);
+    expect(BigInt(hashOf(rustAfter, "LAYOUT_HASH: u64 = ", ";"))).toBe(BigInt(hashOf(tsAfter, "layoutHash: ", "n,")));
+    controller.abort();
+    expect(await watched).toBe(0);
+    expect(stderr.text()).toBe("");
+
+    const cases: ReadonlyArray<readonly [string, unknown, string]> = [
+      [
+        "tdbin-array.json",
+        { source: "wire.td", outputs: { rust: "a.rs" }, tdbin: [] },
+        "config.tdbin must be an object",
+      ],
+      [
+        "tdbin-go.json",
+        { source: "wire.td", outputs: { rust: "a.rs" }, tdbin: { go: "a.go" } },
+        "unsupported tdbin target 'go'",
+      ],
+      [
+        "tdbin-mode.json",
+        { source: "wire.td", outputs: { rust: "a.rs" }, tdbin: { rust: { path: "c.rs", mode: "half" } } },
+        "tdbin 'rust' mode must be 'full' or 'codec-only'",
+      ],
+      [
+        "tdbin-ts-mode.json",
+        { source: "wire.td", outputs: { rust: "a.rs" }, tdbin: { typescript: { path: "c.ts", mode: "codec-only" } } },
+        "tdbin 'typescript' supports only mode 'full'",
+      ],
+      [
+        "tdbin-path.json",
+        { source: "wire.td", outputs: { rust: "a.rs" }, tdbin: { rust: { path: "" } } },
+        "tdbin 'rust' expects a non-empty file path",
+      ],
+      [
+        "tdbin-source.json",
+        { source: "wire.td", outputs: { rust: "a.rs" }, tdbin: { typescript: "wire.td" } },
+        "cannot overwrite the .td source",
+      ],
+    ];
+    for (const [name, value, message] of cases) {
+      expectFailure(await runConfig(root, name, value), message);
+    }
+    const onlyTdbin = await runConfig(root, "only-tdbin.json", { source: "wire.td", tdbin: { rust: "gen/full.rs" } });
+    expect(onlyTdbin.code).toBe(0);
+    expect(await readFile(out("full.rs"), "utf8")).toContain("pub struct Person");
+    const unsupported = join(root, "bad.td");
+    await writeFile(unsupported, "type Bad {\n  m: Map<String, Int>\n}\n", "utf8");
+    expectFailure(
+      await runConfig(root, "bad-schema.json", { source: "bad.td", tdbin: { rust: "gen/bad.rs" } }),
+      "tdbin:"
+    );
+  });
 });
