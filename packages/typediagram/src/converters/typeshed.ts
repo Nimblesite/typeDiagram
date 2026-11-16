@@ -12,6 +12,13 @@ export interface TypeshedConverter extends Converter {
 const TD_TO_PYI: Readonly<Record<string, string>> = {
   Bool: "bool",
   Int: "int",
+  I32: "int",
+  U8: "int",
+  U16: "int",
+  U32: "int",
+  U64: "int",
+  Size: "int",
+  Path: "str",
   Float: "float",
   String: "str",
   Bytes: "bytes",

@@ -6,6 +6,13 @@ import { emitDecls, type DeclEmitters } from "./emit-decls.js";
 
 const PRIMITIVES: Readonly<Record<string, string>> = {
   Int: "Int64",
+  I32: "Int32",
+  U8: "UInt8",
+  U16: "UInt16",
+  U32: "UInt32",
+  U64: "UInt64",
+  Size: "UInt",
+  Path: "String",
   Float: "Double",
   Bool: "Bool",
   String: "String",

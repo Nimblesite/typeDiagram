@@ -26,6 +26,13 @@ import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./
 const TD_TO_DART: Record<string, string> = {
   Bool: "bool",
   Int: "int",
+  I32: "int",
+  U8: "int",
+  U16: "int",
+  U32: "int",
+  U64: "int",
+  Size: "int",
+  Path: "String",
   Float: "double",
   String: "String",
   Bytes: "List<int>",

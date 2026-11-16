@@ -30,6 +30,13 @@ import { mapBuiltinName, parseTypeRef, splitGenericArgs } from "./parse-typeref.
 const TD_TO_TS: Record<string, string> = {
   Bool: "boolean",
   Int: "number",
+  I32: "number",
+  U8: "number",
+  U16: "number",
+  U32: "number",
+  U64: "bigint",
+  Size: "number",
+  Path: "string",
   Float: "number",
   String: "string",
   Bytes: "Uint8Array",

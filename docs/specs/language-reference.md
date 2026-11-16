@@ -146,6 +146,22 @@ Three semantic scalars are also built in. They render like any other primitive, 
 | `Uuid`      | `uuid.UUID`         | `Guid`           | `string`       | `uuid::Uuid`                    | `string`    | `String`   | `string`                    | `string`             |
 | `Decimal`   | `decimal.Decimal`   | `decimal`        | `string`       | `rust_decimal::Decimal`         | `string`    | `String`   | `string`                    | `string`             |
 
+### Width-refined integers and `Path` [MODEL-WIDTH]
+
+`Int` is a signed 64-bit integer. When a field needs a narrower or unsigned range, use a width-refined integer. Code generation emits the closest native type, and the TDBIN codecs range-check every value on encode and decode, failing with a typed error instead of truncating ([TDBIN-FUTURE-WIDTH-TYPES]). `Path` is a file-system path: a UTF-8 string on the wire and in most languages, and `std::path::PathBuf` in Rust.
+
+| typeDiagram | Range      | Rust                 | TypeScript | C#       | F#       | Go       | Protobuf | Swift    |
+| ----------- | ---------- | -------------------- | ---------- | -------- | -------- | -------- | -------- | -------- |
+| `I32`       | −2³¹…2³¹−1 | `i32`                | `number`   | `int`    | `int`    | `int32`  | `int32`  | `Int32`  |
+| `U8`        | 0…255      | `u8`                 | `number`   | `byte`   | `byte`   | `uint8`  | `uint32` | `UInt8`  |
+| `U16`       | 0…65535    | `u16`                | `number`   | `ushort` | `uint16` | `uint16` | `uint32` | `UInt16` |
+| `U32`       | 0…2³²−1    | `u32`                | `number`   | `uint`   | `uint32` | `uint32` | `uint32` | `UInt32` |
+| `U64`       | 0…2⁶⁴−1    | `u64`                | `bigint`   | `ulong`  | `uint64` | `uint64` | `uint64` | `UInt64` |
+| `Size`      | 0…2⁶⁴−1    | `usize`              | `number`   | `ulong`  | `uint64` | `uint`   | `uint64` | `UInt`   |
+| `Path`      | UTF-8 text | `std::path::PathBuf` | `string`   | `string` | `string` | `string` | `string` | `String` |
+
+Python, Typeshed, Dart, PHP and Osprey have one integer type, so every width maps to `int` there. Protobuf has no 8- or 16-bit integers, so `U8`/`U16` widen to `uint32`. Reading Rust source back maps `i32`/`u8`/`u16`/`u32`/`u64`/`usize`/`PathBuf` to these types.
+
 A declaration that reuses a built-in name shadows it: `alias Uuid = String` makes `Uuid` mean `String` again. Declared names always win over built-ins, so existing schemas never break.
 
 ## Container types

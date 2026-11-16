@@ -13,6 +13,13 @@ import { mapBuiltinName } from "./parse-typeref.js";
 
 const PRIMITIVES: Readonly<Record<string, string>> = {
   Int: "int",
+  I32: "int",
+  U8: "int",
+  U16: "int",
+  U32: "int",
+  U64: "int",
+  Size: "int",
+  Path: "string",
   Float: "float",
   Bool: "bool",
   String: "string",

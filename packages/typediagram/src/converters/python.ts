@@ -35,6 +35,13 @@ import { orderBySource, parseFields, scanAll } from "./scan-decls.js";
 const TD_TO_PY: Record<string, string> = {
   Bool: "bool",
   Int: "int",
+  I32: "int",
+  U8: "int",
+  U16: "int",
+  U32: "int",
+  U64: "int",
+  Size: "int",
+  Path: "str",
   Float: "float",
   String: "str",
   Bytes: "bytes",

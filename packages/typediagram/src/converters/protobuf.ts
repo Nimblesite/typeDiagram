@@ -38,6 +38,13 @@ import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./
 const TD_TO_PROTO: Record<string, string> = {
   Bool: "bool",
   Int: "int64",
+  I32: "int32",
+  U8: "uint32",
+  U16: "uint32",
+  U32: "uint32",
+  U64: "uint64",
+  Size: "uint64",
+  Path: "string",
   Float: "double",
   String: "string",
   Bytes: "bytes",

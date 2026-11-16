@@ -114,8 +114,8 @@ impl Processor for ChatRequest {
       active: "Bool",
       score: "Float",
       count: "Int",
-      tiny: "Int",
-      medium: "Int",
+      tiny: "U8",
+      medium: "I32",
     });
 
     // ToolResult — 5 fields, f32 maps to Float

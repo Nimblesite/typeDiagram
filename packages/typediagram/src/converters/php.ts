@@ -9,6 +9,13 @@ import { mapBuiltinName, parseTypeRef } from "./parse-typeref.js";
 const TD_TO_PHP_SCALAR: Record<string, string> = {
   Bool: "bool",
   Int: "int",
+  I32: "int",
+  U8: "int",
+  U16: "int",
+  U32: "int",
+  U64: "int",
+  Size: "int",
+  Path: "string",
   Float: "float",
   String: "string",
   Bytes: "string",

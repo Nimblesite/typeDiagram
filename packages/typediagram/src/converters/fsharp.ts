@@ -12,6 +12,13 @@ import { parseFields, scanAll } from "./scan-decls.js";
 const TD_TO_FS: Record<string, string> = {
   Bool: "bool",
   Int: "int",
+  I32: "int",
+  U8: "byte",
+  U16: "uint16",
+  U32: "uint32",
+  U64: "uint64",
+  Size: "uint64",
+  Path: "string",
   Float: "float",
   String: "string",
   Bytes: "byte[]",

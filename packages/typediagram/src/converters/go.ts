@@ -20,6 +20,13 @@ import { orderBySource, parseFields, scanAll, scanBraceBlocks } from "./scan-dec
 const TD_TO_GO: Record<string, string> = {
   Bool: "bool",
   Int: "int64",
+  I32: "int32",
+  U8: "uint8",
+  U16: "uint16",
+  U32: "uint32",
+  U64: "uint64",
+  Size: "uint",
+  Path: "string",
   Float: "float64",
   String: "string",
   Bytes: "[]byte",

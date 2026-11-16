@@ -26,6 +26,13 @@ import { makeConsumedTracker, orderBySource, scanAll, scanBraceBlocks } from "./
 const TD_TO_CS: Record<string, string> = {
   Bool: "bool",
   Int: "int",
+  I32: "int",
+  U8: "byte",
+  U16: "ushort",
+  U32: "uint",
+  U64: "ulong",
+  Size: "ulong",
+  Path: "string",
   Float: "double",
   String: "string",
   Bytes: "byte[]",

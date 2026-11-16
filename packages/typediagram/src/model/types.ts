@@ -10,6 +10,14 @@ export const PRIMITIVES: ReadonlySet<string> = new Set([
   "DateTime",
   "Uuid",
   "Decimal",
+  // [MODEL-WIDTH] width-refined integers + Path (#85, [TDBIN-FUTURE-WIDTH-TYPES]).
+  "I32",
+  "U8",
+  "U16",
+  "U32",
+  "U64",
+  "Size",
+  "Path",
 ]);
 
 /** [MODEL-CODEGEN-UNKNOWN] Builtin names converters understand beyond PRIMITIVES. */
