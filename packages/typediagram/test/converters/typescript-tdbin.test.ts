@@ -443,4 +443,77 @@ union Notice {
       contact: { kind: "Note", _0: "hi" },
     });
   });
+
+  it("pins Rust-identical layout hashes and guards framed + base64 decodes [TDBIN-SCHEMA-HASH] [TDBIN-FRAME-BASE64]", () => {
+    interface Person {
+      readonly name: string;
+      readonly age: number;
+      readonly active: boolean;
+      readonly score: number;
+      readonly address: { readonly street: string; readonly zip: number } | undefined;
+      readonly nickname: string | undefined;
+      readonly contact: { readonly kind: "Email"; readonly _0: { readonly addr: string } };
+    }
+    const tsSource = unwrap(emitTypeScriptCodec(modelFor(PERSON_TD)));
+    const rust = unwrap(emitRustCodec(modelFor(PERSON_TD)));
+    const codecs = instantiateCodecs(tsSource);
+    const rustHashes = rust
+      .split("\n")
+      .filter((line) => line.includes("const LAYOUT_HASH: u64 = "))
+      .map((line) => BigInt(line.slice(line.indexOf("0x"), line.lastIndexOf(";")).replaceAll("_", "")));
+    const tsHashes = ["Address", "EmailContact", "PhoneContact", "Contact", "Person"].map(
+      (name) => codecFor<unknown>(tsSource, `${name}Codec`).layoutHash
+    );
+    expect(rustHashes).toHaveLength(5);
+    expect(tsHashes).toEqual(rustHashes);
+    expect(new Set(tsHashes).size).toBe(5);
+    expect(tsHashes.every((hash) => hash !== undefined && hash !== 0n)).toBe(true);
+    expect(Object.keys(codecs)).toContain("PersonCodec");
+    const personCodec = codecFor<Person>(tsSource, "PersonCodec");
+    const pinned = personCodec.layoutHash ?? 0n;
+    const person: Person = {
+      name: "Ada",
+      age: -9_007_199_254_740_991,
+      active: true,
+      score: 1.5,
+      address: { street: "1 Loop", zip: 3000 },
+      nickname: undefined,
+      contact: { kind: "Email", _0: { addr: "a@b.c" } },
+    };
+    const framed = unwrap(tdbin.encodeFramed(personCodec, person));
+    expect(unwrap(tdbin.frame.decodeFrame(framed)).schemaHash).toBe(pinned);
+    expect(unwrap(tdbin.decodeFramed(personCodec, framed))).toEqual(person);
+    expect(unwrap(tdbin.decodeAuto(personCodec, framed))).toEqual(person);
+    const packed = unwrap(tdbin.encodePackedFramed(personCodec, person));
+    expect(unwrap(tdbin.frame.decodeFrame(packed)).packed).toBe(true);
+    expect(unwrap(tdbin.decodeFramed(personCodec, packed))).toEqual(person);
+    const wrongHash = unwrap(tdbin.encodeFramed(personCodec, person, pinned ^ 1n));
+    const mismatch = tdbin.decodeFramed(personCodec, wrongHash);
+    expect(mismatch.ok ? null : mismatch.error).toMatchObject({
+      code: "HashMismatch",
+      expectedHash: pinned,
+      gotHash: pinned ^ 1n,
+    });
+    expect(tdbin.decodeAuto(personCodec, wrongHash).ok).toBe(false);
+    const hashless = unwrap(tdbin.encodeFramed(personCodec, person, null));
+    const missing = tdbin.decodeFramed(personCodec, hashless);
+    expect(missing.ok ? null : missing.error).toMatchObject({ code: "HashMismatch", gotHash: null });
+    expect(unwrap(tdbin.decodeAuto(personCodec, hashless))).toEqual(person);
+    expect(unwrap(tdbin.decodeFramed(personCodec, hashless, null))).toEqual(person);
+    expect(unwrap(tdbin.decodeAuto(personCodec, unwrap(tdbin.encode(personCodec, person))))).toEqual(person);
+    const text = unwrap(tdbin.encodeFramedBase64(personCodec, person));
+    expect(text).toBe(tdbin.toBase64(packed));
+    expect(Buffer.from(text, "base64").equals(Buffer.from(packed))).toBe(true);
+    expect(unwrap(tdbin.decodeFramedBase64(personCodec, text))).toEqual(person);
+    const errorCode = (result: { ok: boolean; error?: { code: string } }) => result.error?.code;
+    expect(errorCode(tdbin.decodeFramedBase64(personCodec, "not base64!"))).toBe("BadBase64");
+    expect(errorCode(tdbin.decodeFramedBase64(personCodec, Buffer.from("XXXX0000000000").toString("base64")))).toBe(
+      "BadMagic"
+    );
+    expect(errorCode(tdbin.decodeFramedBase64(personCodec, tdbin.toBase64(wrongHash)))).toBe("HashMismatch");
+    expect(errorCode(tdbin.decodeFramedBase64(personCodec, ""))).toBe("LengthMismatch");
+    const big = new Uint8Array(70_000).map((_, index) => index % 251);
+    expect(Buffer.from(unwrap(tdbin.fromBase64(tdbin.toBase64(big)))).equals(Buffer.from(big))).toBe(true);
+    expect(tdbin.toBase64(big)).toBe(Buffer.from(big).toString("base64"));
+  });
 });

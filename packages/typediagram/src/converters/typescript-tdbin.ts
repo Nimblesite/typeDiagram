@@ -15,6 +15,7 @@ import {
 } from "../model/types.js";
 import { type Result, err, ok } from "../result.js";
 import { printTypeRef } from "./parse-typeref.js";
+import { fnv1a64, layoutManifest } from "./rust-tdbin-hash.js";
 import { allocateBit, allocatePtr, allocateWord, type LayoutCursor, newLayoutCursor } from "./tdbin-alloc.js";
 import {
   type DeclPlan,
@@ -284,7 +285,7 @@ const fieldValue = (field: string, plan: FieldPlan, options: TypeScriptOpts): st
   }
 };
 
-const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, options: TypeScriptOpts): string => {
+const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, hash: bigint, options: TypeScriptOpts): string => {
   const codec = `${record.name}Codec`;
   // Write results always bind to the plain field name; `fieldResultName` is the
   // READ-path binding (`${field}Word` for scalars) and must not guard writes.
@@ -296,6 +297,7 @@ const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, options: Type
   const resultNames = plan.fields.flatMap(({ name, plan: fieldPlan }) => fieldResultNames(name, fieldPlan));
   return [
     `export const ${codec}: tdbin.StructCodec<${record.name}> = {`,
+    hashLine(hash),
     `  dataWords: ${tsNum(plan.dataWords)},`,
     `  ptrWords: ${tsNum(plan.ptrWords)},`,
     `  write: (writer, at, value) => {`,
@@ -340,9 +342,10 @@ const readVariantPayload = (union: string, variant: UnionPlan["variants"][number
   ];
 };
 
-const emitUnionCodec = (union: ResolvedUnion, plan: UnionPlan): string =>
+const emitUnionCodec = (union: ResolvedUnion, plan: UnionPlan, hash: bigint): string =>
   [
     `export const ${union.name}Codec: tdbin.StructCodec<${union.name}> = {`,
+    hashLine(hash),
     `  dataWords: 1,`,
     `  ptrWords: ${tsNum(plan.ptrWords)},`,
     `  write: (writer, at, value) => {`,
@@ -369,6 +372,27 @@ const emitUnionCodec = (union: ResolvedUnion, plan: UnionPlan): string =>
     `  },`,
     `};`,
   ].join("\n");
+
+/** `layoutHash` property: the SAME canonical manifest + FNV-1a 64 the Rust
+ *  emitter pins as `LAYOUT_HASH`, so both languages advertise one identity
+ *  per compatibility major ([TDBIN-SCHEMA-HASH], [TDBIN-SCHEMA-CANON]). */
+const hashLine = (hash: bigint): string => `  layoutHash: 0x${hash.toString(16).padStart(16, "0")}n,`;
+
+const layoutHashFor = (decls: readonly ResolvedDecl[], decl: ResolvedDecl): Result<bigint, Diagnostic[]> => {
+  const manifest = layoutManifest(decls, decl, 1);
+  return manifest.ok ? ok(fnv1a64(manifest.value)) : manifest;
+};
+
+const emitCodec = (decls: readonly ResolvedDecl[], plan: DeclPlan, options: TypeScriptOpts) => {
+  const hash = layoutHashFor(decls, plan.decl);
+  return !hash.ok
+    ? hash
+    : ok(
+        plan.kind === "record"
+          ? emitRecordCodec(plan.decl, plan.plan, hash.value, options)
+          : emitUnionCodec(plan.decl, plan.plan, hash.value)
+      );
+};
 
 const planDecl = (decls: readonly ResolvedDecl[], decl: ResolvedDecl): Result<DeclPlan | null, Diagnostic[]> => {
   if (decl.generics.length > 0) {
@@ -406,9 +430,14 @@ export const emitTypeScriptCodec = (model: Model, options: TypeScriptOpts = {}):
   if (!defaults.ok) {
     return defaults;
   }
-  const codecs = plans.value.map((plan) =>
-    plan.kind === "record" ? emitRecordCodec(plan.decl, plan.plan, options) : emitUnionCodec(plan.decl, plan.plan)
-  );
+  const codecs: string[] = [];
+  for (const plan of plans.value) {
+    const codec = emitCodec(model.decls, plan, options);
+    if (!codec.ok) {
+      return codec;
+    }
+    codecs.push(codec.value);
+  }
   return ok([...defaults.value, ...codecs].join("\n\n"));
 };
 

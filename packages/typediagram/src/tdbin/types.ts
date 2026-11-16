@@ -7,6 +7,7 @@ export type TdbinErrorCode =
   | "ReservedBits"
   | "LengthMismatch"
   | "HashMismatch"
+  | "BadBase64"
   | "PackedTruncated"
   | "PointerOutOfBounds"
   | "ReservedPointerKind"
@@ -32,6 +33,9 @@ export interface TdbinError {
 }
 
 export interface StructCodec<T> {
+  /** Compatibility-major layout hash pinned by the generator ([TDBIN-SCHEMA-HASH]);
+   *  framed encodes advertise it and framed decodes require it. */
+  readonly layoutHash?: bigint;
   readonly dataWords: number;
   readonly ptrWords: number;
   readonly write: (writer: Writer, at: number, value: T) => Result<void, TdbinError>;

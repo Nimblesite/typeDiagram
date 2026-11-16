@@ -8,6 +8,7 @@ const MESSAGES: Record<TdbinErrorCode, string> = {
   ReservedBits: "frame reserved bits or fields were nonzero",
   LengthMismatch: "frame body length does not match available bytes",
   HashMismatch: "frame schema hash does not match the expected layout hash",
+  BadBase64: "framed payload text is not valid base64",
   PackedTruncated: "packed body ended mid-element",
   PointerOutOfBounds: "pointer references an out-of-bounds word",
   ReservedPointerKind: "pointer used a reserved kind",

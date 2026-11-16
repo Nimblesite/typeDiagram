@@ -289,10 +289,12 @@ long-lived schemas:
   malformed-message retry. Publish a new major layout when a frozen fact must
   change.
 
-The current generators do not derive and enforce a layout hash automatically.
-Until they do, choose, distribute, and pass the expected `u64`/`bigint` hash at
-the application boundary yourself. That limitation is why the explicit hash
-argument appears in both framed examples.
+The Rust and TypeScript generators derive the same hash for each type (Rust
+`LAYOUT_HASH`, TypeScript `layoutHash`) and enforce it automatically
+([TDBIN-SCHEMA-HASH]): framed encodes advertise it, and TypeScript
+`decodeFramed` / Rust `from_framed_bytes_with_hash(T::LAYOUT_HASH)` reject a
+missing or different hash with `HashMismatch`. Pass an explicit hash only to
+override the pinned one.
 
 ## Debugging checklist
 

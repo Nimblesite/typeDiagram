@@ -55,8 +55,16 @@ The implementation lives in:
       generics, and every Rust codegen schema form.
 - [ ] Apply required-pointer null/default semantics consistently with the wire
       specification.
-- [ ] Generate the compatibility-major layout hash and require it during normal
-      framed decode; the current API only checks a caller-supplied expected hash.
+- [x] Generate the compatibility-major layout hash and require it during normal
+      framed decode ([TDBIN-SCHEMA-HASH]): every generated codec carries
+      `layoutHash`, identical to the Rust `LAYOUT_HASH` for the same schema;
+      `encodeFramed`/`encodePackedFramed` advertise it; `decodeFramed` requires
+      it (missing or different → `HashMismatch`); `decodeAuto` rejects a
+      contradicting advertised hash.
+- [x] Base64 framed helpers for JSON envelopes such as JSON-RPC/LSP
+      ([TDBIN-FRAME-BASE64]): `encodeFramedBase64` emits a packed, hashed frame
+      as standard base64; `decodeFramedBase64` returns `BadBase64`, `BadMagic`,
+      `HashMismatch`, … as typed errors.
 - [ ] Compile and execute generated codecs, run Rust-to-TypeScript-to-Rust byte
       identity in both directions, and cover browser as well as Node execution.
 - [ ] Measure and record bundle-size impact.
