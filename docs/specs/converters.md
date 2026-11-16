@@ -104,6 +104,15 @@ The dedicated `typeshed` converter parses `.pyi` syntax with a Python concrete s
 
 Supports struct variants, tuple variants, and unit variants in enums. Generic bounds (e.g. `T: Clone`) are parsed but bounds are dropped (only the type parameter name is kept).
 
+### Lint-clean output [CONV-RUST-IDIOM]
+
+`--to rust` output compiles under `cargo clippy -- -D warnings`:
+
+- Every struct and enum derives `Debug, Clone, PartialEq`.
+- Field names are snake_case (`typeText` → `type_text`, `isHTTPServer` → `is_http_server`). When the name changes, `#[serde(rename = "typeText")]` keeps the schema name as the JSON name, and reading the Rust back restores `typeText`.
+- A type that carries a serde attribute (a renamed field or `untagged`) also derives `serde::Serialize, serde::Deserialize`, so add `serde` (with `derive`) to the crate. Snake_case schemas need no serde.
+- The TDBIN module (`typediagram encode`) uses the same declarations and adds `Default` to records.
+
 ## Go
 
 ### What maps

@@ -1,6 +1,9 @@
 // [CONV-RUST-TEST] Rust converter integration tests.
 import { describe, expect, it } from "vitest";
 import { rust } from "../../src/converters/index.js";
+import { generateRustModule } from "../../src/converters/rust-tdbin.js";
+import { buildModel } from "../../src/model/index.js";
+import { parse } from "../../src/parser/index.js";
 import { printSource } from "../../src/model/index.js";
 import {
   aliasTargetName,
@@ -279,5 +282,69 @@ untagged union RequestId {
 describe("[CONV-RUST-RT] Rust round-trip TD -> Rust -> TD", () => {
   it("losslessly round-trips the home-page example through Rust (TD text preserved)", () => {
     expectLosslessRoundTrip(rust);
+  });
+});
+
+describe("[CONV-RUST-IDIOM] lint-clean Rust output (#71)", () => {
+  it("emits snake_case fields with serde renames, derives, and round-trips camelCase schemas", () => {
+    const td = `type RawParam {
+  name: String
+  typeText: Option<String>
+  isNamed: Bool
+  isHTTPServer: Bool
+  defaultValue: Option<String>
+}
+
+union DeclKind {
+  Class
+  Enum
+}
+
+union Event {
+  Moved {
+    deltaX: Float
+    y: Float
+  }
+  Named(String)
+}
+
+type Plain {
+  snake_case: Int
+}`;
+    const output = toSourceFromTd(rust, td);
+    expect(output).toContain(
+      "#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\npub struct RawParam {"
+    );
+    expect(output).toContain('    #[serde(rename = "typeText")]\n    pub type_text: Option<String>,');
+    expect(output).toContain('    #[serde(rename = "isNamed")]\n    pub is_named: bool,');
+    expect(output).toContain('    #[serde(rename = "isHTTPServer")]\n    pub is_http_server: bool,');
+    expect(output).toContain('    #[serde(rename = "defaultValue")]\n    pub default_value: Option<String>,');
+    expect(output).toContain("    pub name: String,");
+    expect(output).not.toContain("typeText:");
+    expect(output).toContain("#[derive(Debug, Clone, PartialEq)]\npub enum DeclKind {");
+    expect(output).toContain(
+      '#[derive(Debug, Clone, PartialEq, serde::Serialize, serde::Deserialize)]\npub enum Event {\n    Moved { #[serde(rename = "deltaX")] delta_x: f64, y: f64 },'
+    );
+    expect(output).toContain("#[derive(Debug, Clone, PartialEq)]\npub struct Plain {\n    pub snake_case: i64,");
+    const back = unwrap(rust.fromSource(output));
+    expect(recordFields(back, "RawParam").map((f) => f.name)).toEqual([
+      "name",
+      "typeText",
+      "isNamed",
+      "isHTTPServer",
+      "defaultValue",
+    ]);
+    expect(unionVariants(back, "Event")[0]?.fields.map((f) => f.name)).toEqual(["deltaX", "y"]);
+    expect(recordFields(back, "Plain").map((f) => f.name)).toEqual(["snake_case"]);
+    const module = unwrap(generateRustModule(unwrap(buildModel(unwrap(parse(td))))));
+    expect(module).toContain(
+      "#[derive(Debug, Clone, PartialEq, Default, serde::Serialize, serde::Deserialize)]\npub struct RawParam {"
+    );
+    expect(module).toContain("w.string(at, Self::DATA_WORDS, 1, self.type_text.as_deref())?;");
+    expect(module).toContain("Ok(Self { name, type_text, is_named, is_http_server, default_value })");
+    expect(module).toContain("Self::Moved { delta_x: f0, y: f1 } => {");
+    expect(module).toContain(
+      "pub struct EventMovedTdbinPayload {\n    /// The `delta_x` field.\n    pub delta_x: f64,"
+    );
   });
 });

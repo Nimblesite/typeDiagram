@@ -11,13 +11,13 @@
 // the layout manifest/hash in rust-tdbin-hash.ts.
 import type { Diagnostic } from "../parser/diagnostics.js";
 import { type Model, type ResolvedDataDecl, type ResolvedDecl, visibleDataDeclsForTarget } from "../model/types.js";
-import { emitRustDecl } from "./rust.js";
+import { emitRustDecl, rustNamedDecls } from "./rust.js";
 import { err, ok, type Result } from "../result.js";
 import { classifyRecord, classifyUnion, diag, type Layout } from "./rust-tdbin-plan.js";
 import { emitRecordCodec, emitUnionCodec, emitUnionDefault } from "./rust-tdbin-fields.js";
 import { columnarReachable, emitColumnGroup } from "./rust-tdbin-columnar.js";
 import { fnv1a64, layoutHashLiteral, layoutManifest } from "./rust-tdbin-hash.js";
-import { withVariantRecords } from "./tdbin-variant-records.js";
+import { variantRecords, withVariantRecords } from "./tdbin-variant-records.js";
 
 /** Codec generation options. */
 export interface RustCodecOptions {
@@ -99,8 +99,9 @@ const declBlocks = (ctx: EmitCtx, d: ResolvedDecl): Result<string[], Diagnostic[
  *  monomorphized first. */
 export const emitRustCodec = (model: Model, options?: RustCodecOptions): Result<string, Diagnostic[]> => {
   const layout: Layout = options?.layout ?? 1;
-  const decls = withVariantRecords(model.decls);
-  const visible = withVariantRecords(visibleDataDeclsForTarget(model.decls, "rust"));
+  // [CONV-RUST-IDIOM] codecs bind the snake_case identifiers the ADT declares.
+  const decls = withVariantRecords(rustNamedDecls(model.decls));
+  const visible = withVariantRecords(rustNamedDecls(visibleDataDeclsForTarget(model.decls, "rust")));
   const ctx: EmitCtx = {
     decls,
     layout,
@@ -118,21 +119,11 @@ export const emitRustCodec = (model: Model, options?: RustCodecOptions): Result<
   return ok(blocks.join("\n\n"));
 };
 
-/** Records derive `Default` so required pointer fields can decode null as the
- *  schema default ([TDBIN-PTR-NULL]); unions get a generated `impl Default`. */
-const deriveFor = (d: ResolvedDataDecl): string =>
-  d.kind === "record"
-    ? "#[derive(Debug, Clone, PartialEq, Default)]\n"
-    : d.kind === "union"
-      ? "#[derive(Debug, Clone, PartialEq)]\n"
-      : "";
-
-/** Emit one ADT type with its doc comment first, then the derive, then the body
- *  (from the shared Rust converter) — the order rustc/clippy expect. */
-const emitTypeWithDocs = (d: ResolvedDataDecl): string => {
-  const [doc, ...rest] = emitRustDecl(d, true);
-  return `${doc ?? ""}\n${deriveFor(d)}${rest.join("\n")}`;
-};
+/** Emit one ADT type: doc comment, shared derives (records add `Default` so
+ *  required pointer fields can decode null as the schema default
+ *  [TDBIN-PTR-NULL]; unions get a generated `impl Default`), then the body. */
+const emitTypeWithDocs = (d: ResolvedDataDecl): string =>
+  emitRustDecl(d, true, d.kind === "record" ? ["Default"] : []).join("\n");
 
 /** Emit a self-contained Rust module: derived ADT types (from the existing
  *  Rust converter) plus their TDBIN codec — deny-all-clean (doc comments,
@@ -145,9 +136,7 @@ export const generateRustModule = (model: Model, options?: RustCodecOptions): Re
   }
   // [TDBIN-UNION-STRUCT] synthetic payload records ship beside the ADT so the
   // struct-form variant codec has a concrete `tdbin::Struct` to point at.
-  const types = withVariantRecords(visibleDataDeclsForTarget(model.decls, "rust"))
-    .filter((d) => d.kind !== "function")
-    .map(emitTypeWithDocs)
-    .join("\n");
+  const visible = visibleDataDeclsForTarget(model.decls, "rust");
+  const types = [...visible, ...variantRecords(rustNamedDecls(visible))].map(emitTypeWithDocs).join("\n");
   return ok(`${types}\n${codec.value}\n`);
 };

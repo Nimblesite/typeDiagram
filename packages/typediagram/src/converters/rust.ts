@@ -6,6 +6,7 @@ import {
   isTupleVariantFields,
   type Model,
   type ResolvedDataDecl,
+  type ResolvedDecl,
   type ResolvedField,
   type ResolvedTypeRef,
   type ResolvedVariant,
@@ -133,6 +134,15 @@ const splitRsFieldList = (body: string): string[] => {
   return last.length > 0 ? [...parts, last] : parts;
 };
 
+const RENAME_MARK = '#[serde(rename = "';
+
+/** The schema name a `#[serde(rename = "…")]` attribute preserves ([CONV-RUST-IDIOM]). */
+const serdeRename = (chunk: string): string | undefined => {
+  const at = chunk.indexOf(RENAME_MARK);
+  const start = at + RENAME_MARK.length;
+  return at === -1 ? undefined : chunk.slice(start, chunk.indexOf('"', start));
+};
+
 const parseRsFields = (body: string) =>
   splitRsFieldList(body)
     .map((l) => l.trim())
@@ -146,7 +156,7 @@ const parseRsFields = (body: string) =>
       if (name === undefined || type === undefined) {
         return null;
       }
-      return { name, type: mapRsType(type.replace(/,$/, "").trim()) };
+      return { name: serdeRename(l) ?? name, type: mapRsType(type.replace(/,$/, "").trim()) };
     })
     .filter((f): f is { name: string; type: string } => f !== null);
 
@@ -282,26 +292,70 @@ export const mapTdToRs = (t: ResolvedTypeRef): string => {
  *  only when `docs` is requested so generated code satisfies `missing_docs`. */
 const rustDoc = (indent: string, name: string, kind: string): string => `${indent}/// The \`${name}\` ${kind}.`;
 
+/** [CONV-RUST-IDIOM] snake_case for a Rust field (`isHTTPServer` → `is_http_server`). */
+export const rustFieldName = (name: string): string =>
+  name
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1_$2")
+    .toLowerCase();
+
+/** `decls` with every record / struct-variant field renamed to its Rust name, so
+ *  codecs planned over them bind the same identifiers the ADT declares. */
+export const rustNamedDecls = (decls: readonly ResolvedDecl[]): ResolvedDecl[] => {
+  const rename = (fields: ResolvedField[]): ResolvedField[] =>
+    isTupleVariantFields(fields) ? fields : fields.map((f) => ({ ...f, name: rustFieldName(f.name) }));
+  return decls.map((d) =>
+    d.kind === "record"
+      ? { ...d, fields: rename(d.fields) }
+      : d.kind === "union"
+        ? { ...d, variants: d.variants.map((v) => ({ ...v, fields: rename(v.fields) })) }
+        : d
+  );
+};
+
+const renameAttr = (f: ResolvedField): string =>
+  rustFieldName(f.name) === f.name ? "" : `#[serde(rename = "${f.name}")]`;
+
+const needsSerde = (d: ResolvedDataDecl): boolean =>
+  d.kind === "record"
+    ? d.fields.some((f) => renameAttr(f) !== "")
+    : d.kind === "union" &&
+      (d.untagged === true ||
+        d.variants.some((v) => !isTupleVariantFields(v.fields) && v.fields.some((f) => renameAttr(f) !== "")));
+
+const deriveLine = (d: ResolvedDataDecl, extra: readonly string[]): string[] =>
+  d.kind === "alias"
+    ? []
+    : [
+        `#[derive(${["Debug", "Clone", "PartialEq", ...extra, ...(needsSerde(d) ? ["serde::Serialize", "serde::Deserialize"] : [])].join(", ")})]`,
+      ];
+
 const emitRustVariant = (v: ResolvedVariant, docs: boolean): string => {
+  const structField = (f: ResolvedField): string =>
+    `${renameAttr(f) === "" ? "" : `${renameAttr(f)} `}${rustFieldName(f.name)}: ${mapTdToRs(f.type)}`;
   const body =
     v.fields.length === 0
       ? `    ${formatVariantName(v.name, v.discriminant)},`
       : isTupleVariantFields(v.fields)
         ? `    ${v.name}(${v.fields.map((f) => mapTdToRs(f.type)).join(", ")}),`
-        : `    ${v.name} { ${v.fields.map((f) => `${f.name}: ${mapTdToRs(f.type)}`).join(", ")} },`;
+        : `    ${v.name} { ${v.fields.map(structField).join(", ")} },`;
   return docs ? `${rustDoc("    ", v.name, "variant")}\n${body}` : body;
 };
 
-/** [CONV-RUST-DECL] Emit one Rust type declaration (no derives). Shared by the
- *  type converter and the TDBIN codec generator so neither duplicates it. With
- *  `docs`, prepends `///` comments so the output is `missing_docs`-clean. */
-export const emitRustDecl = (d: ResolvedDataDecl, docs = false): string[] => {
+/** [CONV-RUST-DECL] [CONV-RUST-IDIOM] Emit one Rust type declaration: derives
+ *  (`Debug, Clone, PartialEq`, plus `extraDerives`, plus serde when a serde
+ *  attribute is needed), snake_case fields with `#[serde(rename)]` preserving
+ *  the schema name. Shared by the type converter and the TDBIN codec generator.
+ *  With `docs`, prepends `///` comments so the output is `missing_docs`-clean. */
+export const emitRustDecl = (d: ResolvedDataDecl, docs = false, extraDerives: readonly string[] = []): string[] => {
   const genericsStr = d.generics.length > 0 ? `<${d.generics.join(", ")}>` : "";
-  const lead = docs ? [rustDoc("", d.name, d.kind)] : [];
+  const lead = [...(docs ? [rustDoc("", d.name, d.kind)] : []), ...deriveLine(d, extraDerives)];
   const field = (f: ResolvedField): string =>
-    docs
-      ? `${rustDoc("    ", f.name, "field")}\n    pub ${f.name}: ${mapTdToRs(f.type)},`
-      : `    pub ${f.name}: ${mapTdToRs(f.type)},`;
+    [
+      ...(docs ? [rustDoc("    ", f.name, "field")] : []),
+      ...(renameAttr(f) === "" ? [] : [`    ${renameAttr(f)}`]),
+      `    pub ${rustFieldName(f.name)}: ${mapTdToRs(f.type)},`,
+    ].join("\n");
   if (d.kind === "record") {
     return [...lead, `pub struct ${d.name}${genericsStr} {`, ...d.fields.map(field), "}", ""];
   }

@@ -61,7 +61,7 @@ const EMIT_CASES: EmitCase[] = [
   {
     lang: "rust",
     snippets: [
-      "pub createdAt: chrono::DateTime<chrono::Utc>",
+      '#[serde(rename = "createdAt")]\n    pub created_at: chrono::DateTime<chrono::Utc>',
       "pub id: uuid::Uuid",
       "pub amount: rust_decimal::Decimal",
       "Vec<chrono::DateTime<chrono::Utc>>",

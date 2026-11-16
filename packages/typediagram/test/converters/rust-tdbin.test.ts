@@ -183,12 +183,12 @@ describe("[CONV-RUST-TDBIN] semantic scalar byte layouts", () => {
     expect(code).toMatch(
       /impl tdbin::Struct for Audit \{\n[ ]{4}const DATA_WORDS: u16 = 10;\n[ ]{4}const PTR_WORDS: u16 = 0;/
     );
-    expect(code).toContain("tdbin::scalar::i64_bits(self.createdAt.timestamp_micros())");
-    expect(code).toContain("w.bool_bit(at, 1, 0, self.expiresAt.is_some())?;");
+    expect(code).toContain("tdbin::scalar::i64_bits(self.created_at.timestamp_micros())");
+    expect(code).toContain("w.bool_bit(at, 1, 0, self.expires_at.is_some())?;");
     expect(code).toContain(
-      "w.scalar(at, 2, self.expiresAt.as_ref().map_or(0, |value| tdbin::scalar::i64_bits(value.timestamp_micros())))?;"
+      "w.scalar(at, 2, self.expires_at.as_ref().map_or(0, |value| tdbin::scalar::i64_bits(value.timestamp_micros())))?;"
     );
-    expect(code).toContain("let expiresAt_present = r.bool_bit(at, 1, 0)?;");
+    expect(code).toContain("let expires_at_present = r.bool_bit(at, 1, 0)?;");
     expect(code).toContain("let id_words = tdbin::scalar::bytes16_words(self.id.as_bytes());");
     expect(code).toContain("w.scalar(at, 3, id_words.0)?;");
     expect(code).toContain("let amount_words = tdbin::scalar::bytes16_words(&self.amount.serialize());");
@@ -226,7 +226,7 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
     expect(code).toContain("w.bytes16_list(at, Self::DATA_WORDS, 5, Some(&ids_words))?;");
     expect(code).toContain("&Color::Red => 0u8,");
     expect(code).toContain("w.byte_list(at, Self::DATA_WORDS, 6, Some(&colors_ordinals))?;");
-    expect(code).toContain("w.i64_list(at, Self::DATA_WORDS, 7, self.maybeScores.as_deref())?;");
+    expect(code).toContain("w.i64_list(at, Self::DATA_WORDS, 7, self.maybe_scores.as_deref())?;");
     expect(code).not.toContain("maybeScores_words");
     expect(code).toContain("let flags = r.bool_list(at, Self::DATA_WORDS, 0)?.unwrap_or_default();");
     expect(code).toContain("let scores = r.i64_list(at, Self::DATA_WORDS, 1)?.unwrap_or_default();");
@@ -237,7 +237,7 @@ describe("[CONV-RUST-TDBIN] list codecs", () => {
     expect(code).toContain("let ids = r.bytes16_list(at, Self::DATA_WORDS, 5)?.unwrap_or_default()");
     expect(code).toContain("0 => Ok(Color::Red),");
     expect(code).toContain("ordinal => Err(tdbin::DecodeError::UnknownVariant { ordinal: u64::from(ordinal) })");
-    expect(code).toContain("let maybeScores = r.i64_list(at, Self::DATA_WORDS, 7)?;");
+    expect(code).toContain("let maybe_scores = r.i64_list(at, Self::DATA_WORDS, 7)?;");
   });
 
   it("emits optional DateTime, bytes16, and enum list branches", () => {
