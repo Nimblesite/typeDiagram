@@ -249,6 +249,22 @@ describe("[EDITOR-CANVAS] shared web and VS Code interaction runtime", () => {
     typeInput.value = "List<";
     typeInput.dispatchEvent(new Event("change"));
     expect(bare.querySelector<HTMLElement>(".td-editor-toast")?.hidden).toBe(false);
+    // [EDITOR-INSPECTOR-PENDING] An async re-render (the host echoing a source
+    // change) must not wipe rejected or uncommitted text, nor steal focus.
+    typeInput.focus();
+    const rowInputs = () => bare.querySelectorAll<HTMLInputElement>(".td-inspector-row input");
+    const modelName = rowInputs().item(0).value;
+    editor.setContent(await render(source));
+    expect(rowInputs().item(1)).not.toBe(typeInput);
+    expect(rowInputs().item(1).value).toBe("List<");
+    expect(document.activeElement).toBe(rowInputs().item(1));
+    expect(rowInputs().item(0).value).toBe(modelName);
+    rowInputs().item(1).value = "Option<String>";
+    rowInputs().item(1).dispatchEvent(new Event("change"));
+    expect(source).toContain(`${modelName}: Option<String>`);
+    editor.setContent(await render(source));
+    expect(rowInputs().item(1).value).toBe("Option<String>");
+    expect(rowInputs().item(1).defaultValue).toBe("Option<String>");
     bare.dispatchEvent(new PointerEvent("pointercancel", { bubbles: true }));
 
     editor.setContent("<pre>bad source</pre>");

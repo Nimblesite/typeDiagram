@@ -8,7 +8,7 @@ import {
   type EditorFailure,
 } from "./source-editor.js";
 import { closeIcon, type CanvasChrome } from "./controls.js";
-import { runWhen } from "./effects.js";
+import { runWhen, runWhenDefined } from "./effects.js";
 import type { VisualEditorOptions } from "./visual-editor.js";
 
 export type EditorRow = { name: string; type: string };
@@ -46,7 +46,9 @@ const field = (labelText: string, value: string, onChange: (value: string) => vo
   const label = document.createElement("span");
   const input = document.createElement("input");
   label.textContent = labelText;
-  input.value = value;
+  // defaultValue = the rendered model value, so `value !== defaultValue` marks
+  // uncommitted or rejected text ([EDITOR-INSPECTOR-PENDING]).
+  input.defaultValue = value;
   input.setAttribute("data-td-interactive", "true");
   input.addEventListener("change", () => {
     onChange(input.value);
@@ -142,7 +144,35 @@ const appendDeleteButton = (
   chrome.inspectorBody.appendChild(button);
 };
 
+type PendingInput = { index: number; value: string; focused: boolean };
+
+const inspectorInputs = (chrome: CanvasChrome) => [...chrome.inspectorBody.querySelectorAll("input")];
+
+/** [EDITOR-INSPECTOR-PENDING] Inputs of the shown node holding text the model does not
+ *  (typed, rejected, or awaiting an async re-render), so a refresh never wipes them. */
+const pendingInputs = (chrome: CanvasChrome, nodeName: string): PendingInput[] =>
+  chrome.inspectorBody.dataset["tdNode"] === nodeName
+    ? inspectorInputs(chrome).flatMap((input, index) =>
+        input.value !== input.defaultValue
+          ? [{ index, value: input.value, focused: document.activeElement === input }]
+          : []
+      )
+    : [];
+
+const restorePending = (chrome: CanvasChrome, pending: PendingInput[]) => {
+  const inputs = inspectorInputs(chrome);
+  pending.forEach(({ index, value, focused }) => {
+    runWhenDefined(inputs[index], (input) => {
+      input.value = value;
+      runWhen(focused, () => {
+        input.focus();
+      });
+    });
+  });
+};
+
 export const renderInspector = (node: EditorNode, chrome: CanvasChrome, options: VisualEditorOptions) => {
+  const pending = pendingInputs(chrome, node.name);
   const mutate = (result: Result<string, EditorFailure>) => {
     applyMutation(result, options, chrome);
   };
@@ -156,5 +186,7 @@ export const renderInspector = (node: EditorNode, chrome: CanvasChrome, options:
   );
   appendAddButton(node, chrome, options, mutate);
   appendDeleteButton(node, chrome, options, mutate);
+  chrome.inspectorBody.dataset["tdNode"] = node.name;
+  restorePending(chrome, pending);
   chrome.inspector.hidden = false;
 };
