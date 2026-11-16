@@ -17,6 +17,8 @@ resolver = "2"
 members = ["crates/*"]
 
 [workspace.package]
+# Stamped from the release tag by scripts/stamp-version.mjs ([TDBIN-RS-PUBLISH]).
+version = "0.0.0-dev"
 edition = "2021"
 license = "MIT"
 repository = "https://github.com/Nimblesite/typeDiagram"

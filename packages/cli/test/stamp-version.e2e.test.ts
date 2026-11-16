@@ -47,7 +47,30 @@ const writeFixtureRepo = async (): Promise<string> => {
       2
     )}\n`
   );
+  await writeFile(join(root, "Cargo.toml"), CARGO_FIXTURE);
   return root;
+};
+
+// The real workspace manifest shape: comments, a lint table, and the crate
+// version carried by [workspace.package] ([TDBIN-RS-PUBLISH]).
+const CARGO_FIXTURE = `# workspace
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+
+[workspace.lints.clippy]
+all = { level = "deny", priority = -1 }
+`;
+
+const cargoVersion = async (root: string) => {
+  const text = await readFile(join(root, "Cargo.toml"), "utf8");
+  const { parse } = await import("smol-toml");
+  const doc = parse(text) as { workspace: { package: { version: string }; members: string[] } }; // safety: fixture shape
+  return { version: doc.workspace.package.version, members: doc.workspace.members, text };
 };
 
 const readJson = async (root: string, rel: string): Promise<unknown> =>
@@ -72,6 +95,11 @@ describe("[SWR-VERSION-BUILD-STAMPING] stamp-version.mjs", () => {
     }; // safety: fixture shape written by this test
     expect(manifest.product.version).toBe("9.9.9-rc.1");
     expect(manifest.components[0]?.expectedVersion).toBe("9.9.9-rc.1");
+    const cargo = await cargoVersion(root);
+    expect(cargo.version).toBe("9.9.9-rc.1");
+    expect(cargo.members).toEqual(["crates/*"]);
+    expect(cargo.text).toContain("priority = -1");
+    expect(stdout).toContain("[stamp] Cargo.toml: workspace.package.version=9.9.9-rc.1");
   });
 
   it("--dry-run lists every carrier but changes nothing", async () => {
@@ -87,6 +115,8 @@ describe("[SWR-VERSION-BUILD-STAMPING] stamp-version.mjs", () => {
       product: { version: string };
     }; // safety: fixture shape written by this test
     expect(manifest.product.version).toBe("0.1.0");
+    expect(stdout).toContain("Cargo.toml");
+    expect((await cargoVersion(root)).text).toBe(CARGO_FIXTURE);
   });
 
   it("rejects a non-semver version with exit 1", async () => {

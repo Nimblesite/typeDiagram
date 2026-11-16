@@ -5,11 +5,14 @@
 // Usage:
 //   node scripts/stamp-version.mjs --tag v1.2.3 [--root DIR] [--dry-run]
 //   node scripts/stamp-version.mjs --version 1.2.3 [--root DIR] [--dry-run]
-// Carriers: packages/*/package.json (version + typediagram-core dependency refs)
-// and shipwright.json (product.version + every component expectedVersion).
+// Carriers: packages/*/package.json (version + typediagram-core dependency refs),
+// shipwright.json (product.version + every component expectedVersion), and the
+// root Cargo.toml [workspace.package].version that every published crate
+// inherits ([TDBIN-RS-PUBLISH]) — parsed and re-serialised with smol-toml.
 // package-lock.json is refreshed afterwards via `npm install --package-lock-only`.
 
 import { readFileSync, writeFileSync } from "node:fs";
+import { parse as parseToml, stringify as stringifyToml } from "smol-toml";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -71,6 +74,16 @@ const stampManifest = (root, version, dryRun) => {
   }
 };
 
+const stampCargo = (root, version, dryRun) => {
+  const path = resolve(root, "Cargo.toml");
+  const doc = parseToml(readFileSync(path, "utf8"));
+  doc.workspace.package.version = version;
+  console.log(`[stamp] Cargo.toml: workspace.package.version=${version}`);
+  if (!dryRun) {
+    writeFileSync(path, `${stringifyToml(doc)}\n`);
+  }
+};
+
 const opts = parseCliArgs(process.argv.slice(2));
 if (opts.version === null || !SEMVER.test(opts.version)) {
   console.error(`[stamp] FAIL: --tag/--version must be semver MAJOR.MINOR.PATCH[-PRERELEASE], got "${opts.version}"`);
@@ -81,4 +94,5 @@ for (const rel of PACKAGE_FILES) {
   stampPackage(opts.root, rel, opts.version, opts.dryRun);
 }
 stampManifest(opts.root, opts.version, opts.dryRun);
+stampCargo(opts.root, opts.version, opts.dryRun);
 console.log("[stamp] done");

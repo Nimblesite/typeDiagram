@@ -3,12 +3,17 @@
 # `thiserror`/`tracing` wiring lands with the logging pass ([TDBIN-RS-LOG]).
 [package]
 name = "tdbin"
-version = "0.0.0"
+version.workspace = true
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
 description = "TDBIN v0: compact binary codec runtime for typeDiagram algebraic data types."
-publish = false
+readme = "README.md"
+keywords = ["typediagram", "serialization", "binary", "codec", "adt"]
+categories = ["encoding"]
+# [TDBIN-RS-PUBLISH] published to crates.io by the release workflow; ship only
+# the runtime — tests, fixtures, benches, and the fuzz harness stay in the repo.
+include = ["src/**/*.rs", "Cargo.toml", "README.md"]
 
 [lints]
 workspace = true

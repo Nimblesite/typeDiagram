@@ -80,12 +80,12 @@ schema.
 
 ## Rust: encode and decode generated types
 
-Add the in-workspace runtime to the consuming Rust crate. In a standalone
-checkout, replace the relative path with the path to this repository.
+Add the runtime from crates.io, at the same version as the `typediagram` CLI
+that generated the code; every release publishes both ([TDBIN-RS-PUBLISH]):
 
 ```toml
 [dependencies]
-tdbin = { path = "../typeDiagram/crates/tdbin" }
+tdbin = "0.14"
 ```
 
 Place the result of `typediagram encode person.td` in `src/person.rs`. The
