@@ -69,7 +69,7 @@ Define the decoder ⟦·⟧⁻¹ as follows:
 
 **Theorem.** For every well-formed signature `s`, `⟦⟦s⟧⟧⁻¹ = s`. In Lean this is `decode_encode`.
 
-*Proof.* The proof is by mutual structural induction over types and lists of types.
+_Proof._ The proof is by mutual structural induction over types and lists of types.
 
 1. **Type expressions.** Consider a variable `a`. Well-formedness gives `a ∈ ā`, so the decoder returns a variable, and by induction its arguments decode to the originals. Now consider a constructor `K`. Well-formedness gives `K ∉ ā`, so the decoder returns a constructor, and again its arguments decode to the originals.
 2. **Constructors.** Field `_i` holds `⟦τᵢ⟧`, and the decoder reads field types in order. The names `_i` are discarded, so constructor arguments are recovered (lemma `posFields_types`).
@@ -100,12 +100,12 @@ Theorem 1 preserves every application's argument list exactly, so it also preser
 
 ## Machine checks [TD-ADT-COMPLETENESS-CHECKS]
 
-| Check | Command | Result |
-| ----- | ------- | ------ |
-| Lean proof | `lean docs/proofs/AdtCompleteness.lean` | Theorems 1 and 2 and the corollary check. `#print axioms` lists only `propext` and `Quot.sound`. |
+| Check                   | Command                                                                  | Result                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Lean proof              | `lean docs/proofs/AdtCompleteness.lean`                                  | Theorems 1 and 2 and the corollary check. `#print axioms` lists only `propext` and `Quot.sound`.                                                                                                                                                                                                                                                                                          |
 | Real parser and checker | `npx vitest run test/adt-completeness.test.ts` in `packages/typediagram` | 400 seeded random well-kinded signatures (1–4 declarations, 0–3 parameters including one of kind `* → *`, 0–4 constructors, 0–3 arguments, type depth up to 3, tuple and braced variants mixed) pass. Each one parses, decodes back exactly, and resolves for both Rust and TypeScript code generation. The six fixed cases pass: empty, unit, nested, mutual, higher-kinded and phantom. |
-| Negative control | same test | `MkBad(Missing)` fails resolution, so the check is not vacuous. |
-| CLI | `typediagram FILE` and `typediagram --to rust FILE` | The empty, unit, tuple, nested, mutual and higher-kinded samples all render and convert. |
+| Negative control        | same test                                                                | `MkBad(Missing)` fails resolution, so the check is not vacuous.                                                                                                                                                                                                                                                                                                                           |
+| CLI                     | `typediagram FILE` and `typediagram --to rust FILE`                      | The empty, unit, tuple, nested, mutual and higher-kinded samples all render and convert.                                                                                                                                                                                                                                                                                                  |
 
 ## Outside the class [TD-ADT-COMPLETENESS-LIMITS]
 
@@ -115,4 +115,4 @@ These are not ADTs in the sense above, and typeDiagram cannot express them faith
 - **GADTs, existential types and class constraints.** Variants cannot refine or quantify type parameters.
 - **Kinds of variable applications are not checked.** `F<X>` is accepted for any parameter `F`. This makes typeDiagram more permissive than ADTs; it does not make it less expressive.
 
-The proof covers the markup. It does not show that every target-language converter can express every ADT. For example, `--to rust` emits `Cons(A, Nest<Pair<A>>)` without a `Box` and emits `F<Fix<F>>` for a higher-kinded parameter, and rustc rejects both. `--to typescript` emits `export type Void = | ;` for the empty union instead of `never`. These are defects in the converters, not limits of typeDiagram. 
+The proof covers the markup. It does not show that every target-language converter can express every ADT. For example, `--to rust` emits `Cons(A, Nest<Pair<A>>)` without a `Box` and emits `F<Fix<F>>` for a higher-kinded parameter, and rustc rejects both. `--to typescript` emits `export type Void = | ;` for the empty union instead of `never`. These are defects in the converters, not limits of typeDiagram.
