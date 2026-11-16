@@ -1,6 +1,6 @@
 # TDBIN Benchmarks
 
-TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [`scripts/tdbin-bench-report.mjs`](https://github.com/Nimblesite/typeDiagram/blob/main/scripts/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
+TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [`scripts/tdbin/tdbin-bench-report.mjs`](https://github.com/Nimblesite/typeDiagram/blob/main/scripts/tdbin/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
 
 > **Scope: these figures are for the Rust implementation only.** Both the encoded sizes and the speeds are measured against the Rust `tdbin` codec crate ([`crates/tdbin`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin)), the Rust `prost` Protobuf encoder, and the Rust `rmp-serde` MessagePack encoder. The TDBIN **wire format** and its byte sizes are language-neutral, but serialize/deserialize **speeds** depend on each language's implementation — typeDiagram's other codec targets, and other Protobuf/MessagePack libraries, will differ, sometimes substantially.
 
@@ -37,7 +37,7 @@ The following are read directly off the table above — each is a comparison of 
 - **Self-describing modes only.** typeDiagram _framed_, Protobuf, and MessagePack _struct-as-map_ all carry enough structure to be decoded without an external schema, so the comparison is like-for-like.
 - **Sizes are exact byte counts** emitted by each encoder (see [`crates/tdbin/examples/bench_data.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/examples/bench_data.rs)) — not estimates.
 - **Timings are Criterion medians** over 50 samples per operation; each measured value flows through `black_box` so the optimizer cannot elide the work. The benchmark harness is [`crates/tdbin/benches/gate.rs`](https://github.com/Nimblesite/typeDiagram/blob/main/crates/tdbin/benches/gate.rs).
-- **Corpus schemas** are committed at [`docs/benchmarks/tdbin-corpus.td`](https://github.com/Nimblesite/typeDiagram/blob/main/docs/benchmarks/tdbin-corpus.td) and [`docs/benchmarks/tdbin-corpus.proto`](https://github.com/Nimblesite/typeDiagram/blob/main/docs/benchmarks/tdbin-corpus.proto).
+- **Corpus schemas** are committed at [`docs/research/benchmarks/tdbin-corpus.td`](https://github.com/Nimblesite/typeDiagram/blob/main/docs/research/benchmarks/tdbin-corpus.td) and [`docs/research/benchmarks/tdbin-corpus.proto`](https://github.com/Nimblesite/typeDiagram/blob/main/docs/research/benchmarks/tdbin-corpus.proto).
 
 ## Test machine
 
@@ -55,4 +55,4 @@ The following are read directly off the table above — each is a comparison of 
 Run the benchmark, then regenerate this page:
 
 - `cargo bench -p tdbin --bench gate -- --noplot`
-- `node scripts/tdbin-bench-report.mjs`
+- `node scripts/tdbin/tdbin-bench-report.mjs`

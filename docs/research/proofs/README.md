@@ -42,6 +42,6 @@ These fall outside the definition of an ADT used here, and typeDiagram cannot ex
 ### Run it
 
 ```sh
-lean docs/proofs/AdtCompleteness.lean
+lean docs/research/proofs/AdtCompleteness.lean
 cd packages/typediagram && npx vitest run test/adt-completeness.test.ts
 ```

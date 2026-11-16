@@ -11,7 +11,7 @@ Every crate MUST inherit the shared strict lint table by adding this to its own
 workspace = true
 ```
 
-- **Formatting** is governed by the root `rustfmt.toml` (`cargo fmt`).
+- **Formatting** is governed by `crates/rustfmt.toml` (`cargo fmt`).
 - **Linting** is governed by the root `Cargo.toml` `[workspace.lints]` — all lints
   on and up to `deny`, per REPO-STANDARDS-SPEC `[LINT-RUST]`.
 

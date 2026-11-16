@@ -1,6 +1,6 @@
 # TDBIN Benchmark Report
 
-> GENERATED FILE. Source: `scripts/tdbin-bench-report.mjs` and `docs/reports/tdbin-bench-data.json`.
+> GENERATED FILE. Source: `scripts/tdbin/tdbin-bench-report.mjs` and `docs/research/reports/tdbin-bench-data.json`.
 > Every value and verdict is computed from machine-readable Criterion and encoder output. No benchmark result is entered manually.
 
 Generated: 2026-07-13T23:32:23.773Z
@@ -13,7 +13,7 @@ Raw data SHA-256: `46c48e4a8ae7f959b364576d3592682bd96f1257dd266fa8810cbb15c18fb
 
 Qualifying modes: `with_address` = none, `without_address` = none, `metric_batch` = framed, `person_batch` = framed, `contact_batch` = framed & packed framed, `diagram_document` = framed, `event_batch` = none.
 
-The release gate ([TDBIN-BENCH-GATE]) requires, for every corpus entry — the committed realistic schemas in `docs/benchmarks/tdbin-corpus.{td,proto}` (record-heavy document, union-heavy event stream, list-heavy dataset) — that at least one self-describing production wire mode (framed, or packed framed; the frame's PACKED flag makes the two interchangeable to every decoder) beats Protobuf on size and by 1.50x on both encode and decode simultaneously. Both modes are always measured and published below. Stress rows (marked) are reported against the identical bar; the tiny single-message rows carry a fixed 12-byte frame plus pointer-per-string overhead that no fixed-layout format recovers at sub-100-byte payloads (research §2.2), so they are not corpus entries.
+The release gate ([TDBIN-BENCH-GATE]) requires, for every corpus entry — the committed realistic schemas in `docs/research/benchmarks/tdbin-corpus.{td,proto}` (record-heavy document, union-heavy event stream, list-heavy dataset) — that at least one self-describing production wire mode (framed, or packed framed; the frame's PACKED flag makes the two interchangeable to every decoder) beats Protobuf on size and by 1.50x on both encode and decode simultaneously. Both modes are always measured and published below. Stress rows (marked) are reported against the identical bar; the tiny single-message rows carry a fixed 12-byte frame plus pointer-per-string overhead that no fixed-layout format recovers at sub-100-byte payloads (research §2.2), so they are not corpus entries.
 
 ## Size and Speed
 
@@ -177,9 +177,9 @@ This secondary table exposes unpacked tradeoffs; it does not replace the packed-
 ## Commands
 
 - `cargo bench -p tdbin --bench gate -- --noplot`
-- `node scripts/tdbin-bench-report.mjs`
+- `node scripts/tdbin/tdbin-bench-report.mjs`
 
 Corpus schemas:
 
-- `docs/benchmarks/tdbin-corpus.td`
-- `docs/benchmarks/tdbin-corpus.proto`
+- `docs/research/benchmarks/tdbin-corpus.td`
+- `docs/research/benchmarks/tdbin-corpus.proto`

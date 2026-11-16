@@ -5,17 +5,19 @@
 // record/union → composite list, all-bare union → one ordinal byte each.
 import type { ResolvedDecl, ResolvedTypeRef } from "../model/types.js";
 import type { TsListPlan } from "./typescript-tdbin-defaults.js";
+import { widthListRead, widthListWrite, widthOf } from "./typescript-tdbin-widths.js";
 
 type ListField = { slot: number; optional: boolean; list: TsListPlan };
 
 const isPrim = (t: ResolvedTypeRef, name: string): boolean =>
   t.name === name && t.resolution.kind === "primitive" && t.args.length === 0;
 
-const PRIMS = { Bool: "bool", Int: "int", Float: "float", String: "string", Bytes: "bytes" } as const;
+const PRIMS = { Bool: "bool", Int: "int", Float: "float", String: "string", Path: "string", Bytes: "bytes" } as const;
 
 const primList = (t: ResolvedTypeRef): TsListPlan | null => {
   const hit = Object.entries(PRIMS).find(([name]) => isPrim(t, name));
-  return hit === undefined ? null : { kind: hit[1] };
+  const width = widthOf(t);
+  return hit !== undefined ? { kind: hit[1] } : width !== undefined ? { kind: "width", width } : null;
 };
 
 const declList = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): TsListPlan | null => {
@@ -67,6 +69,8 @@ export const writeListLines = (codec: string, field: string, plan: ListField): s
       return [
         `    const ${field} = tdbin.writer.byteList(${target}, ${orNull(`tdbin.list.enumOrdinals(${v}, ${names(plan.list)})`)});`,
       ];
+    case "width":
+      return [`    const ${field} = ${widthListWrite(target, plan.list.width, plan.optional ? `${v} ?? null` : v)};`];
   }
 };
 
@@ -75,14 +79,16 @@ const READERS = { bool: "boolList", int: "wordList", float: "wordList", string: 
 /** Read lines; the bindings to ok-guard are returned by `listResultNames`. */
 export const readListLines = (codec: string, field: string, plan: ListField): string[] => {
   const src = `reader, at, ${codec}.dataWords, ${String(plan.slot)}`;
-  return plan.list.kind === "child"
-    ? [`    const ${field} = tdbin.reader.childList(${src}, ${plan.list.typeName}Codec);`]
-    : plan.list.kind === "enum"
-      ? [
-          `    const ${field}Raw = tdbin.reader.byteList(${src});`,
-          `    const ${field} = ${field}Raw.ok && ${field}Raw.value !== null ? tdbin.list.enumValues(${field}Raw.value, ${names(plan.list)}) : ok(null);`,
-        ]
-      : [`    const ${field} = tdbin.reader.${READERS[plan.list.kind]}(${src});`];
+  return plan.list.kind === "width"
+    ? [`    const ${field} = ${widthListRead(src, plan.list.width)};`]
+    : plan.list.kind === "child"
+      ? [`    const ${field} = tdbin.reader.childList(${src}, ${plan.list.typeName}Codec);`]
+      : plan.list.kind === "enum"
+        ? [
+            `    const ${field}Raw = tdbin.reader.byteList(${src});`,
+            `    const ${field} = ${field}Raw.ok && ${field}Raw.value !== null ? tdbin.list.enumValues(${field}Raw.value, ${names(plan.list)}) : ok(null);`,
+          ]
+        : [`    const ${field} = tdbin.reader.${READERS[plan.list.kind]}(${src});`];
 };
 
 export const listResultNames = (field: string, plan: ListField): string[] =>

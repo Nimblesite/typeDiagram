@@ -2,7 +2,7 @@
 //! emitted by `packages/typediagram/src/converters/rust-tdbin.ts`
 //! (`generateRustModule`) from
 //! `packages/typediagram/test/converters/fixtures/widths.td`. Included only
-//! by `widths.rs`. Regenerate with `node scripts/tdbin-regen-fixtures.mjs`.
+//! by `widths.rs`. Regenerate with `node scripts/tdbin/tdbin-regen-fixtures.mjs`.
 
 // <<<GENERATED — rust-tdbin.ts generateRustModule; do not edit by hand>>>
 /// The `Stats` record.

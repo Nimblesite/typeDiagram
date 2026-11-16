@@ -5,7 +5,7 @@
 //! `packages/typediagram/test/converters/fixtures/batches.td`. The benchmark
 //! support fixtures consume these types. The `rust-tdbin-corpus.test.ts`
 //! vitest suite pins the emitted text and fails if this file drifts from
-//! codegen; regenerate with `node scripts/tdbin-regen-fixtures.mjs` rather
+//! codegen; regenerate with `node scripts/tdbin/tdbin-regen-fixtures.mjs` rather
 //! than hand-editing.
 
 // <<<GENERATED — rust-tdbin.ts generateRustModule (layout 2); do not edit by hand>>>

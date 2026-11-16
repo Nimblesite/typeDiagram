@@ -2,7 +2,7 @@
   Implements [TD-ADT-COMPLETENESS]: every algebraic data type signature has a
   typeDiagram encoding that the decoder recovers exactly.
 
-  Checked with plain Lean 4 core (no Mathlib):  lean docs/proofs/AdtCompleteness.lean
+  Checked with plain Lean 4 core (no Mathlib):  lean docs/research/proofs/AdtCompleteness.lean
   Prose companion: docs/specs/adt-completeness.md
 -/
 

@@ -2,7 +2,7 @@
 //! `packages/typediagram/src/converters/rust-tdbin.ts` (`generateRustModule`)
 //! from `packages/typediagram/test/converters/fixtures/reports.td`. Included
 //! only by `cross_lang.rs`, which pins the Rust bytes the TypeScript codec
-//! must reproduce. Regenerate with `node scripts/tdbin-regen-fixtures.mjs`.
+//! must reproduce. Regenerate with `node scripts/tdbin/tdbin-regen-fixtures.mjs`.
 
 // <<<GENERATED — rust-tdbin.ts generateRustModule; do not edit by hand>>>
 /// The `Level` union.

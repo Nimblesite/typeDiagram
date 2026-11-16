@@ -159,7 +159,7 @@ bench:
 	@echo "==> TDBIN vs Protobuf Criterion benchmark matrix..."
 	cargo bench -p tdbin --bench gate -- --noplot
 	@echo "==> Generating data-derived TDBIN benchmark report..."
-	node scripts/tdbin-bench-report.mjs
+	node scripts/tdbin/tdbin-bench-report.mjs
 
 ## test-playwright: Run Playwright end-to-end tests only (packages/web), both
 ##                  desktop and mobile viewports. Does NOT run vitest or enforce

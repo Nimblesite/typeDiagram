@@ -79,6 +79,26 @@ export const boolList = (
 
 export const byteList = bytes;
 
+/** [TDBIN-WIDTH-LIST] Raw little-endian list body of `count` elements with
+ *  element code `elem` (2/3/4/5 = 1/2/4/8 bytes each). */
+export const rawList = (
+  writer: Writer,
+  at: number,
+  dataWords: number,
+  slot: number,
+  elem: number,
+  count: number,
+  data: Uint8Array | null
+): Result<void, TdbinError> => {
+  const ptrWord = ptrIndex(at, dataWords, slot);
+  if (data === null) {
+    return setWord(writer, ptrWord, 0n);
+  }
+  const start = reserve(writer, Math.ceil(data.length / WORD_BYTES));
+  const packed = start.ok ? packBytes(writer, start.value, data) : start;
+  return start.ok && packed.ok ? setListPtr(writer, ptrWord, start.value, elem, count) : packed;
+};
+
 export const wordList = (
   writer: Writer,
   at: number,

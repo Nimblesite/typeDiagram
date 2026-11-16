@@ -118,7 +118,7 @@ The list-heavy metric fixture is deliberately favorable to fixed words: its
 large integer IDs require long Protobuf varints, and its numeric/bool columns
 create many packable zero bytes. It is a valid fixed workload, but it is not
 evidence of a general serialization win. The document and event rows execute
-the paired schemas committed under `docs/benchmarks/`, rather than proxying
+the paired schemas committed under `docs/research/benchmarks/`, rather than proxying
 those workload shapes.
 
 ## Profiler Results
@@ -192,7 +192,7 @@ numeric authority.
   tests that also flushed out and fixed a latent generated-encode bug),
   1-bit `Option<scalar>` presence via one shared cross-language allocator,
   automatic layout-hash emission and enforcement, normative-ID traceability
-  (84/84 via `scripts/tdbin-spec-trace.mjs`).
+  (84/84 via `scripts/tdbin/tdbin-spec-trace.mjs`).
 
 ### Measured outcome (see the generated report for numbers)
 

@@ -70,11 +70,11 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 
 ## Phase 4 — The gate: benchmark vs Protobuf (make "smaller AND faster" enforceable) — SUITE COMPLETE, GATE 2/3 + ONE 1.4% MARGIN
 
-> **MEASURED VERDICT (2026-07-12)** — authoritative report: [docs/reports/tdbin-bench-report.md](../reports/tdbin-bench-report.md) (values are never hand-copied here). After the columnar layout-2 rework ([tdbin-columnar.md](../specs/tdbin-columnar.md)): every corpus and batch fixture is now BOTH smaller than Protobuf and faster on every measured operation in its qualifying production mode. Against the stretch 1.5x-headroom bar, `metric_batch` and `diagram_document` PASS (as do the `person_batch` and `contact_batch` stress rows); `event_batch` passes encode at 2.0x but its framed decode has repeatedly measured 1.48-1.50x — statistically on the bar, below the pin. The designed mechanism for decisive decode headroom is the verify-once borrowed reader ([tdbin-future-reader.md](../specs/tdbin-future-reader.md)); the materializing API is now allocation-bound at parity shape with prost.
+> **MEASURED VERDICT (2026-07-12)** — authoritative report: [docs/research/reports/tdbin-bench-report.md](../reports/tdbin-bench-report.md) (values are never hand-copied here). After the columnar layout-2 rework ([tdbin-columnar.md](../specs/tdbin-columnar.md)): every corpus and batch fixture is now BOTH smaller than Protobuf and faster on every measured operation in its qualifying production mode. Against the stretch 1.5x-headroom bar, `metric_batch` and `diagram_document` PASS (as do the `person_batch` and `contact_batch` stress rows); `event_batch` passes encode at 2.0x but its framed decode has repeatedly measured 1.48-1.50x — statistically on the bar, below the pin. The designed mechanism for decisive decode headroom is the verify-once borrowed reader ([tdbin-future-reader.md](../specs/tdbin-future-reader.md)); the materializing API is now allocation-bound at parity shape with prost.
 
-- [x] Corpus in typeDiagram + `.proto`: record-heavy document, union-heavy event stream, and list-heavy dataset `[TDBIN-BENCH-CORPUS]` — the committed paired schemas live in `docs/benchmarks/tdbin-corpus.{td,proto}` and the executable suite also retains tiny and repeated-record/union stress rows.
+- [x] Corpus in typeDiagram + `.proto`: record-heavy document, union-heavy event stream, and list-heavy dataset `[TDBIN-BENCH-CORPUS]` — the committed paired schemas live in `docs/research/benchmarks/tdbin-corpus.{td,proto}` and the executable suite also retains tiny and repeated-record/union stress rows.
 - [x] Criterion suite vs `prost` across all production modes `[TDBIN-BENCH-GATE]` — seven paired fixtures × bare/framed/packed-framed encode/decode plus Protobuf encode/decode, 50 samples and five-second measurement windows.
-- [x] Deterministic report generation — `make bench` writes raw machine data to [docs/reports/tdbin-bench-data.json](../reports/tdbin-bench-data.json), then generates the human-readable Markdown report and its pass/fail verdict solely from that data.
+- [x] Deterministic report generation — `make bench` writes raw machine data to [docs/research/reports/tdbin-bench-data.json](../reports/tdbin-bench-data.json), then generates the human-readable Markdown report and its pass/fail verdict solely from that data.
 - [x] Size assertions inside `[TDBIN-TEST-ROUNDTRIP]` — `crates/tdbin/tests/size_gate.rs` pins all seven fixtures and proves packed-framed round-trip identity, including the rows where TDBIN currently loses.
 - [~] Gate status (2026-07-12): the "smaller AND faster than Protobuf" claim is now MEASURED TRUE on every realistic corpus and batch entry (all sizes smaller, all operations faster in the qualifying mode). The stretch 1.5x-headroom bar passes on 4 of 5 realistic rows; `event_batch` decode measures 1.48-1.50x (encode 2.0x, size -12%). Remaining headroom belongs to `[TDBIN-FUTURE-READER]`.
 
@@ -106,7 +106,7 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [ ] #60 Add the `CARGO_REGISTRY_TOKEN` repo secret, then confirm the first release lands on crates.io.
 - [x] #85 `[MODEL-WIDTH]` `I32/U8/U16/U32/U64/Size/Path` primitives in every converter.
 - [x] #85 `[TDBIN-WIDTH-RANGE]` `[TDBIN-WIDTH-LIST]` `[TDBIN-WIDTH-PATH]` Rust runtime + codegen: one-word range-checked scalars, 1/2/4/8-byte lists, `PathBuf` as UTF-8 string.
-- [ ] #85 TypeScript codec for width types and `Path`.
+- [x] #85 TypeScript codec for width types and `Path` (`tdbin.width`, range-checked encode+decode, `U64` bigint); Rust↔TS golden `golden/widths.hex`.
 - [ ] #61 follow-up: struct-form variants in layout 2 column groups (`[TDBIN-COL-UNION]` dense groups).
 
 ## Exit criteria (v1 = phases 0–4)
@@ -117,7 +117,7 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [x] Golden vectors committed and byte-stable `[TDBIN-TEST-GOLDEN]`.
 - [x] Fuzz target runs clean on the recorded local budget `[TDBIN-TEST-FUZZ]`.
 - [~] **Bench gate** `[TDBIN-BENCH-GATE]` (2026-07-12): smaller than Protobuf on EVERY realistic entry and faster on EVERY operation; the stretch 1.5x bar holds on 4 of 5 realistic rows, with `event_batch` decode at 1.48-1.50x pending the borrowed reader. The generated report is the sole numeric source.
-- [x] Every normative `[TDBIN-*]` ID has an implementing code reference and a test reference — enforced by `scripts/tdbin-spec-trace.mjs` (84/84 as of 2026-07-12).
+- [x] Every normative `[TDBIN-*]` ID has an implementing code reference and a test reference — enforced by `scripts/tdbin/tdbin-spec-trace.mjs` (84/84 as of 2026-07-12).
 
 ## Audit remediation (2026-07-10)
 
@@ -147,7 +147,7 @@ Complete these in dependency order. Check an item only after its acceptance evid
    - [x] Generated codecs pin `LAYOUT_HASH`; normal framed decode rejects contradicting advertised hashes automatically; checked encode variants embed the hash; `frozenManifest` covers append-compatible republishing; wrong/missing/pinned-hash paths tested.
 3. **Finish TypeScript conformance.** Follow [tdbin-future-typescript.md](../specs/tdbin-future-typescript.md): lossless i64, inline enum-unions and enum lists, every Rust-supported schema form, generated-module execution, Node/browser byte identity, and measured bundle impact.
 4. **Finish conformance evidence.**
-   - [x] Every normative `[TDBIN-*]` requirement has an implementation and a test reference — enforced by `scripts/tdbin-spec-trace.mjs` (84/84).
+   - [x] Every normative `[TDBIN-*]` requirement has an implementation and a test reference — enforced by `scripts/tdbin/tdbin-spec-trace.mjs` (84/84).
    - [x] `[TDBIN-RS-LOG]` removed from the v1 contract (zero-dependency mandate; resolution recorded in [tdbin-rust-api.md](../specs/tdbin-rust-api.md)).
    - [ ] Deslop: the repo measures 18.6% duplication against the 15% budget (breached before this work; generated fixture modules add to it). A dedicated dedup pass is required before the scan can join the enforced CI path.
 5. **Implement the research performance path.** — columnar + scalar integer blocks DONE 2026-07-12
@@ -177,5 +177,5 @@ make ci
 - Rust runtime, verifier, and materializing reader: `crates/tdbin/src/`; Rust conformance: `crates/tdbin/tests/`.
 - Shared layout planning and generated codecs: `packages/typediagram/src/converters/`.
 - TypeScript runtime and conformance: `packages/typediagram/src/tdbin/` and `packages/typediagram/test/tdbin/`.
-- Benchmark payloads and execution: `docs/benchmarks/`, `crates/tdbin/tests/support/`, `crates/tdbin/benches/gate.rs`, and `crates/tdbin/examples/bench.rs`.
-- Benchmark artifact generation: `scripts/tdbin-bench-report.mjs`; generated artifacts: `docs/reports/tdbin-bench-{data.json,report.md}`.
+- Benchmark payloads and execution: `docs/research/benchmarks/`, `crates/tdbin/tests/support/`, `crates/tdbin/benches/gate.rs`, and `crates/tdbin/examples/bench.rs`.
+- Benchmark artifact generation: `scripts/tdbin/tdbin-bench-report.mjs`; generated artifacts: `docs/research/reports/tdbin-bench-{data.json,report.md}`.

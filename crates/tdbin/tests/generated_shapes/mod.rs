@@ -3,7 +3,7 @@
 //! `packages/typediagram/src/converters/rust-tdbin.ts` (`generateRustModule`)
 //! from `packages/typediagram/test/converters/fixtures/shapes.td`. Included
 //! only by `variants.rs`. Regenerate with
-//! `node scripts/tdbin-regen-fixtures.mjs` rather than hand-editing.
+//! `node scripts/tdbin/tdbin-regen-fixtures.mjs` rather than hand-editing.
 
 // <<<GENERATED — rust-tdbin.ts generateRustModule; do not edit by hand>>>
 /// The `Point` record.

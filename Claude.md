@@ -68,7 +68,7 @@ A **Rust workspace** under `crates/` (root `Cargo.toml`) is being introduced alo
 
 ## Hard Rules — Rust
 
-Rust lives in the `crates/` workspace. Lints: `[workspace.lints]` in the root `Cargo.toml` (REPO-STANDARDS-SPEC [LINT-RUST]); formatting: `rustfmt.toml` ([LINT-RUST-FMT]).
+Rust lives in the `crates/` workspace. Lints: `[workspace.lints]` in the root `Cargo.toml` (REPO-STANDARDS-SPEC [LINT-RUST]); formatting: `crates/rustfmt.toml` ([LINT-RUST-FMT]).
 
 - **Every crate inherits the workspace lints** — add `[lints]` / `workspace = true` to its `Cargo.toml`.
 - **All lints ON and at `deny`.** `unsafe_code = "deny"`; clippy `all` + `pedantic` denied.

@@ -10,14 +10,14 @@ import { describe, it } from "vitest";
 import { expectRustModuleReproduces } from "./helpers.js";
 
 // The EXACT schema committed to crates/tdbin/tests/generated_batches/mod.rs;
-// scripts/tdbin-regen-fixtures.mjs reads this SAME file, so drift guard and
+// scripts/tdbin/tdbin-regen-fixtures.mjs reads this SAME file, so drift guard and
 // regeneration can never disagree about the source of truth.
 const BATCHES_TD = readFileSync(fileURLToPath(new URL("fixtures/batches.td", import.meta.url)), "utf8");
 
 describe("[CONV-RUST-TDBIN] layout-2 corpus drift guards vs the committed crate modules", () => {
-  it("reproduces generated_corpus/mod.rs from docs/benchmarks/tdbin-corpus.td", () => {
+  it("reproduces generated_corpus/mod.rs from docs/research/benchmarks/tdbin-corpus.td", () => {
     const corpusTd = readFileSync(
-      fileURLToPath(new URL("../../../../docs/benchmarks/tdbin-corpus.td", import.meta.url)),
+      fileURLToPath(new URL("../../../../docs/research/benchmarks/tdbin-corpus.td", import.meta.url)),
       "utf8"
     );
     expectRustModuleReproduces(corpusTd, "../../../../crates/tdbin/tests/generated_corpus/mod.rs", { layout: 2 });

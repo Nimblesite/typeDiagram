@@ -8,6 +8,7 @@ export type TdbinErrorCode =
   | "LengthMismatch"
   | "HashMismatch"
   | "BadBase64"
+  | "ValueOutOfRange"
   | "PackedTruncated"
   | "PointerOutOfBounds"
   | "ReservedPointerKind"

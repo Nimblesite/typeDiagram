@@ -4,7 +4,7 @@
 //! from `packages/typediagram/test/converters/fixtures/measurement.td`.
 //! Included only by `roundtrip.rs`; kept separate from the shared Person
 //! fixture so the framing/golden test binaries do not carry an unused type
-//! (`-D dead-code`). Regenerate with `node scripts/tdbin-regen-fixtures.mjs`
+//! (`-D dead-code`). Regenerate with `node scripts/tdbin/tdbin-regen-fixtures.mjs`
 //! rather than hand-editing.
 
 // <<<GENERATED — rust-tdbin.ts generateRustModule; do not edit by hand>>>

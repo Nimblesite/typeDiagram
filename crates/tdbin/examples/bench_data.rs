@@ -41,7 +41,7 @@ where
     ))
 }
 
-/// Emit all size rows consumed by `scripts/tdbin-bench-report.mjs`.
+/// Emit all size rows consumed by `scripts/tdbin/tdbin-bench-report.mjs`.
 fn main() -> Result<(), BoxError> {
     let rows = [
         fixture(

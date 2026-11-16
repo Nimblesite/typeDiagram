@@ -13,6 +13,7 @@ export * as pack from "./pack.js";
 export * as pointer from "./pointer.js";
 export * as reader from "./reader.js";
 export * as scalar from "./word.js";
+export * as width from "./width.js";
 export * as writer from "./writer.js";
 export const readerError = tdbinErr;
 

@@ -17,13 +17,19 @@ export type FieldPlan =
   | { kind: "string"; slot: number; optional: boolean }
   | { kind: "bytes"; slot: number; optional: boolean }
   | { kind: "child"; slot: number; optional: boolean; typeName: string }
-  | { kind: "list"; slot: number; optional: boolean; list: TsListPlan };
+  | { kind: "list"; slot: number; optional: boolean; list: TsListPlan }
+  | { kind: "width"; slot: number; width: TsWidth }
+  | { kind: "optWidth"; presenceSlot: number; presenceBit: number; valueSlot: number; width: TsWidth };
+
+/** [TDBIN-WIDTH-RANGE] runtime width kind; `u64` is a bigint, the rest numbers. */
+export type TsWidth = "i32" | "u8" | "u16" | "u32" | "u64" | "size";
 
 /** [TDBIN-TS-LIST] element encodings, one per Rust layout-1 list form. */
 export type TsListPlan =
   | { readonly kind: "bool" | "int" | "float" | "string" | "bytes" }
   | { readonly kind: "child"; readonly typeName: string }
-  | { readonly kind: "enum"; readonly variants: readonly string[] };
+  | { readonly kind: "enum"; readonly variants: readonly string[] }
+  | { readonly kind: "width"; readonly width: TsWidth };
 
 export interface RecordPlan {
   readonly dataWords: number;
@@ -77,9 +83,12 @@ const fieldDefault = (plan: FieldPlan, integerZero: string): string => {
       return "0";
     case "bool":
       return "false";
+    case "width":
+      return plan.width === "u64" ? "0n" : "0";
     case "optInt":
     case "optFloat":
     case "optBool":
+    case "optWidth":
       return "undefined";
     default:
       return plan.optional ? "undefined" : pointerDefault(plan);

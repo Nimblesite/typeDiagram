@@ -4,7 +4,7 @@
 //! benchmark example, and the Criterion benchmark target.
 
 /// The codegen-emitted columnar (layout 2) corpus ADT types and codecs,
-/// generated from `docs/benchmarks/tdbin-corpus.td`.
+/// generated from `docs/research/benchmarks/tdbin-corpus.td`.
 #[path = "../generated_corpus/mod.rs"]
 pub mod generated_corpus;
 

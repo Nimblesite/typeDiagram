@@ -72,6 +72,18 @@ export const bytes = (
 
 export const byteList = bytes;
 
+/** [TDBIN-WIDTH-LIST] Raw list body bytes for element code `elem` of `width`
+ *  bytes per element (bounds and budget already enforced by verification). */
+export const rawList = (
+  reader: Reader,
+  at: number,
+  _dataWords: number,
+  slot: number,
+  elem: number,
+  width: number
+): Result<Uint8Array | null, TdbinError> =>
+  readList(reader, at, slot, elem, (r, ptrWord, offset, count) => readListBytes(r, ptrWord, offset, count * width));
+
 export const boolList = (
   reader: Reader,
   at: number,

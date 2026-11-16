@@ -7,8 +7,8 @@ import { format, resolveConfig } from "prettier";
 
 const root = process.cwd();
 const target = process.env.CARGO_TARGET_DIR ?? join(root, "target");
-const reportPath = join(root, "docs/reports/tdbin-bench-report.md");
-const dataPath = join(root, "docs/reports/tdbin-bench-data.json");
+const reportPath = join(root, "docs/research/reports/tdbin-bench-report.md");
+const dataPath = join(root, "docs/research/reports/tdbin-bench-data.json");
 const prettierOptions = (await resolveConfig(dataPath)) ?? {};
 const operations = [
   "tdbin_encode_bare",
@@ -53,8 +53,8 @@ const benchmarks = sizes.fixtures.flatMap((fixture) =>
 const data = {
   format_version: 1,
   generated_at: new Date().toISOString(),
-  commands: ["cargo bench -p tdbin --bench gate -- --noplot", "node scripts/tdbin-bench-report.mjs"],
-  corpus_schemas: ["docs/benchmarks/tdbin-corpus.td", "docs/benchmarks/tdbin-corpus.proto"],
+  commands: ["cargo bench -p tdbin --bench gate -- --noplot", "node scripts/tdbin/tdbin-bench-report.mjs"],
+  corpus_schemas: ["docs/research/benchmarks/tdbin-corpus.td", "docs/research/benchmarks/tdbin-corpus.proto"],
   gate: {
     size_ratio_max: 1,
     encode_speed_ratio_min: 1.5,
@@ -179,7 +179,7 @@ const stressPassCount = stressResults.filter((row) => row.pass).length;
 const releaseVerdict = corpusPassCount === corpusResults.length ? "PASS" : "FAIL";
 const report = `# TDBIN Benchmark Report
 
-> GENERATED FILE. Source: \`scripts/tdbin-bench-report.mjs\` and \`docs/reports/tdbin-bench-data.json\`.
+> GENERATED FILE. Source: \`scripts/tdbin/tdbin-bench-report.mjs\` and \`docs/research/reports/tdbin-bench-data.json\`.
 > Every value and verdict is computed from machine-readable Criterion and encoder output. No benchmark result is entered manually.
 
 Generated: ${data.generated_at}
@@ -192,7 +192,7 @@ Raw data SHA-256: \`${digest}\`
 
 Qualifying modes: ${releaseResults.map((row) => "`" + row.fixture + "` = " + row.mode).join(", ")}.
 
-The release gate ([TDBIN-BENCH-GATE]) requires, for every corpus entry — the committed realistic schemas in \`docs/benchmarks/tdbin-corpus.{td,proto}\` (record-heavy document, union-heavy event stream, list-heavy dataset) — that at least one self-describing production wire mode (framed, or packed framed; the frame's PACKED flag makes the two interchangeable to every decoder) beats Protobuf on size and by ${data.gate.encode_speed_ratio_min.toFixed(2)}x on both encode and decode simultaneously. Both modes are always measured and published below. Stress rows (marked) are reported against the identical bar; the tiny single-message rows carry a fixed 12-byte frame plus pointer-per-string overhead that no fixed-layout format recovers at sub-100-byte payloads (research §2.2), so they are not corpus entries.
+The release gate ([TDBIN-BENCH-GATE]) requires, for every corpus entry — the committed realistic schemas in \`docs/research/benchmarks/tdbin-corpus.{td,proto}\` (record-heavy document, union-heavy event stream, list-heavy dataset) — that at least one self-describing production wire mode (framed, or packed framed; the frame's PACKED flag makes the two interchangeable to every decoder) beats Protobuf on size and by ${data.gate.encode_speed_ratio_min.toFixed(2)}x on both encode and decode simultaneously. Both modes are always measured and published below. Stress rows (marked) are reported against the identical bar; the tiny single-message rows carry a fixed 12-byte frame plus pointer-per-string overhead that no fixed-layout format recovers at sub-100-byte payloads (research §2.2), so they are not corpus entries.
 
 ## Size and Speed
 
@@ -307,7 +307,7 @@ const mainRows = sizes.fixtures
 
 const website = `# TDBIN Benchmarks
 
-TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [\`scripts/tdbin-bench-report.mjs\`](${repo}/${ref}/scripts/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
+TDBIN is typeDiagram's compact binary codec for algebraic data types, measured here against **Protocol Buffers** and **MessagePack**. Every number below is data-derived — produced by [\`scripts/tdbin/tdbin-bench-report.mjs\`](${repo}/${ref}/scripts/tdbin/tdbin-bench-report.mjs) from Criterion timings and exact encoder output — and regenerates on each benchmark run.
 
 > **Scope: these figures are for the Rust implementation only.** Both the encoded sizes and the speeds are measured against the Rust \`tdbin\` codec crate ([\`crates/tdbin\`](${repo}/${ref}/crates/tdbin)), the Rust \`prost\` Protobuf encoder, and the Rust \`rmp-serde\` MessagePack encoder. The TDBIN **wire format** and its byte sizes are language-neutral, but serialize/deserialize **speeds** depend on each language's implementation — typeDiagram's other codec targets, and other Protobuf/MessagePack libraries, will differ, sometimes substantially.
 
@@ -332,7 +332,7 @@ ${factLines.join("\n")}
 - **Self-describing modes only.** typeDiagram *framed*, Protobuf, and MessagePack *struct-as-map* all carry enough structure to be decoded without an external schema, so the comparison is like-for-like.
 - **Sizes are exact byte counts** emitted by each encoder (see [\`crates/tdbin/examples/bench_data.rs\`](${repo}/${ref}/crates/tdbin/examples/bench_data.rs)) — not estimates.
 - **Timings are Criterion medians** over ${data.benchmarks[0]?.sample_count ?? 50} samples per operation; each measured value flows through \`black_box\` so the optimizer cannot elide the work. The benchmark harness is [\`crates/tdbin/benches/gate.rs\`](${repo}/${ref}/crates/tdbin/benches/gate.rs).
-- **Corpus schemas** are committed at [\`docs/benchmarks/tdbin-corpus.td\`](${repo}/${ref}/docs/benchmarks/tdbin-corpus.td) and [\`docs/benchmarks/tdbin-corpus.proto\`](${repo}/${ref}/docs/benchmarks/tdbin-corpus.proto).
+- **Corpus schemas** are committed at [\`docs/research/benchmarks/tdbin-corpus.td\`](${repo}/${ref}/docs/research/benchmarks/tdbin-corpus.td) and [\`docs/research/benchmarks/tdbin-corpus.proto\`](${repo}/${ref}/docs/research/benchmarks/tdbin-corpus.proto).
 
 ## Test machine
 

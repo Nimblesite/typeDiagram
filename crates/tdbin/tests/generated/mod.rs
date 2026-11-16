@@ -6,7 +6,7 @@
 //! typeDiagram ADT -> binary -> typeDiagram ADT — runs under `cargo test`.
 //! The `rust-tdbin.test.ts` vitest suite pins the emitted text and fails if
 //! this file drifts from codegen; regenerate with
-//! `node scripts/tdbin-regen-fixtures.mjs` rather than hand-editing.
+//! `node scripts/tdbin/tdbin-regen-fixtures.mjs` rather than hand-editing.
 
 // <<<GENERATED — rust-tdbin.ts generateRustModule; do not edit by hand>>>
 /// The `Address` record.

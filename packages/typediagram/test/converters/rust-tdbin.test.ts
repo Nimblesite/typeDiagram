@@ -20,7 +20,7 @@ const fixtureTd = (name: string): string =>
   readFileSync(fileURLToPath(new URL(`fixtures/${name}`, import.meta.url)), "utf8");
 
 // The exact schema committed to crates/tdbin/tests/generated/mod.rs: the
-// structural assertions, the drift guard, and scripts/tdbin-regen-fixtures.mjs
+// structural assertions, the drift guard, and scripts/tdbin/tdbin-regen-fixtures.mjs
 // all read this ONE fixture file.
 const PERSON_TD = fixtureTd("person.td");
 

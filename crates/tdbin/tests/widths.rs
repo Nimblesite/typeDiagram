@@ -6,6 +6,7 @@
 /// The codegen-emitted width fixture.
 mod generated_widths;
 
+use std::fmt::Write as _;
 use std::path::PathBuf;
 
 use generated_widths::{Stats, StatsRaw};
@@ -119,4 +120,25 @@ fn non_utf8_paths_fail_encode_typed() {
         ..Stats::default()
     };
     assert_eq!(bad_list.to_bytes(), Err(tdbin::EncodeError::NonUtf8Path));
+}
+
+/// The shared Rust ↔ TypeScript golden value (`typescript-tdbin.test.ts`
+/// builds the identical one; `Size` stays within JS safe integers).
+const SAFE: usize = 9_007_199_254_740_991;
+
+#[test]
+fn width_bytes_match_the_cross_language_golden() -> TestResult {
+    let value = Stats {
+        count: SAFE,
+        sizes: vec![SAFE, 3],
+        ..extremes()
+    };
+    let bytes = value.to_packed_framed_bytes_checked()?;
+    let hex = bytes.iter().try_fold(String::new(), |mut out, byte| {
+        write!(out, "{byte:02x}")?;
+        Ok::<_, std::fmt::Error>(out)
+    })?;
+    assert_eq!(hex, include_str!("golden/widths.hex").trim());
+    assert_eq!(Stats::from_framed_bytes(&bytes)?, value);
+    Ok(())
 }

@@ -126,7 +126,7 @@ No Chromium download, no extra binaries — the extension reuses VS Code's built
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, repo layout, and rules. **Always run `make ci` before opening a PR** — it runs exactly what CI runs.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full workflow, repo layout, and rules. **Always run `make ci` before opening a PR** — it runs exactly what CI runs.
 
 ```sh
 make setup   # install deps + build framework (first time only)

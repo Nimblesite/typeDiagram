@@ -733,4 +733,86 @@ type Report {
     expect(unwrap(tdbin.decodeFramed(codec, unwrap(tdbin.fromHex(golden))))).toEqual(value);
     expect(unwrap(tdbin.frame.decodeFrame(bytes)).schemaHash).toBe(codec.layoutHash);
   });
+
+  it("encodes width-refined integers and Path with range checks and Rust-identical bytes [TDBIN-WIDTH-RANGE] #85", () => {
+    const fixture = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
+    const td = fixture("./fixtures/widths.td");
+    const tsSource = unwrap(emitTypeScriptCodec(modelFor(td)));
+    const rust = unwrap(emitRustCodec(modelFor(td)));
+    const statsCodec = codecFor<Record<string, unknown>>(tsSource, "StatsCodec");
+    const rawCodec = codecFor<Record<string, unknown>>(tsSource, "StatsRawCodec");
+    const rustHash = (type: string) => {
+      const block = rust.slice(rust.indexOf(`impl tdbin::Struct for ${type} {`));
+      const start = block.indexOf("LAYOUT_HASH: u64 = ") + 19;
+      return BigInt(block.slice(start, block.indexOf(";", start)).replaceAll("_", ""));
+    };
+    expect(statsCodec.layoutHash).toBe(rustHash("Stats"));
+    expect(rawCodec.layoutHash).toBe(rustHash("StatsRaw"));
+    const golden = fixture("../../../../crates/tdbin/tests/golden/widths.hex").trim();
+    const value = {
+      delta: -(2 ** 31),
+      flags: 255,
+      port: 65535,
+      hits: 2 ** 32 - 1,
+      hash: 2n ** 64n - 1n,
+      count: Number.MAX_SAFE_INTEGER,
+      file: "/tmp/α/report.json",
+      maybeHash: 0n,
+      maybePort: undefined,
+      maybeFile: "rel/path",
+      deltas: [-(2 ** 31), -1, 0, 2 ** 31 - 1],
+      bytes: [0, 1, 255],
+      ports: [0, 1, 65535],
+      hitsList: [2 ** 32 - 1, 7],
+      hashes: [2n ** 64n - 1n, 0n],
+      sizes: [Number.MAX_SAFE_INTEGER, 3],
+      files: ["a", "b/c"],
+      maybeSizes: [],
+      maybeFiles: undefined,
+    };
+    const bytes = unwrap(tdbin.encodePackedFramed(statsCodec, value));
+    expect(tdbin.toHex(bytes)).toBe(golden);
+    expect(unwrap(tdbin.decodeFramed(statsCodec, bytes))).toEqual(value);
+    const code = (r: { ok: boolean; error?: { code: string } }) => r.error?.code;
+    for (const bad of [
+      { delta: 2 ** 31 },
+      { delta: -(2 ** 31) - 1 },
+      { flags: 256 },
+      { flags: -1 },
+      { port: 65536 },
+      { hits: 2 ** 32 },
+      { hits: 1.5 },
+      { hash: -1n },
+      { hash: 2n ** 64n },
+      { count: -1 },
+      { count: 2 ** 53 },
+      { ports: [65536] },
+      { deltas: [2 ** 31] },
+      { bytes: [256] },
+      { hashes: [-1n] },
+      { sizes: [-1] },
+      { maybePort: 70000 },
+    ]) {
+      expect(
+        code(tdbin.encode(statsCodec, { ...value, ...bad })),
+        JSON.stringify(bad, (_k, v: unknown) => (typeof v === "bigint" ? String(v) : v))
+      ).toBe("ValueOutOfRange");
+    }
+    const raw = { delta: 0n, flags: 0n, port: 0n, hits: 0n, hash: 0n, count: 0n };
+    for (const over of [
+      { delta: 2n ** 31n },
+      { flags: 256n },
+      { port: 65536n },
+      { hits: 2n ** 32n },
+      { count: 2n ** 53n },
+    ]) {
+      expect(code(tdbin.decode(statsCodec, unwrap(tdbin.encode(rawCodec, { ...raw, ...over }))))).toBe(
+        "ValueOutOfRange"
+      );
+    }
+    const inRange = unwrap(
+      tdbin.decode(statsCodec, unwrap(tdbin.encode(rawCodec, { ...raw, delta: -5n, port: 65535n })))
+    );
+    expect([inRange.delta, inRange.port, inRange.file, inRange.files]).toEqual([-5, 65535, "", []]);
+  });
 });

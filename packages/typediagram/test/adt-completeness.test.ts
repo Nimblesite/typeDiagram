@@ -1,5 +1,5 @@
 // [TD-ADT-COMPLETENESS] Runs the real checker over the encoding proved in
-// docs/proofs/AdtCompleteness.lean: random ADT signatures are printed as
+// docs/research/proofs/AdtCompleteness.lean: random ADT signatures are printed as
 // typeDiagram, parsed, resolved for code generation and decoded back exactly.
 import { describe, expect, it } from "vitest";
 import { parse } from "../src/parser/index.js";

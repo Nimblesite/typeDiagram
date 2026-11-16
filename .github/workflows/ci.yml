@@ -137,7 +137,7 @@ jobs:
       - name: Shipwright acceptance gates
         if: steps.scope.outputs.scope == 'full'
         run: |
-          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema docs/schemas/shipwright.schema.json shipwright.json
+          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema .github/schemas/shipwright.schema.json shipwright.json
           npm run -w typediagram build
           node packages/cli/dist/bin.js --version
           node packages/cli/dist/bin.js --version --json

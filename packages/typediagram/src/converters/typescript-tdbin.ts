@@ -7,16 +7,14 @@ import {
   type Model,
   type ResolvedDecl,
   type ResolvedRecord,
-  type ResolvedTypeRef,
   type ResolvedUnion,
-  type ResolvedVariant,
   visibleDeclsForTarget,
 } from "../model/types.js";
 import { type Result, err, ok } from "../result.js";
-import { printTypeRef } from "./parse-typeref.js";
 import { fnv1a64, layoutManifest } from "./rust-tdbin-hash.js";
-import { listPlanOf, listResultNames, listValue, readListLines, writeListLines } from "./typescript-tdbin-lists.js";
-import { allocateBit, allocatePtr, allocateWord, type LayoutCursor, newLayoutCursor } from "./tdbin-alloc.js";
+import { classifyRecord, classifyUnion } from "./typescript-tdbin-plan.js";
+import { listResultNames, listValue, readListLines, writeListLines } from "./typescript-tdbin-lists.js";
+import { readWidthLines, widthResultNames, widthValue, writeWidthLines } from "./typescript-tdbin-widths.js";
 import {
   type DeclPlan,
   diag,
@@ -27,156 +25,12 @@ import {
   type UnionPlan,
   inlineVariantValue,
   variantPayloadDefault,
-  type VariantPlan,
 } from "./typescript-tdbin-defaults.js";
-import { isInlineVariant, payloadFieldName, variantPayloadName, withVariantRecords } from "./tdbin-variant-records.js";
+import { withVariantRecords } from "./tdbin-variant-records.js";
 import type { TypeScriptOpts } from "./types.js";
 import { typescript } from "./typescript.js";
 
 const tsNum = (value: number): string => String(value);
-
-const isPrim = (t: ResolvedTypeRef, name: string): boolean =>
-  t.name === name && t.resolution.kind === "primitive" && t.args.length === 0;
-
-const declaredRecord = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): ResolvedRecord | undefined => {
-  if (t.resolution.kind !== "declared") {
-    return undefined;
-  }
-  const { declName } = t.resolution;
-  return decls.find((d): d is ResolvedRecord => d.kind === "record" && d.name === declName);
-};
-
-const declaredUnion = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): ResolvedUnion | undefined => {
-  if (t.resolution.kind !== "declared") {
-    return undefined;
-  }
-  const { declName } = t.resolution;
-  return decls.find((d): d is ResolvedUnion => d.kind === "union" && d.name === declName);
-};
-
-const allocateBool = (cursor: LayoutCursor): FieldPlan => {
-  const { slot, bit } = allocateBit(cursor);
-  return { kind: "bool", slot, bit };
-};
-
-/** `Option<scalar>` takes a 1-bit presence flag in the shared bool bitset plus
- *  a natural-width value slot ([TDBIN-PRIM-OPTION]) — the SAME allocator the
- *  Rust emitter uses, so both emitters bake identical slot/bit numbers. */
-const allocateOptScalar = (inner: ResolvedTypeRef, cursor: LayoutCursor): FieldPlan | null => {
-  if (isPrim(inner, "Bool")) {
-    const presence = allocateBit(cursor);
-    const value = allocateBit(cursor);
-    return {
-      kind: "optBool",
-      presenceSlot: presence.slot,
-      presenceBit: presence.bit,
-      valueSlot: value.slot,
-      valueBit: value.bit,
-    };
-  }
-  if (!isPrim(inner, "Int") && !isPrim(inner, "Float")) {
-    return null;
-  }
-  const presence = allocateBit(cursor);
-  return {
-    kind: isPrim(inner, "Int") ? "optInt" : "optFloat",
-    presenceSlot: presence.slot,
-    presenceBit: presence.bit,
-    valueSlot: allocateWord(cursor),
-  };
-};
-
-const pointerField = (
-  decls: readonly ResolvedDecl[],
-  t: ResolvedTypeRef,
-  slot: number,
-  optional: boolean
-): FieldPlan | null => {
-  const list = listPlanOf(decls, t);
-  return list !== null ? { kind: "list", slot, optional, list } : scalarPointer(decls, t, slot, optional);
-};
-
-const scalarPointer = (
-  decls: readonly ResolvedDecl[],
-  t: ResolvedTypeRef,
-  slot: number,
-  optional: boolean
-): FieldPlan | null =>
-  isPrim(t, "String")
-    ? { kind: "string", slot, optional }
-    : isPrim(t, "Bytes")
-      ? { kind: "bytes", slot, optional }
-      : declaredRecord(decls, t) !== undefined || declaredUnion(decls, t) !== undefined
-        ? { kind: "child", slot, optional, typeName: t.resolution.kind === "declared" ? t.resolution.declName : t.name }
-        : null;
-
-const classifyField = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef, cursor: LayoutCursor): FieldPlan | null => {
-  if (isPrim(t, "Bool")) {
-    return allocateBool(cursor);
-  }
-  if (isPrim(t, "Int") || isPrim(t, "Float")) {
-    return { kind: isPrim(t, "Int") ? "int" : "float", slot: allocateWord(cursor) };
-  }
-  const optionInner = t.name === "Option" && t.args.length === 1 ? t.args[0] : undefined;
-  const optScalar = optionInner === undefined ? null : allocateOptScalar(optionInner, cursor);
-  if (optScalar !== null) {
-    return optScalar;
-  }
-  const optional = optionInner === undefined ? null : pointerField(decls, optionInner, cursor.ptrSlot, true);
-  const required = optionInner === undefined ? pointerField(decls, t, cursor.ptrSlot, false) : optional;
-  if (required !== null) {
-    allocatePtr(cursor);
-  }
-  return required;
-};
-
-const classifyRecord = (decls: readonly ResolvedDecl[], rec: ResolvedRecord): Result<RecordPlan, Diagnostic[]> => {
-  const cursor = newLayoutCursor();
-  const fields: Array<{ name: string; plan: FieldPlan }> = [];
-  for (const field of rec.fields) {
-    const plan = classifyField(decls, field.type, cursor);
-    if (plan === null) {
-      return err(diag(`tdbin-ts: unsupported field type '${printTypeRef(field.type)}' in ${rec.name}.${field.name}`));
-    }
-    fields.push({ name: field.name, plan });
-  }
-  return ok({ dataWords: cursor.dataSlot, ptrWords: cursor.ptrSlot, fields });
-};
-
-const classifyVariant = (union: ResolvedUnion, variant: ResolvedVariant): Result<VariantPlan, Diagnostic[]> => {
-  if (variant.fields.length === 0) {
-    return ok(null);
-  }
-  if (isInlineVariant(variant)) {
-    return ok({
-      kind: "inline",
-      typeName: variantPayloadName(union, variant),
-      fields: variant.fields.map((f, i) => ({ name: f.name, payload: payloadFieldName(variant, i) })),
-    });
-  }
-  const single = variant.fields[0]?.type;
-  return single?.resolution.kind === "declared"
-    ? ok({ kind: "child", typeName: single.resolution.declName })
-    : single !== undefined && isPrim(single, "String")
-      ? ok({ kind: "string" })
-      : err(
-          diag(
-            `tdbin-ts: variant '${variant.name}' payload '${single === undefined ? "?" : printTypeRef(single)}' unsupported in v0`
-          )
-        );
-};
-
-const classifyUnion = (union: ResolvedUnion): Result<UnionPlan, Diagnostic[]> => {
-  const variants: Array<{ name: string; ordinal: number; payload: VariantPlan }> = [];
-  for (const [ordinal, variant] of union.variants.entries()) {
-    const payload = classifyVariant(union, variant);
-    if (!payload.ok) {
-      return payload;
-    }
-    variants.push({ name: variant.name, ordinal, payload: payload.value });
-  }
-  return ok({ ptrWords: variants.some((variant) => variant.payload !== null) ? 1 : 0, variants });
-};
 
 /** Write the 1-bit presence flag; absent values write zero lanes ([TDBIN-ENC-ZERO]). */
 const writePresenceLines = (field: string, plan: { presenceSlot: number; presenceBit: number }): string[] => [
@@ -187,6 +41,9 @@ const writePresenceLines = (field: string, plan: { presenceSlot: number; presenc
 const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[] => {
   const value = `value.${field}`;
   switch (plan.kind) {
+    case "width":
+    case "optWidth":
+      return writeWidthLines(field, plan);
     case "list":
       return writeListLines(codec, field, plan);
     case "int":
@@ -237,6 +94,9 @@ const emitWriteField = (codec: string, field: string, plan: FieldPlan): string[]
 
 const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] => {
   switch (plan.kind) {
+    case "width":
+    case "optWidth":
+      return readWidthLines(field, plan);
     case "list":
       return readListLines(codec, field, plan);
     case "int":
@@ -270,6 +130,9 @@ const emitReadField = (codec: string, field: string, plan: FieldPlan): string[] 
 /** READ-path result bindings the ok-guards must check, in emission order. */
 const fieldResultNames = (field: string, plan: FieldPlan): string[] => {
   switch (plan.kind) {
+    case "width":
+    case "optWidth":
+      return widthResultNames(field, plan);
     case "list":
       return listResultNames(field, plan);
     case "int":
@@ -290,6 +153,9 @@ const fieldValue = (field: string, plan: FieldPlan, options: TypeScriptOpts): st
     options.integerType === "bigint" ? `BigInt.asIntN(64, ${word})` : `tdbin.scalar.i64From(${word})`;
   const integer = toInt(`${field}Word.value`);
   switch (plan.kind) {
+    case "width":
+    case "optWidth":
+      return widthValue(field, plan);
     case "list":
       return listValue(field, plan, toInt);
     case "int":
