@@ -2,7 +2,7 @@
 name: Release
 
 # [SWR-REL-WORKFLOW] Tag-triggered only. Builds the EXACT tagged SHA; the version is
-# stamped in the runner working tree by scripts/stamp-version.mjs and never committed
+# stamped in the runner working tree by src/scripts/stamp-version.mjs and never committed
 # or pushed back ([SWR-VERSION-BUILD-STAMPING]). Deploy the website manually via
 # deploy-pages.yml after a green Release.
 on:
@@ -68,9 +68,9 @@ jobs:
           echo "npm_tag=$NPM_TAG" >> "$GITHUB_OUTPUT"
 
       # [SWR-VERSION-BUILD-STAMPING] First-class stamper — covered by
-      # packages/cli/test/stamp-version.e2e.test.ts. Runner working tree only.
+      # src/cli/test/stamp-version.e2e.test.ts. Runner working tree only.
       - name: Stamp version in all carriers
-        run: node scripts/stamp-version.mjs --version "${{ steps.derive.outputs.version }}"
+        run: node src/scripts/stamp-version.mjs --version "${{ steps.derive.outputs.version }}"
 
       - run: npm install --package-lock-only
 
@@ -93,9 +93,9 @@ jobs:
         run: |
           npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema .github/schemas/shipwright.schema.json shipwright.json
           V="${{ steps.derive.outputs.version }}"
-          OUT="$(node packages/cli/dist/bin.js --version)"
+          OUT="$(node src/cli/dist/bin.js --version)"
           test "$OUT" = "typediagram $V"
-          node packages/cli/dist/bin.js --version --json
+          node src/cli/dist/bin.js --version --json
 
       # Idempotent publishes: a re-run of a partially-failed release is safe ([SWR-REL-WORKFLOW]).
       - name: Publish typediagram-core
@@ -104,7 +104,7 @@ jobs:
           if [ -n "$(npm view "typediagram-core@$V" version 2>/dev/null || true)" ]; then
             echo "typediagram-core@$V already published — skipping"
           else
-            npm publish --workspace=packages/typediagram --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
+            npm publish --workspace=src/typediagram --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
           fi
 
       - name: Publish typediagram CLI
@@ -113,7 +113,7 @@ jobs:
           if [ -n "$(npm view "typediagram@$V" version 2>/dev/null || true)" ]; then
             echo "typediagram@$V already published — skipping"
           else
-            npm publish --workspace=packages/cli --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
+            npm publish --workspace=src/cli --tag ${{ steps.derive.outputs.npm_tag }} --provenance --access public
           fi
 
       # [TDBIN-RS-PUBLISH] the Rust runtime that `typediagram encode` output
@@ -124,10 +124,10 @@ jobs:
           CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
         run: |
           V="${{ steps.derive.outputs.version }}"
-          if curl -fsS -A "typediagram-release" "https://crates.io/api/v1/crates/tdbin/$V" >/dev/null 2>&1; then
+          if curl -fsS -A "typediagram-release" "https://crates.io/api/v1/src/tdbin/$V" >/dev/null 2>&1; then
             echo "tdbin@$V already published — skipping"
           else
-            cargo publish -p tdbin --allow-dirty
+            cargo publish --manifest-path src/Cargo.toml -p tdbin --allow-dirty
           fi
 
       - name: Package VSIX
@@ -147,8 +147,8 @@ jobs:
 
       - name: Pack npm tarballs for release assets
         run: |
-          npm pack --workspace=packages/typediagram --pack-destination=.
-          npm pack --workspace=packages/cli --pack-destination=.
+          npm pack --workspace=src/typediagram --pack-destination=.
+          npm pack --workspace=src/cli --pack-destination=.
 
       # [SWR-SEC-CHECKSUM] One SHA256SUMS over all release assets.
       - name: Generate SHA256SUMS

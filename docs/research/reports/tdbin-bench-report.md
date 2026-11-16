@@ -1,6 +1,6 @@
 # TDBIN Benchmark Report
 
-> GENERATED FILE. Source: `scripts/tdbin/tdbin-bench-report.mjs` and `docs/research/reports/tdbin-bench-data.json`.
+> GENERATED FILE. Source: `src/scripts/tdbin/tdbin-bench-report.mjs` and `docs/research/reports/tdbin-bench-data.json`.
 > Every value and verdict is computed from machine-readable Criterion and encoder output. No benchmark result is entered manually.
 
 Generated: 2026-07-13T23:32:23.773Z
@@ -43,7 +43,7 @@ The headline comparison — one row per test, all three self-describing formats 
 Dependency tree:
 
 ```text
-tdbin v0.0.0 (/Users/christianfindlay/Documents/Code/typeDiagram/crates/tdbin)
+tdbin v0.0.0 (/Users/christianfindlay/Documents/Code/typeDiagram/src/tdbin)
 [dev-dependencies]
 ├── criterion v0.8.2
 ├── prost v0.14.3
@@ -177,7 +177,7 @@ This secondary table exposes unpacked tradeoffs; it does not replace the packed-
 ## Commands
 
 - `cargo bench -p tdbin --bench gate -- --noplot`
-- `node scripts/tdbin/tdbin-bench-report.mjs`
+- `node src/scripts/tdbin/tdbin-bench-report.mjs`
 
 Corpus schemas:
 

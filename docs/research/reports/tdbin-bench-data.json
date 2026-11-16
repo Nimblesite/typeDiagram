@@ -1,7 +1,7 @@
 {
   "format_version": 1,
   "generated_at": "2026-07-13T23:32:23.773Z",
-  "commands": ["cargo bench -p tdbin --bench gate -- --noplot", "node scripts/tdbin/tdbin-bench-report.mjs"],
+  "commands": ["cargo bench -p tdbin --bench gate -- --noplot", "node src/scripts/tdbin/tdbin-bench-report.mjs"],
   "corpus_schemas": ["docs/research/benchmarks/tdbin-corpus.td", "docs/research/benchmarks/tdbin-corpus.proto"],
   "gate": {
     "size_ratio_max": 1,
@@ -18,7 +18,7 @@
     "memory_bytes": 38654705664,
     "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
     "cargo": "cargo 1.97.0 (c980f4866 2026-06-30)",
-    "dependencies": "tdbin v0.0.0 (/Users/christianfindlay/Documents/Code/typeDiagram/crates/tdbin)\n[dev-dependencies]\n├── criterion v0.8.2\n├── prost v0.14.3\n├── rmp-serde v1.3.1\n└── serde v1.0.228"
+    "dependencies": "tdbin v0.0.0 (/Users/christianfindlay/Documents/Code/typeDiagram/src/tdbin)\n[dev-dependencies]\n├── criterion v0.8.2\n├── prost v0.14.3\n├── rmp-serde v1.3.1\n└── serde v1.0.228"
   },
   "sizes": {
     "format_version": 1,

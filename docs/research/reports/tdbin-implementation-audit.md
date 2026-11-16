@@ -192,7 +192,7 @@ numeric authority.
   tests that also flushed out and fixed a latent generated-encode bug),
   1-bit `Option<scalar>` presence via one shared cross-language allocator,
   automatic layout-hash emission and enforcement, normative-ID traceability
-  (84/84 via `scripts/tdbin/tdbin-spec-trace.mjs`).
+  (84/84 via `src/scripts/tdbin/tdbin-spec-trace.mjs`).
 
 ### Measured outcome (see the generated report for numbers)
 

@@ -42,7 +42,7 @@ This spec pins down the exact pipeline, the dependency footprint, and the verifi
 
 ### `typediagram.exportMarkdownPdf`
 
-- **Registered in:** `packages/vscode/src/extension.ts` via `vscode.commands.registerCommand`.
+- **Registered in:** `src/vscode/src/extension.ts` via `vscode.commands.registerCommand`.
 - **Argument:** optional `vscode.Uri`. If omitted, falls back to `vscode.window.activeTextEditor.document.uri`.
 - **Valid when:** `resourceLangId == markdown`. No-op otherwise.
 - **UI surfaces:**
@@ -142,7 +142,7 @@ A task is done when ALL of the following pass:
 
 ### Integration (black-box)
 
-- Invoking `vscode.commands.executeCommand('typediagram.exportMarkdownPdf', uri)` on [`packages/vscode/examples/doc.md`](../../packages/vscode/examples/doc.md) produces a PDF whose byte size is within ±10% of a golden snapshot (seed PDF checked in, regenerated when the golden changes intentionally).
+- Invoking `vscode.commands.executeCommand('typediagram.exportMarkdownPdf', uri)` on [`src/vscode/examples/doc.md`](../../src/vscode/examples/doc.md) produces a PDF whose byte size is within ±10% of a golden snapshot (seed PDF checked in, regenerated when the golden changes intentionally).
 - The generated PDF can be opened by `open` (macOS), `xdg-open` (Linux), `start` (Windows) — we assert it's readable by reading back the first 1024 bytes.
 - All existing markdown-preview behaviour (fence highlighting, live preview rendering) continues to work — no regressions.
 

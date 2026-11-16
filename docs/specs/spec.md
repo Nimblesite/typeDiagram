@@ -215,7 +215,7 @@ Browser and Node share **identical code paths** in every layer (no conditional i
 ### Source layout
 
 ````
-packages/typediagram/
+src/typediagram/
   src/
     parser/
       lexer.ts           # token stream with {line, col, offset}
@@ -339,7 +339,7 @@ export function renderMarkdown(md: string, opts?: AllOpts): Promise<Result<strin
 
 Two reference apps ship in the same monorepo. Both are **pure consumers** of the framework — they do not duplicate any framework logic. They exist to (a) prove the layered API is complete enough to build real things on, and (b) serve as the integration smoke-test surface for both runtime targets.
 
-### `packages/cli` — CLI
+### `src/cli` — CLI
 
 Headless Node binary. Validates the framework works without a DOM and is composable in build pipelines / docs builds / CI.
 
@@ -350,7 +350,7 @@ typediagram --theme dark < input.td
 
 Pipeline: `read(file|stdin) → parse → renderToString → write(stdout)`. Errors go to stderr in the framework's diagnostic format, with non-zero exit code. Flags: `--theme light|dark`, `--font-size N`.
 
-### `packages/web` — Web playground
+### `src/web` — Web playground
 
 Browser bundle. Validates the framework works in the same kind of environment a VS Code webview will use (the future `.vsix` target reuses this app's renderer wiring).
 
@@ -358,7 +358,7 @@ A simple split-pane editor: textarea on the left (typeDiagram source), live SVG 
 
 No framework logic lives in this app — only DOM glue. The app is the simplest possible end-to-end smoke test for the browser code path.
 
-### Future: `packages/vscode` (Phase 2+)
+### Future: `src/vscode` (Phase 2+)
 
 A `.vsix` extension that combines:
 

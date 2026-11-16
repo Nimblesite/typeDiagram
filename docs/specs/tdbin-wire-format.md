@@ -354,7 +354,7 @@ Columnar layout major 2 (`[TDBIN-COL-*]`, [tdbin-columnar.md](tdbin-columnar.md)
 - **[TDBIN-FUTURE-COLUMNAR]** — DELIVERED as layout major 2: struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps) is now normative in [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`), built from existing pointer primitives without reinterpreting v1 composite elem kind 7. SIMD-BP128 bit-packed integer columns remain future work.
 - **[TDBIN-FUTURE-READER]** — zero-copy verify-once/access-lazily reader (nanosecond field access; research §2.4).
 - **[TDBIN-FUTURE-RPC]** — the `[TDRPC-*]` spec: typeDiagram **function definitions as the service contract** (research §6.0), streaming modes from signature shape, numeric method ids (no method-name strings on the wire), capability pointers (kind `11`), promise pipelining. Fed by the dedicated RPC research pass.
-- **[TDBIN-FUTURE-TS]** — TypeScript codec in `packages/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).
+- **[TDBIN-FUTURE-TS]** — TypeScript codec in `src/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).
 - **[TDBIN-FUTURE-WIDTH-TYPES]** — width-refined DSL numerics (`I8…U64`, `F32`); wire widths and list element kinds already reserved.
 - **[TDBIN-FUTURE-ORDINALS]** — explicit per-declaration ordinal annotations to allow non-append evolution (Cap'n Proto-style).
 

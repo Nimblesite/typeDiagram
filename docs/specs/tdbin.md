@@ -255,7 +255,7 @@ payload, or struct-form / multi-field tuple payloads ([TDBIN-UNION-STRUCT]).
 `integerType: "bigint"` keeps the full i64 domain; the default `number` mode
 rejects unsafe integers on encode with `LimitExceeded`.
 
-A golden vector (`crates/tdbin/tests/golden/report_lists.hex`) pins the bytes:
+A golden vector (`src/tdbin/tests/golden/report_lists.hex`) pins the bytes:
 the Rust and TypeScript codecs generated from the same schema must both
 reproduce it exactly.
 

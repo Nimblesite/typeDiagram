@@ -38,24 +38,24 @@ build:
 	@echo "==> Building..."
 	npm run -w typediagram-core build
 	@echo "==> Building Rust workspace..."
-	cargo build --workspace
+	cd src && cargo build --workspace
 
 ## test: Fail-fast tests + coverage + threshold enforcement + ratchet.
 ##       See REPO-STANDARDS-SPEC [TEST-RULES] and [COVERAGE-THRESHOLDS-JSON].
 ##       Runs each package sequentially so coverage threshold failures exit non-zero.
-##       packages/web runs vitest AND Playwright (desktop + mobile) and enforces
-##       the threshold against their MERGED coverage — see packages/web/scripts/merge-coverage.ts.
+##       src/web runs vitest AND Playwright (desktop + mobile) and enforces
+##       the threshold against their MERGED coverage — see src/web/scripts/merge-coverage.ts.
 ##       After all tests pass, ratchets coverage-thresholds.json UP to max(current, measured - 1%).
 test:
 	@echo "==> Testing (fail-fast + coverage + threshold)..."
 	@$(MAKE) _cargo_test
-	npm run -w packages/typediagram test
-	npm run -w packages/cli test
-	npm run -w packages/vscode test
-	npm run -w packages/web test
+	npm run -w src/typediagram test
+	npm run -w src/cli test
+	npm run -w src/vscode test
+	npm run -w src/web test
 	$(MAKE) _coverage_check
 	@echo "==> Ratcheting coverage thresholds..."
-	node scripts/ratchet-coverage.mjs
+	node src/scripts/ratchet-coverage.mjs
 
 ## lint: Run all linters/analyzers (read-only). Does NOT format. Fails fast on first error.
 ##       Chains: typecheck -> eslint -> banned-deps.
@@ -73,16 +73,16 @@ fmt:
 	@echo "==> Formatting (write)..."
 	npx prettier --write .
 	@echo "==> Formatting Rust (cargo fmt)..."
-	cargo fmt
+	cd src && cargo fmt
 
 ## clean: Remove all build artifacts from every package (dist, per-package
 ##        coverage, root coverage, eleventy + typedoc output).
 clean:
 	@echo "==> Cleaning all packages..."
-	$(RM) packages/typediagram/dist packages/cli/dist packages/web/dist packages/vscode/dist
-	$(RM) packages/typediagram/coverage packages/cli/coverage packages/web/coverage packages/vscode/coverage
+	$(RM) src/typediagram/dist src/cli/dist src/web/dist src/vscode/dist
+	$(RM) src/typediagram/coverage src/cli/coverage src/web/coverage src/vscode/coverage
 	$(RM) coverage
-	$(RM) packages/web/.eleventy-out packages/web/.typedoc-out
+	$(RM) src/web/.eleventy-out src/web/.typedoc-out
 
 ## ci: full CI simulation. Fail-fast on every gate, in order:
 ##     fmt-check -> lint -> test+coverage -> build -> bundle-size
@@ -116,27 +116,27 @@ _fmt_check:
 	@echo "==> Format check (read-only)..."
 	npx prettier --check .
 	@echo "==> Rust format check (read-only)..."
-	cargo fmt --check
+	cd src && cargo fmt --check
 
 _eslint:
 	@echo "==> ESLint..."
-	npx eslint .
+	npx eslint --config src/eslint.config.mjs src
 
 _banned_deps:
 	@echo "==> Banned-deps check..."
-	npm run check-banned-deps --workspace=packages/typediagram
+	npm run check-banned-deps --workspace=src/typediagram
 
 _cargo_test:
 	@echo "==> Rust tests (cargo test --workspace, fail-fast)..."
-	cargo test --workspace
+	cd src && cargo test --workspace
 
 _cargo_clippy:
 	@echo "==> Rust clippy (workspace, all targets, deny-all)..."
-	cargo clippy --workspace --all-targets -- -D warnings
+	cd src && cargo clippy --workspace --all-targets -- -D warnings
 
 _bundle_size:
 	@echo "==> Bundle-size budget..."
-	npm run bundle-size --workspace=packages/typediagram
+	npm run bundle-size --workspace=src/typediagram
 
 
 # =============================================================================
@@ -149,25 +149,25 @@ _bundle_size:
 ##             for iterating on the crate alone.
 test-tdbin:
 	@echo "==> tdbin crate tests (cargo test -p tdbin)..."
-	cargo test -p tdbin
+	cd src && cargo test -p tdbin
 
 ## bench: TDBIN vs Protobuf benchmark. Runs tests and the full Criterion matrix,
 ##        then generates Markdown and raw JSON reports from the measured output.
 bench:
 	@echo "==> TDBIN crate tests (round-trip + deterministic size gate)..."
-	cargo test -p tdbin
+	cd src && cargo test -p tdbin
 	@echo "==> TDBIN vs Protobuf Criterion benchmark matrix..."
-	cargo bench -p tdbin --bench gate -- --noplot
+	cd src && cargo bench -p tdbin --bench gate -- --noplot
 	@echo "==> Generating data-derived TDBIN benchmark report..."
-	node scripts/tdbin/tdbin-bench-report.mjs
+	node src/scripts/tdbin/tdbin-bench-report.mjs
 
-## test-playwright: Run Playwright end-to-end tests only (packages/web), both
+## test-playwright: Run Playwright end-to-end tests only (src/web), both
 ##                  desktop and mobile viewports. Does NOT run vitest or enforce
 ##                  coverage threshold — for that, use `make test`. Useful for
 ##                  iterating on UI tests.
 test-playwright:
 	@echo "==> Playwright E2E (desktop + mobile)..."
-	npm run -w packages/web test:e2e
+	npm run -w src/web test:e2e
 
 ## rebuild-install-vsix: Full clean rebuild-and-reinstall cycle for the VS Code
 ##                       extension (see REPO-STANDARDS-SPEC [MAKE-IDE-EXT]):
@@ -186,7 +186,7 @@ _vsix_uninstall:
 _vsix_clean:
 	@echo "==> Cleaning VSIX build output..."
 	$(RM) typediagram-*.vsix
-	$(RM) packages/vscode/dist
+	$(RM) src/vscode/dist
 
 _vsix_rebuild:
 	@echo "==> Rebuilding extension from source..."
@@ -209,7 +209,7 @@ dev-web:
 	@echo "==> Building typediagram-core (required by web dev server)..."
 	npm run -w typediagram-core build
 	@echo "==> Starting web dev server (clean + eleventy --watch + vite)..."
-	npm run -w packages/web dev
+	npm run -w src/web dev
 
 ## clean-start: Full clean -> build -> dev. Use this when stale dist/ output
 ##              from another package (e.g. typediagram-core) is being served

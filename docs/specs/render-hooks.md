@@ -2,14 +2,14 @@
 
 ## Context
 
-The SVG renderer ([`packages/typediagram/src/render-svg/render.ts`](../../packages/typediagram/src/render-svg/render.ts)) emits fixed markup: rounded rects, a header strip, row dividers, a `◇` glyph for union variants, orthogonal polylines. Theming is limited to colors via `Theme`. Consumers who want per-field coloring, icons, drop shadows, custom glyphs, pattern fills, conditional classes, or — critically — **absolute positioning** cannot reach into the pipeline. A CSS layer could only restyle what the renderer already emits; it cannot inject `<defs>`, replace geometry, or decide what to draw based on the semantic model (declKind, field name, edge kind).
+The SVG renderer ([`src/typediagram/src/render-svg/render.ts`](../../src/typediagram/src/render-svg/render.ts)) emits fixed markup: rounded rects, a header strip, row dividers, a `◇` glyph for union variants, orthogonal polylines. Theming is limited to colors via `Theme`. Consumers who want per-field coloring, icons, drop shadows, custom glyphs, pattern fills, conditional classes, or — critically — **absolute positioning** cannot reach into the pipeline. A CSS layer could only restyle what the renderer already emits; it cannot inject `<defs>`, replace geometry, or decide what to draw based on the semantic model (declKind, field name, edge kind).
 
 This spec defines **Render Hooks**: a typed, phase-based extension API that lets JavaScript callbacks inspect the laid-out graph and emit or transform SVG at well-defined points. Hooks are strictly more powerful than CSS: they see the model, receive resolved geometry, and can return arbitrary (safe) SVG.
 
 ## Design principles
 
 1. **Semantic input.** Hooks receive `NodeBox`, `EdgeRoute`, `NodeRow` plus computed geometry (absolute x/y with padding baked in, theme, fontSize). No DOM, no selectors — the model itself is the selector.
-2. **Typed SVG output only.** Hooks return `SafeSvg` (see [svg-tag.ts](../../packages/typediagram/src/render-svg/svg-tag.ts)), not raw strings. XSS guarantees of the `svg`\`...\` tagged template extend to hook output. Returning `undefined` means "use default".
+2. **Typed SVG output only.** Hooks return `SafeSvg` (see [svg-tag.ts](../../src/typediagram/src/render-svg/svg-tag.ts)), not raw strings. XSS guarantees of the `svg`\`...\` tagged template extend to hook output. Returning `undefined` means "use default".
 3. **Override-with-default pattern.** Transform hooks receive the default `SafeSvg` and can wrap, prepend, append, or replace it. 90% of customization is "decorate the default".
 4. **Phase-based, not event-based.** Fixed set of phases, each with a precise contract. No catch-all `onRender`.
 5. **Pure functions.** Hooks must not mutate inputs, must not retain state between calls, must be deterministic given inputs. Same graph + hooks = byte-identical SVG.
@@ -146,7 +146,7 @@ interface SvgOpts {
 }
 ```
 
-Hooks are exported from [`packages/typediagram/src/render-svg/index.ts`](../../packages/typediagram/src/render-svg/index.ts) alongside `renderSvg`.
+Hooks are exported from [`src/typediagram/src/render-svg/index.ts`](../../src/typediagram/src/render-svg/index.ts) alongside `renderSvg`.
 
 ## Safety
 
@@ -164,9 +164,9 @@ Three strictly-stacked layers. Each layer knows nothing about the one above it. 
 
 | Layer       | Name                        | Artifact                                                                           | Location                              | Who depends on it             |
 | ----------- | --------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------- | ----------------------------- |
-| **Layer 1** | `RenderHooks` — core API    | TypeScript `RenderHooks` interface + phase invocation inside `renderSvg`           | `packages/typediagram/src/render-svg` | everyone                      |
-| **Layer 2** | Hook **code** (user JS)     | A string of JavaScript the user writes; compiled to a Layer-1 `RenderHooks` object | `packages/web/src/eval-hooks.ts`      | Layer 3, playground, docs     |
-| **Layer 3** | **Presets** — code snippets | Named strings of Layer-2 JS (with `// --- preset:<id> ---` delimiters)             | `packages/web/src/hook-presets.ts`    | the playground's chip UI only |
+| **Layer 1** | `RenderHooks` — core API    | TypeScript `RenderHooks` interface + phase invocation inside `renderSvg`           | `src/typediagram/src/render-svg` | everyone                      |
+| **Layer 2** | Hook **code** (user JS)     | A string of JavaScript the user writes; compiled to a Layer-1 `RenderHooks` object | `src/web/src/eval-hooks.ts`      | Layer 3, playground, docs     |
+| **Layer 3** | **Presets** — code snippets | Named strings of Layer-2 JS (with `// --- preset:<id> ---` delimiters)             | `src/web/src/hook-presets.ts`    | the playground's chip UI only |
 
 ### Layer 1 — `RenderHooks` (core)
 

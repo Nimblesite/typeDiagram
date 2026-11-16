@@ -18,7 +18,7 @@ These results are proved, not just tested. Lean checks every step, the proof con
 
 ### Proved and then run through the real parser
 
-A proof is only as good as its model of the language. [`adt-completeness.test.ts`](../../packages/typediagram/test/adt-completeness.test.ts) therefore runs the same encoding through the real parser and checker:
+A proof is only as good as its model of the language. [`adt-completeness.test.ts`](../../src/typediagram/test/adt-completeness.test.ts) therefore runs the same encoding through the real parser and checker:
 
 - 400 seeded random ADTs that respect type arity, plus fixed cases for each kind of type listed above.
 - Each one is parsed, decoded back, compared with the original, and resolved for Rust and TypeScript code generation.
@@ -43,5 +43,5 @@ These fall outside the definition of an ADT used here, and typeDiagram cannot ex
 
 ```sh
 lean docs/research/proofs/AdtCompleteness.lean
-cd packages/typediagram && npx vitest run test/adt-completeness.test.ts
+cd src/typediagram && npx vitest run test/adt-completeness.test.ts
 ```

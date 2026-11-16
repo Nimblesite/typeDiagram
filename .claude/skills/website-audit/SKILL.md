@@ -51,7 +51,7 @@ If the repo has a business plan doc, take it into account
 
 Identify the website source files in the repo. Determine the framework (static site generator, Next.js, Hugo, etc.) so you know where to find templates, metadata, and content.
 
-For typeDiagram: the website lives in `packages/web/` and is built with Eleventy (11ty). Edit templates/content in that package — never the generated output under `packages/web/.eleventy-out/`.
+For typeDiagram: the website lives in `src/web/` and is built with Eleventy (11ty). Edit templates/content in that package — never the generated output under `src/web/.eleventy-out/`.
 
 ## Step 2 — Audit AI search readiness
 
@@ -146,7 +146,7 @@ Read the design system docs and view the design screens in the designsystem fold
 
 ## Step 11 — Test with Playwright
 
-Build and run the website locally using the project's dev server command (e.g. `npm run -w packages/web dev`).
+Build and run the website locally using the project's dev server command (e.g. `npm run -w src/web dev`).
 
 **Desktop tests (1280x720):**
 

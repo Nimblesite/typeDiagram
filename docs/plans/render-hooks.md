@@ -10,9 +10,9 @@ Add six render hooks (`defs`, `node`, `row`, `edge`, `background`, `post`) to th
 
 | Layer | Concern                                    | Module                                                      | Depends on           |
 | ----- | ------------------------------------------ | ----------------------------------------------------------- | -------------------- |
-| 1     | `RenderHooks` interface + phase invocation | `packages/typediagram/src/render-svg/hooks.ts`, `render.ts` | nothing              |
-| 2     | User JS compiled to Layer 1                | `packages/web/src/eval-hooks.ts`                            | Layer 1 (types only) |
-| 3     | Preset snippets (strings) + splice helpers | `packages/web/src/hook-presets.ts`                          | Layer 2 (tests only) |
+| 1     | `RenderHooks` interface + phase invocation | `src/typediagram/src/render-svg/hooks.ts`, `render.ts` | nothing              |
+| 2     | User JS compiled to Layer 1                | `src/web/src/eval-hooks.ts`                            | Layer 1 (types only) |
+| 3     | Preset snippets (strings) + splice helpers | `src/web/src/hook-presets.ts`                          | Layer 2 (tests only) |
 
 **Review rejections**:
 
@@ -37,15 +37,15 @@ Add six render hooks (`defs`, `node`, `row`, `edge`, `background`, `post`) to th
 ## Affected files
 
 ```
-packages/typediagram/src/render-svg/
+src/typediagram/src/render-svg/
   hooks.ts            NEW   — RenderHooks type, context types, safe invoker helper
   render.ts           EDIT  — thread hooks through renderSvg; invoke at each phase
   index.ts            EDIT  — re-export hook types
-packages/typediagram/src/index.ts
+src/typediagram/src/index.ts
                       EDIT  — re-export hook types at framework root
-packages/typediagram/test/render-hooks.test.ts
+src/typediagram/test/render-hooks.test.ts
                       NEW   — phase coverage + worked-example + positioning-PoC tests
-packages/typediagram/test/render-svg.test.ts
+src/typediagram/test/render-svg.test.ts
                       EDIT  — add "no hooks → byte-identical to baseline" assertion
 docs/specs/render-hooks.md                       (done — this PR)
 docs/plans/render-hooks.md                       (done — this PR)
@@ -139,9 +139,9 @@ export { DARK, LIGHT, getTheme } from "./theme.js";
 export type { Theme, ThemeName } from "./theme.js";
 ```
 
-Root `packages/typediagram/src/index.ts` re-exports the same.
+Root `src/typediagram/src/index.ts` re-exports the same.
 
-### 4. Tests — `packages/typediagram/test/render-hooks.test.ts`
+### 4. Tests — `src/typediagram/test/render-hooks.test.ts`
 
 Complex diagrams, heavy assertions per CLAUDE.md test rules. One file per concern-cluster is fine; keep them E2E through `renderSvg`:
 
@@ -186,9 +186,9 @@ Tests must keep coverage ratcheting up (CLAUDE.md coverage rule). New branches a
 
 ## TODO
 
-- [ ] Create [`packages/typediagram/src/render-svg/hooks.ts`](../../packages/typediagram/src/render-svg/hooks.ts) with all context interfaces and `RenderHooks`.
+- [ ] Create [`src/typediagram/src/render-svg/hooks.ts`](../../src/typediagram/src/render-svg/hooks.ts) with all context interfaces and `RenderHooks`.
 - [ ] Add the try/catch invoker helper in `hooks.ts` (logs via `pino`, returns default).
-- [ ] Thread `hooks?: RenderHooks` through `SvgOpts` in [`render.ts`](../../packages/typediagram/src/render-svg/render.ts).
+- [ ] Thread `hooks?: RenderHooks` through `SvgOpts` in [`render.ts`](../../src/typediagram/src/render-svg/render.ts).
 - [ ] Invoke `defs` hook; append result inside `<defs>`.
 - [ ] Invoke `background` hook; emit between `</defs>` and first node.
 - [ ] Refactor `renderRows` into per-row iteration that invokes `row` hook when present.
@@ -198,7 +198,7 @@ Tests must keep coverage ratcheting up (CLAUDE.md coverage rule). New branches a
 - [ ] Build `NodeCtx` including resolved `accent`, `header`, and `badge` (unions only).
 - [ ] Build `RowCtx` including `textX`, `textY`, `isUnionVariant`.
 - [ ] Build `EdgeCtx` including absolute `points`, `midpoint`, `stroke`, `strokeWidth`, `dashArray`.
-- [ ] Export hook types from [`render-svg/index.ts`](../../packages/typediagram/src/render-svg/index.ts) and [`typediagram/src/index.ts`](../../packages/typediagram/src/index.ts).
+- [ ] Export hook types from [`render-svg/index.ts`](../../src/typediagram/src/render-svg/index.ts) and [`typediagram/src/index.ts`](../../src/typediagram/src/index.ts).
 - [ ] Write [HOOK-TEST-DEFAULT-IDENTITY] baseline snapshot (lock in byte-identical output pre/post change).
 - [ ] Write [HOOK-TEST-PHASES] (all six phases fire in order).
 - [ ] Write [HOOK-TEST-DEFS], [HOOK-TEST-BACKGROUND], [HOOK-TEST-POST] (singleton-phase tests).
@@ -216,9 +216,9 @@ Tests must keep coverage ratcheting up (CLAUDE.md coverage rule). New branches a
 
 ## Web playground integration (Layers 2 + 3)
 
-- [ ] Create [`packages/web/src/eval-hooks.ts`](../../packages/web/src/eval-hooks.ts) (Layer 2): `evalHooks(code)` -> `{ ok, hooks?, error? }`. Empty / whitespace-only input returns `{ ok: true }` with no hooks. Uses `new Function("svg", "raw", body)` with `svg`/`raw` from `typediagram-core`.
-- [ ] Create [`packages/web/src/hook-presets.ts`](../../packages/web/src/hook-presets.ts) (Layer 3): `PRESETS` as `ReadonlyArray<{ id, label, blurb, source }>`. `togglePresetInCode(code, id, on)` splices block in/out by sentinel-comment regex. `presetsInCode(code)` returns ids of present blocks. No `RenderHooks` exports.
-- [ ] Add tabbed UI to [`playground.ts`](../../packages/web/src/playground.ts): `source` (default) and `hooks`. Hooks tab owns a textarea, a diagnostics block, and a row of preset chips along its bottom.
+- [ ] Create [`src/web/src/eval-hooks.ts`](../../src/web/src/eval-hooks.ts) (Layer 2): `evalHooks(code)` -> `{ ok, hooks?, error? }`. Empty / whitespace-only input returns `{ ok: true }` with no hooks. Uses `new Function("svg", "raw", body)` with `svg`/`raw` from `typediagram-core`.
+- [ ] Create [`src/web/src/hook-presets.ts`](../../src/web/src/hook-presets.ts) (Layer 3): `PRESETS` as `ReadonlyArray<{ id, label, blurb, source }>`. `togglePresetInCode(code, id, on)` splices block in/out by sentinel-comment regex. `presetsInCode(code)` returns ids of present blocks. No `RenderHooks` exports.
+- [ ] Add tabbed UI to [`playground.ts`](../../src/web/src/playground.ts): `source` (default) and `hooks`. Hooks tab owns a textarea, a diagnostics block, and a row of preset chips along its bottom.
 - [ ] Hooks editor `input` event: re-run `evalHooks`; on success, pass `hooks` into `renderPane`; on failure, show error in diag block and render with NO hooks (default path).
 - [ ] Chip click: `togglePresetInCode(editor.value, id, !present)` → set editor value → fire input. Chips re-sync from textarea content on every keystroke.
 - [ ] `renderPane(source, hooks?)` accepts optional `RenderHooks`; passes `hooks` only when defined (never `{ hooks: {} }`).

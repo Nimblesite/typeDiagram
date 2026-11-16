@@ -33,7 +33,7 @@ updates:
       github-actions:
         patterns: ["*"]
 
-  # npm / Node — package.json (root workspaces + packages/*)
+  # npm / Node — package.json (root workspaces + src/*)
   - package-ecosystem: npm
     directory: /
     target-branch: "dependabot-upgrades"
@@ -49,7 +49,7 @@ updates:
         applies-to: security-updates
         patterns: ["*"]
 
-  # Cargo / Rust — the incoming Rust workspace (crates/*). Active once a crate with
+  # Cargo / Rust — the incoming Rust workspace (src/*). Active once a crate with
   # dependencies lands; harmless before then.
   - package-ecosystem: cargo
     directory: /

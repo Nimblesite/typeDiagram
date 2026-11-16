@@ -119,10 +119,10 @@ No Chromium download, no extra binaries — the extension reuses VS Code's built
 
 | Package                                        | What                                                                    |
 | ---------------------------------------------- | ----------------------------------------------------------------------- |
-| [packages/typediagram/](packages/typediagram/) | Core framework: parser, model, layout, render-svg, converters           |
-| [packages/cli/](packages/cli/)                 | `typediagram` CLI binary                                                |
-| [packages/web/](packages/web/)                 | Web playground + docs site ([typediagram.dev](https://typediagram.dev)) |
-| [packages/vscode/](packages/vscode/)           | VS Code extension                                                       |
+| [src/typediagram/](src/typediagram/) | Core framework: parser, model, layout, render-svg, converters           |
+| [src/cli/](src/cli/)                 | `typediagram` CLI binary                                                |
+| [src/web/](src/web/)                 | Web playground + docs site ([typediagram.dev](https://typediagram.dev)) |
+| [src/vscode/](src/vscode/)           | VS Code extension                                                       |
 
 ## Contributing
 

@@ -3,25 +3,25 @@
   "_doc": "Single source of truth for code coverage thresholds. See REPO-STANDARDS-SPEC [COVERAGE-THRESHOLDS-JSON]. NO GitHub repo variables. NO env vars. Keys match vitest coverage.thresholds: statements, branches, functions, lines. Thresholds are monotonically increasing — only ratchet UP, never down.",
   "default_threshold": 90,
   "projects": {
-    "packages/typediagram": {
+    "src/typediagram": {
       "statements": 97.24,
       "branches": 91.05,
       "functions": 98.8,
       "lines": 97.19
     },
-    "packages/cli": {
+    "src/cli": {
       "statements": 99,
       "branches": 98.37,
       "functions": 99,
       "lines": 99
     },
-    "packages/web": {
+    "src/web": {
       "statements": 97.7878787878788,
       "branches": 96.46835443037975,
       "functions": 99,
       "lines": 97.7012987012987
     },
-    "packages/vscode": {
+    "src/vscode": {
       "statements": 99,
       "branches": 99,
       "functions": 99,

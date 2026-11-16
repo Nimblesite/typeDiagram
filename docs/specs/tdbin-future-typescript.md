@@ -6,15 +6,15 @@
 ## Scope
 
 `[TDBIN-FUTURE-TS]` adds a TypeScript TDBIN codec emitted by
-`packages/typediagram` from the same typeDiagram model used by Rust codegen.
+`src/typediagram` from the same typeDiagram model used by Rust codegen.
 
 The implementation lives in:
 
-- `packages/typediagram/src/tdbin/`: DataView/Uint8Array runtime for bare,
+- `src/typediagram/src/tdbin/`: DataView/Uint8Array runtime for bare,
   framed, and packed framed messages.
-- `packages/typediagram/src/converters/typescript-tdbin.ts`: typed
+- `src/typediagram/src/converters/typescript-tdbin.ts`: typed
   `StructCodec<T>` code generator with baked record/union layout.
-- `packages/typediagram/test/tdbin/golden.test.ts`: Rust golden-vector
+- `src/typediagram/test/tdbin/golden.test.ts`: Rust golden-vector
   conformance for Person/Contact, including framed and packed framed decode.
 
 ## Requirements
@@ -34,7 +34,7 @@ The implementation lives in:
 
 ## Acceptance
 
-- Golden-vector conformance tests run in `packages/typediagram`.
+- Golden-vector conformance tests run in `src/typediagram`.
 - Cross-language fixtures prove Rust encode -> TypeScript decode -> Rust encode
   byte identity and the reverse.
 - Bundle-size impact is measured and kept under the package budget.
