@@ -80,12 +80,12 @@ schema.
 
 ## Rust: encode and decode generated types
 
-Add the in-workspace runtime to the consuming Rust crate. In a standalone
-checkout, replace the relative path with the path to this repository.
+Add the runtime from crates.io, at the same version as the `typediagram` CLI
+that generated the code; every release publishes both ([TDBIN-RS-PUBLISH]):
 
 ```toml
 [dependencies]
-tdbin = { path = "../typeDiagram/crates/tdbin" }
+tdbin = "0.14"
 ```
 
 Place the result of `typediagram encode person.td` in `src/person.rs`. The
@@ -169,9 +169,14 @@ produces TypeScript interfaces/unions plus a `StructCodec<T>` for every
 supported type. It returns a `Result`, so diagnostics stay values instead of
 becoming thrown exceptions.
 
-This is a build-time script that reads the same `person.td` schema and writes a
-module named `person.ts`. The current CLI has TDBIN commands for Rust only; use
-this public API for TypeScript generation.
+Generate it from the CLI, the same way as the Rust module ([CLI-TDBIN-LANG]):
+
+```sh
+typediagram verify --to typescript person.td
+typediagram encode --to typescript person.td > src/person.ts
+```
+
+Or call the same generator from a build script:
 
 ```ts
 import { readFile, writeFile } from "node:fs/promises";
@@ -240,19 +245,32 @@ such as `HashMismatch`, `BadMagic`, `InvalidUtf8`, `UnknownVariant`, or
 
 ### TypeScript support boundary
 
-The TypeScript implementation is deliberately conservative in its current
-state. It supports generated records with `Bool`, `Int`, `Float`, `String`,
-`Bytes`, optional pointer fields, and nested generated records/unions. It also
-supports unions with bare variants, a single generated-record payload, or a
-single `String` payload.
+The TypeScript generator supports records with `Bool`, `Int`, `Float`,
+`String`, `Bytes`, scalar `Option<T>` (`Bool`/`Int`/`Float`), optional pointer
+fields, and nested records/unions. Every layout-1 list form is supported as
+`List<T>` or `Option<List<T>>` ([TDBIN-TS-LIST]): `Bool`, `Int`, `Float`,
+`String`, `Bytes`, records, unions, and all-bare enum-unions (one ordinal byte
+per element). Unions may have bare variants, a single record or `String`
+payload, or struct-form / multi-field tuple payloads ([TDBIN-UNION-STRUCT]).
+`integerType: "bigint"` keeps the full i64 domain; the default `number` mode
+rejects unsafe integers on encode with `LimitExceeded`.
 
-It does **not** yet generate codecs for lists, scalar `Option<T>`, semantic
-scalars (`DateTime`, `Uuid`, `Decimal`), generics, inline enum-unions, or every
-Rust-supported schema form. Generated modules are not yet compiled and
-executed across the full browser and Rust interoperability matrix. Keep a
-schema inside the supported subset and use the Rust codec when you need the
-broader implemented feature set. See the [TypeScript codec roadmap](tdbin-future-typescript.md)
-for the release criteria.
+A golden vector (`src/tdbin/tests/golden/report_lists.hex`) pins the bytes:
+the Rust and TypeScript codecs generated from the same schema must both
+reproduce it exactly.
+
+Not yet generated for TypeScript: semantic scalars (`DateTime`, `Uuid`,
+`Decimal`), nested lists, maps, generics, and layout-2 columnar groups. Use the
+Rust codec for those. See the [TypeScript codec roadmap](tdbin-future-typescript.md).
+
+**Any field or variant name is safe ([TDBIN-CODEGEN-LOCALS]).** Generated
+codecs bind positional locals (`f0`, `f0Word`, `f0_present`, `v0`), never the
+schema name. A field called `value`, `writer`, `at`, `r`, `w`, `count`,
+`items`, `tdbin` or `ok`, or a pair like `x` + `xPresent`, can never shadow a
+codec parameter, an import or another field's local. The
+`fixtures/names.td` schema proves it: `tdbin-locals.test.ts` round-trips the
+TypeScript codec, and `src/tdbin/tests/names.rs` compiles and round-trips
+the Rust struct and column-group codecs.
 
 ## What the bytes guarantee
 
@@ -289,10 +307,12 @@ long-lived schemas:
   malformed-message retry. Publish a new major layout when a frozen fact must
   change.
 
-The current generators do not derive and enforce a layout hash automatically.
-Until they do, choose, distribute, and pass the expected `u64`/`bigint` hash at
-the application boundary yourself. That limitation is why the explicit hash
-argument appears in both framed examples.
+The Rust and TypeScript generators derive the same hash for each type (Rust
+`LAYOUT_HASH`, TypeScript `layoutHash`) and enforce it automatically
+([TDBIN-SCHEMA-HASH]): framed encodes advertise it, and TypeScript
+`decodeFramed` / Rust `from_framed_bytes_with_hash(T::LAYOUT_HASH)` reject a
+missing or different hash with `HashMismatch`. Pass an explicit hash only to
+override the pinned one.
 
 ## Debugging checklist
 

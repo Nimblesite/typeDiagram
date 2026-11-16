@@ -9,7 +9,7 @@ Every public behavior lives under a `[TDBIN-RS-*]` / `[TDBIN-TEST-*]` / `[TDBIN-
 
 ## [TDBIN-RS-CRATE] Crate
 
-- Path `crates/tdbin`, library name `tdbin`. Inherits workspace lints (`[lints] workspace = true`) — all lints deny, per root `Cargo.toml` (REPO-STANDARDS-SPEC `[LINT-RUST]`).
+- Path `src/tdbin`, library name `tdbin`. Inherits workspace lints (`[lints] workspace = true`) — all lints deny, per root `Cargo.toml` (REPO-STANDARDS-SPEC `[LINT-RUST]`).
 - Runtime dependencies: **none** — the shipped crate builds offline and uses hand-written error enums. `criterion` and `prost` are dev dependencies used only by `[TDBIN-BENCH-GATE]`. The crate deliberately has no logging facility (see the `[TDBIN-RS-LOG]` resolution below).
 - No `unsafe`. No panics reachable from any public function on any input — `unwrap`/`expect`/`panic!`/indexing are workspace-denied; all offset arithmetic is `checked_*` and failures surface as errors (`[TDBIN-RS-NOPANIC]`).
 
@@ -72,8 +72,8 @@ pub trait TdBin: Struct {                                    // blanket impl for
 - `to_bytes` is deterministic/canonical (`[TDBIN-ENC-CANON]`): the same value always yields the
   same bytes, and `bytes → object → bytes` is byte-identical.
 - **The ADT types _and_ their codec are produced by typeDiagram codegen — never hand-written.**
-  `packages/typediagram/src/converters/rust.ts` emits the `struct`/`enum`; `rust-tdbin.ts`
-  (`generateRustModule`) emits the `impl tdbin::Struct`. `crates/tdbin/tests/generated/mod.rs` is
+  `src/typediagram/src/converters/rust.ts` emits the `struct`/`enum`; `rust-tdbin.ts`
+  (`generateRustModule`) emits the `impl tdbin::Struct`. `src/tdbin/tests/generated/mod.rs` is
   a checked-in example of that output, round-tripped by `tests/roundtrip.rs` under `cargo test`.
 
 The current runtime supports bare, framed, and packed-framed messages; direct bool bit packing;

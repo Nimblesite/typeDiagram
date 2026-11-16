@@ -21,7 +21,7 @@ Add `typediagram.exportMarkdownPdf` command to the VS Code extension. Right-clic
 
 ## Dependencies to add
 
-- **`markdown-it`** — move from `devDependencies` to `dependencies` in `packages/vscode/package.json`. No version bump. Must also bundle it into `dist/extension.js` via esbuild (already does this since the preview plugin uses it at test time; need to verify it's pulled into the extension bundle for runtime use too).
+- **`markdown-it`** — move from `devDependencies` to `dependencies` in `src/vscode/package.json`. No version bump. Must also bundle it into `dist/extension.js` via esbuild (already does this since the preview plugin uses it at test time; need to verify it's pulled into the extension bundle for runtime use too).
 
 No other runtime deps.
 
@@ -30,7 +30,7 @@ No other runtime deps.
 ### New
 
 ```
-packages/vscode/
+src/vscode/
   src/
     export-pdf.ts           # [PDF-*] Command handler: compose HTML, print to PDF, write next to source.
   test/
@@ -45,7 +45,7 @@ packages/vscode/
 ### Modified
 
 ```
-packages/vscode/
+src/vscode/
   src/
     extension.ts            # Register typediagram.exportMarkdownPdf command in activate().
                             # Route to export-pdf.ts. Add to subscriptions.
@@ -132,9 +132,9 @@ Skipped on darwin-arm64 for the same reason the existing electron tests are skip
 
 ### Phase G — Docs + finalise
 
-15. Update `packages/vscode/README.md` with the new command.
+15. Update `src/vscode/README.md` with the new command.
 16. Run `make ci` one last time — format, lint, test, build, bundle-size all green.
-17. Coverage ratcheted via `scripts/ratchet-coverage.mjs`.
+17. Coverage ratcheted via `src/scripts/ratchet-coverage.mjs`.
 
 ## Risk register
 
@@ -206,7 +206,7 @@ Check items off as each lands with its tests passing.
 
 ### Phase G — Docs + finalise
 
-- [ ] **`packages/vscode/README.md`** — new section documenting the export command + context menu entry + default output location.
+- [ ] **`src/vscode/README.md`** — new section documenting the export command + context menu entry + default output location.
 - [ ] **`make ci`** — format, lint, test, build, bundle-size all green.
-- [ ] **Coverage ratchet** — `scripts/ratchet-coverage.mjs` bumps vscode package thresholds upward.
+- [ ] **Coverage ratchet** — `src/scripts/ratchet-coverage.mjs` bumps vscode package thresholds upward.
 - [ ] **Manual smoke** — right-click `examples/doc.md` in the real VS Code → confirm `doc.pdf` appears next to source with the ChatRequest/ToolResult diagram as a zoomable vector.

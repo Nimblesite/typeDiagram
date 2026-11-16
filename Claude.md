@@ -14,7 +14,7 @@ Call out irrelevant context before proceeding. Bloat degrades reasoning. ⚠️
 
 typeDiagram is a small DSL for diagramming algebraic data types (records + tagged unions). Language-neutral, no methods. Includes a parser, model, layout engine, SVG renderer, and markdown support. Ships as an npm library, CLI tool, VS Code extension, and web playground.
 
-A **Rust workspace** under `crates/` (root `Cargo.toml`) is being introduced alongside the TypeScript monorepo. It is a multi-language repo: TypeScript config and Rust config are chained orthogonally, never merged.
+A **Rust workspace** under `src/` (`src/Cargo.toml`) is being introduced alongside the TypeScript monorepo. It is a multi-language repo: TypeScript config and Rust config are chained orthogonally, never merged.
 
 ## Testing Rules
 
@@ -68,7 +68,7 @@ A **Rust workspace** under `crates/` (root `Cargo.toml`) is being introduced alo
 
 ## Hard Rules — Rust
 
-Rust lives in the `crates/` workspace. Lints: `[workspace.lints]` in the root `Cargo.toml` (REPO-STANDARDS-SPEC [LINT-RUST]); formatting: `rustfmt.toml` ([LINT-RUST-FMT]).
+Rust lives in the `src/` workspace. Lints: `[workspace.lints]` in `src/Cargo.toml` (REPO-STANDARDS-SPEC [LINT-RUST]); formatting: `src/rustfmt.toml` ([LINT-RUST-FMT]).
 
 - **Every crate inherits the workspace lints** — add `[lints]` / `workspace = true` to its `Cargo.toml`.
 - **All lints ON and at `deny`.** `unsafe_code = "deny"`; clippy `all` + `pedantic` denied.
@@ -79,7 +79,7 @@ Rust lives in the `crates/` workspace. Lints: `[workspace.lints]` in the root `C
 
 ## Duplication — Deslop (MANDATORY MCP loop)
 
-Duplication is debt with a ratcheted budget in `.deslop.toml` (REPO-STANDARDS-SPEC [CI-DESLOP]); CI runs `deslop .` and fails when the repo exceeds it. Deslop scans this repo's TypeScript today and the Rust under `crates/`. Use its MCP tools:
+Duplication is debt with a ratcheted budget in `.deslop.toml` (REPO-STANDARDS-SPEC [CI-DESLOP]); CI runs `deslop .` and fails when the repo exceeds it. Deslop scans this repo's TypeScript today and the Rust under `src/tdbin/`. Use its MCP tools:
 
 - **BEFORE** authoring any function, helper, fixture, or test setup → call `find-similar`. `signals.fused ≥ 0.85` or an `identical`/`nearly_identical` bucket → REUSE the existing code, do not duplicate; `0.6 ≤ fused < 0.85` → review the canonical occurrence and bias toward reuse.
 - **AFTER** changing code → `rescan`, then `top-offenders` / `cluster-by-id`; `report-for-file` / `report-for-range` for a file or selection; `schema-doc` once per session.
@@ -104,14 +104,16 @@ If the TMC server is available: register on start (name, intent, files), lock fi
 
 ## Packages Layout
 
-Monorepo under `packages/`:
+Monorepo under `src/`:
 
-- `packages/typediagram/` — core framework (parser, model, layout, render-svg, markdown). Owned by `typediagram-builder` agent.
-- `packages/cli/` — CLI app (`typediagram` bin). Pure consumer of the framework public API. Owned by `type-model-claude`.
-- `packages/web/` — web playground (Vite). Pure consumer of the framework public API. Owned by `type-model-claude`.
-- `packages/vscode/` — VS Code extension.
+- `src/typediagram/` — core framework (parser, model, layout, render-svg, markdown). Owned by `typediagram-builder` agent.
+- `src/cli/` — CLI app (`typediagram` bin). Pure consumer of the framework public API. Owned by `type-model-claude`.
+- `src/web/` — web playground (Vite). Pure consumer of the framework public API. Owned by `type-model-claude`.
+- `src/vscode/` — VS Code extension.
+- `src/tdbin/` — Rust TDBIN runtime crate (workspace: `src/Cargo.toml`).
+- `src/scripts/` — repo tooling (codegen fixtures, version stamping, coverage ratchet).
 
-Framework logic lives only in `packages/typediagram/`. `cli`, `web`, and `vscode` are glue — no parsing, layout, or rendering logic duplicated.
+Framework logic lives only in `src/typediagram/`. `cli`, `web`, and `vscode` are glue — no parsing, layout, or rendering logic duplicated.
 
 ## Website
 
@@ -143,12 +145,17 @@ Only those 7 public targets are standard (see REPO-STANDARDS-SPEC [MAKE-TARGETS]
 ## Repo Structure
 
 ```
-packages/
+src/
   typediagram/   — core framework (parser, model, layout, render-svg, markdown)
   cli/           — CLI app (typediagram bin)
   web/           — web playground (Vite)
   vscode/        — VS Code extension
+  tdbin/         — Rust TDBIN runtime crate
+  scripts/       — repo tooling
+  Cargo.toml     — Rust workspace (+ Cargo.lock, rustfmt.toml)
+  eslint.config.mjs
 docs/
+  research/      — benchmarks, reports, proofs
   specs/         — specification documents
   plans/         — plan documents with TODO checklists
   design/        — design system docs and assets

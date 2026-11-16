@@ -6,15 +6,15 @@
 ## Scope
 
 `[TDBIN-FUTURE-TS]` adds a TypeScript TDBIN codec emitted by
-`packages/typediagram` from the same typeDiagram model used by Rust codegen.
+`src/typediagram` from the same typeDiagram model used by Rust codegen.
 
 The implementation lives in:
 
-- `packages/typediagram/src/tdbin/`: DataView/Uint8Array runtime for bare,
+- `src/typediagram/src/tdbin/`: DataView/Uint8Array runtime for bare,
   framed, and packed framed messages.
-- `packages/typediagram/src/converters/typescript-tdbin.ts`: typed
+- `src/typediagram/src/converters/typescript-tdbin.ts`: typed
   `StructCodec<T>` code generator with baked record/union layout.
-- `packages/typediagram/test/tdbin/golden.test.ts`: Rust golden-vector
+- `src/typediagram/test/tdbin/golden.test.ts`: Rust golden-vector
   conformance for Person/Contact, including framed and packed framed decode.
 
 ## Requirements
@@ -34,7 +34,7 @@ The implementation lives in:
 
 ## Acceptance
 
-- Golden-vector conformance tests run in `packages/typediagram`.
+- Golden-vector conformance tests run in `src/typediagram`.
 - Cross-language fixtures prove Rust encode -> TypeScript decode -> Rust encode
   byte identity and the reverse.
 - Bundle-size impact is measured and kept under the package budget.
@@ -51,15 +51,32 @@ The implementation lives in:
       equivalent lossless representation.
 - [ ] Emit enum-unions as inline discriminant scalars, including
       `List<enum-union>`, rather than pointer child structs.
-- [ ] Complete generated support for lists, semantic scalars, scalar options,
-      generics, and every Rust codegen schema form.
+- [x] Generated support for every layout-1 list form and scalar options
+      ([TDBIN-TS-LIST]); a Rust-produced golden vector is reproduced byte for
+      byte by the generated TypeScript codec.
+- [ ] Generated support for semantic scalars, nested lists, maps, generics,
+      and layout-2 columnar groups.
 - [ ] Apply required-pointer null/default semantics consistently with the wire
       specification.
-- [ ] Generate the compatibility-major layout hash and require it during normal
-      framed decode; the current API only checks a caller-supplied expected hash.
+- [x] Generate the compatibility-major layout hash and require it during normal
+      framed decode ([TDBIN-SCHEMA-HASH]): every generated codec carries
+      `layoutHash`, identical to the Rust `LAYOUT_HASH` for the same schema;
+      `encodeFramed`/`encodePackedFramed` advertise it; `decodeFramed` requires
+      it (missing or different → `HashMismatch`); `decodeAuto` rejects a
+      contradicting advertised hash.
+- [x] Base64 framed helpers for JSON envelopes such as JSON-RPC/LSP
+      ([TDBIN-FRAME-BASE64]): `encodeFramedBase64` emits a packed, hashed frame
+      as standard base64; `decodeFramedBase64` returns `BadBase64`, `BadMagic`,
+      `HashMismatch`, … as typed errors.
 - [ ] Compile and execute generated codecs, run Rust-to-TypeScript-to-Rust byte
       identity in both directions, and cover browser as well as Node execution.
-- [ ] Measure and record bundle-size impact.
+- [x] Measure and record bundle-size impact ([TDBIN-TS-BUNDLE]). Generated
+      modules import only `typediagram-core/tdbin` (`ok` is re-exported there)
+      and the package is `"sideEffects": false`, so esbuild tree-shakes the
+      parser, layout, and renderer away. A three-type generated module (record,
+      union, `Option` child) plus the base64 framed round-trip bundles to
+      **18.5 KB minified / 6.3 KB gzipped** (esbuild `--bundle --minify`,
+      ESM), with no elkjs or lezer code.
 
 ## Pickup order
 

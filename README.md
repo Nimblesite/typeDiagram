@@ -117,16 +117,16 @@ No Chromium download, no extra binaries — the extension reuses VS Code's built
 
 ## Monorepo layout
 
-| Package                                        | What                                                                    |
-| ---------------------------------------------- | ----------------------------------------------------------------------- |
-| [packages/typediagram/](packages/typediagram/) | Core framework: parser, model, layout, render-svg, converters           |
-| [packages/cli/](packages/cli/)                 | `typediagram` CLI binary                                                |
-| [packages/web/](packages/web/)                 | Web playground + docs site ([typediagram.dev](https://typediagram.dev)) |
-| [packages/vscode/](packages/vscode/)           | VS Code extension                                                       |
+| Package                              | What                                                                    |
+| ------------------------------------ | ----------------------------------------------------------------------- |
+| [src/typediagram/](src/typediagram/) | Core framework: parser, model, layout, render-svg, converters           |
+| [src/cli/](src/cli/)                 | `typediagram` CLI binary                                                |
+| [src/web/](src/web/)                 | Web playground + docs site ([typediagram.dev](https://typediagram.dev)) |
+| [src/vscode/](src/vscode/)           | VS Code extension                                                       |
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, repo layout, and rules. **Always run `make ci` before opening a PR** — it runs exactly what CI runs.
+See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for the full workflow, repo layout, and rules. **Always run `make ci` before opening a PR** — it runs exactly what CI runs.
 
 ```sh
 make setup   # install deps + build framework (first time only)

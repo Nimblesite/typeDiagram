@@ -33,7 +33,7 @@ Each layer is independently importable. A consumer can stop at any layer and sup
 ## Critical files (to be created)
 
 ````
-packages/typediagram/
+src/typediagram/
   src/
     parser/
       lexer.ts          # token stream
@@ -107,7 +107,7 @@ export interface RenderOpts {
 
 ### 0. Project scaffold
 
-- [x] `npm init` at `packages/typediagram/`; set `"type": "module"`, `"main"`, `"types"`, `"exports"` (`.` and `./markdown`).
+- [x] `npm init` at `src/typediagram/`; set `"type": "module"`, `"main"`, `"types"`, `"exports"` (`.` and `./markdown`).
 - [x] Install: `typescript`, `vitest`, `@types/node`. Runtime dep: `elkjs` only. Dev-time only: nothing else.
 - [x] `tsconfig.json`: `strict`, `target: ES2022`, `module: ESNext`, `moduleResolution: bundler`, `declaration: true`.
 - [x] `vitest.config.ts` with snapshot dir `test/__snapshots__/`.
@@ -218,24 +218,24 @@ This layer is the framework's programmatic API. Importers (JSON Schema, OpenAPI,
 ### 12. Documentation
 
 - [x] `README.md`: trimmed user-facing version of spec.md (grammar, both examples, install, basic usage).
-- [x] One screenshot of the chat-model example rendered. (`docs/chat-model-example.svg`)
+- [x] One screenshot of the chat-model example rendered. (`docs/design/chat-model-example.svg`)
 
-### 13. CLI app (`packages/cli/`)
+### 13. CLI app (`src/cli/`)
 
 Validates the framework works headless in Node. Pure consumer of the layered API — does not duplicate any framework logic.
 
-- [x] `packages/cli/package.json` with `"bin": { "typediagram": "./dist/cli.js" }`. Depend on `typediagram` via workspace.
+- [x] `src/cli/package.json` with `"bin": { "typediagram": "./dist/cli.js" }`. Depend on `typediagram` via workspace.
 - [x] `src/cli.ts`: read `argv[2]` (file path) or stdin → call `typediagram` `parse` + `renderToString` → write SVG to stdout, errors to stderr with exit code 1.
 - [x] Flag: `--theme light|dark` (default light), `--font-size N`.
 - [x] Test: pipe both spec examples through the CLI → SVG starts with `<svg`. Plus 16 shared snapshot scenarios.
 - [x] Test: parse error fixture → stderr contains formatted diagnostic, exit code 1.
 - [x] Public-API smoke test: imports all subpath exports (`typediagram/parser`, `typediagram/model`, etc.) and verifies resolution.
 
-### 14. Web playground (`packages/web/`)
+### 14. Web playground (`src/web/`)
 
 Validates the framework works in a browser bundle (the same environment a VS Code webview will use).
 
-- [x] `packages/web/package.json`. Use `vite` for dev/build. Depend on `typediagram` via workspace.
+- [x] `src/web/package.json`. Use `vite` for dev/build. Depend on `typediagram` via workspace.
 - [x] `index.html` with a split-pane layout: textarea (editor) on left, `<div id="preview">` on right.
 - [x] `src/main.ts`: on textarea input (debounced), `parse(src)` → if ok, `renderToString` → set `preview.innerHTML`; if err, render the formatted diagnostic list in the preview pane.
 - [x] No framework logic in the web app — only glue.
@@ -258,7 +258,7 @@ The original plan said "throw on parse error, expose .diagnostics". User directi
 
 ### 17. Things originally missed — must add before MVP ships
 
-- [x] **Workspace root setup.** Top-level `package.json` with `"workspaces": ["packages/*"]`, top-level lockfile, top-level scripts.
+- [x] **Workspace root setup.** Top-level `package.json` with `"workspaces": ["src/*"]`, top-level lockfile, top-level scripts.
 - [x] **AST → typeRef span fidelity.** TypeRef interface carries full `span: Span` with line, col, offset, length.
 - [x] **Cycle detection in resolution.** `[EDGE-CYCLE]` tests in `edge-cases.test.ts`: self-ref types parse, build model, render without crash.
 - [x] **Self-referential edges.** Same test suite confirms self-loop edges (e.g. `Tree → Tree`). ELK routes them.
@@ -268,21 +268,21 @@ The original plan said "throw on parse error, expose .diagnostics". User directi
 - [x] **Comments preserved as a token kind?** Decision: drop (current). Comments stripped during lex, not preserved. LSP folding ranges will need revisiting.
 - [x] **Trailing-newline tolerance.** `[EDGE-TRAILING]` tests: no trailing newline, multiple trailing newlines, CRLF all parse cleanly.
 - [x] **Position info on Diagnostic from validate/json/builder paths.** Diagnostics carry line/col/length; spans at AST level.
-- [x] **Public-API smoke test.** `packages/cli/test/public-api-smoke.test.ts` imports from `"typediagram"` package name — 8 tests covering all subpath exports.
+- [x] **Public-API smoke test.** `src/cli/test/public-api-smoke.test.ts` imports from `"typediagram"` package name — 8 tests covering all subpath exports.
 - [x] **`exports` map verification.** `package.json` has subpaths for `./parser`, `./model`, `./layout`, `./render-svg`, `./markdown`. Smoke test verifies resolution.
 - [x] **Markdown integration (Section 9).** Fully implemented in `src/integrations/markdown.ts` with tests.
 - [x] **CI workflow.** `.github/workflows/ci.yml`: matrix Node 20/22, check-banned-deps, typecheck, test, bundle-size.
 - [x] **Bundle size budget.** `scripts/bundle-size.mjs` via esbuild: fail if > 50KB excl. elkjs. Currently 23.54 KB.
 - [x] **Stable edge IDs.** Content-based `${sourceDeclName}:${sourceRowIndex}:${targetDeclName}:${kind}` in `elk.ts`.
 
-### 18. VS Code syntax highlighting (`packages/vscode/`)
+### 18. VS Code syntax highlighting (`src/vscode/`)
 
-- [x] TextMate grammar (`packages/vscode/syntaxes/typediagram.tmLanguage.json`): keywords (`type|union|alias|typeDiagram`), PascalCase type names, field names before `:`, builtins (`Bool|Int|Float|String|Bytes|Unit|List|Map|Option`), `#` comments, punctuation.
+- [x] TextMate grammar (`src/vscode/syntaxes/typediagram.tmLanguage.json`): keywords (`type|union|alias|typeDiagram`), PascalCase type names, field names before `:`, builtins (`Bool|Int|Float|String|Bytes|Unit|List|Map|Option`), `#` comments, punctuation.
 - [x] Language configuration: bracket matching, auto-close `{}` `<>`, `#` line comments, indentation rules.
 - [x] Extension manifest: `.td` and `.typediagram` file extensions.
 - [x] Grammar test: 16/16 tokenization assertions pass via `vscode-textmate` + `vscode-oniguruma`.
 
-### 19. Web playground UX (`packages/web/`)
+### 19. Web playground UX (`src/web/`)
 
 - [x] **Preview zoom.** SVG preview supports scroll-wheel zoom. Preserve center point on zoom. (`src/viewport.ts`, 12 tests)
 - [x] **Preview pan.** Click-drag to pan the SVG preview. Cursor changes to grab/grabbing. (`src/viewport.ts`)

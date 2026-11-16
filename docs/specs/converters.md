@@ -104,6 +104,15 @@ The dedicated `typeshed` converter parses `.pyi` syntax with a Python concrete s
 
 Supports struct variants, tuple variants, and unit variants in enums. Generic bounds (e.g. `T: Clone`) are parsed but bounds are dropped (only the type parameter name is kept).
 
+### Lint-clean output [CONV-RUST-IDIOM]
+
+`--to rust` output compiles under `cargo clippy -- -D warnings`:
+
+- Every struct and enum derives `Debug, Clone, PartialEq`.
+- Field names are snake_case (`typeText` → `type_text`, `isHTTPServer` → `is_http_server`). When the name changes, `#[serde(rename = "typeText")]` keeps the schema name as the JSON name, and reading the Rust back restores `typeText`.
+- If any type in the output carries a serde attribute (a renamed field or `untagged`), every type in that output also derives `serde::Serialize, serde::Deserialize`, because a serialisable type needs serialisable contents. Add `serde` (with `derive`) to the crate in that case. All-snake_case schemas need no serde.
+- The TDBIN module (`typediagram encode`) uses the same declarations and adds `Default` to records.
+
 ## Go
 
 ### What maps
@@ -162,6 +171,10 @@ F# discriminated unions map directly. Record syntax is used for struct types.
 | `Map<K,V>`                                             | `Map<K,V>`             |
 
 Uses Dart 3 `sealed class` for tagged unions. First-class generics are preserved.
+
+### Record typedefs [CONV-DART-RECORD]
+
+`typedef SessionData = ({String draft, String phase});` imports as `type SessionData { draft: String  phase: String }`. Generic and nullable fields keep their types (`Map<String, SessionData>`, `Set<T>` → `List<T>`, `int?` → `Option<Int>`). Function types (`void Function(String)`) and positional record fields (`(int, int)`) have no typeDiagram equivalent, so the import fails, listing every offending declaration, instead of emitting invalid `.td`.
 
 ## PHP
 

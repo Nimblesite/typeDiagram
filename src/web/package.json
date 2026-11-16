@@ -1,0 +1,42 @@
+{
+  "name": "@typediagram/web",
+  "version": "0.0.0-dev",
+  "description": "typeDiagram web playground — live editor that renders SVG via the framework.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "clean": "node -e \"require('fs').rmSync('.eleventy-out',{recursive:true,force:true});require('fs').rmSync('.typedoc-out',{recursive:true,force:true});require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "dev": "npm run clean && npm run typedoc && npm run eleventy && concurrently -k -n 11ty,vite -c magenta,cyan \"npm:eleventy:watch\" \"vite\"",
+    "typedoc": "typedoc --options typedoc.json",
+    "eleventy": "node --import tsx ../../node_modules/@11ty/eleventy/cmd.cjs --config=eleventy.config.mjs",
+    "eleventy:watch": "node --import tsx ../../node_modules/@11ty/eleventy/cmd.cjs --config=eleventy.config.mjs --watch",
+    "build": "npm run clean && npm run typedoc && npm run eleventy && vite build",
+    "preview": "vite preview dist",
+    "typecheck": "tsc --noEmit -p tsconfig.build.json",
+    "pretest": "npm run typedoc && npm run eleventy",
+    "test:unit": "vitest run --coverage",
+    "pretest:e2e": "npm run build",
+    "test:e2e": "playwright test",
+    "test:merge": "tsx scripts/merge-coverage.ts",
+    "test": "npm run test:unit && npm run test:e2e && npm run test:merge"
+  },
+  "dependencies": {
+    "marked": "^18.0.6",
+    "typediagram-core": "0.0.0-dev"
+  },
+  "devDependencies": {
+    "@11ty/eleventy": "^3.1.6",
+    "@playwright/test": "^1.61.1",
+    "@types/prismjs": "^1.26.6",
+    "concurrently": "^10.0.6",
+    "happy-dom": "^20.10.6",
+    "monocart-coverage-reports": "^2.12.12",
+    "prismjs": "^1.30.0",
+    "tsx": "^4.23.0",
+    "typedoc": "^0.28.20",
+    "typedoc-plugin-markdown": "^4.12.0",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^4.1.12"
+  }
+}

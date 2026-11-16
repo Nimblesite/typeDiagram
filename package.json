@@ -3,21 +3,25 @@
   "private": true,
   "type": "module",
   "workspaces": [
-    "packages/*"
+    "src/typediagram",
+    "src/cli",
+    "src/web",
+    "src/vscode"
   ],
   "scripts": {
     "build": "npm run -ws --if-present build",
     "test": "npm run -ws --if-present test",
     "typecheck": "npm run -ws --if-present typecheck",
-    "lint": "eslint .",
+    "lint": "eslint --config src/eslint.config.mjs src",
     "fmt": "prettier --write .",
     "fmt:check": "prettier --check ."
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@vitest/coverage-v8": "^4.1.10",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^10.6.0",
     "prettier": "^3.9.5",
+    "smol-toml": "^1.9.1",
     "typescript-eslint": "^8.63.0"
   }
 }

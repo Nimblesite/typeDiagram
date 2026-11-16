@@ -103,7 +103,7 @@ Python permits special and variadic generic arities that typeDiagram does not. `
 `[TYPESHED-CORPUS]` audits an external checkout without making network access part of normal CI:
 
 ```sh
-cd packages/typediagram
+cd src/typediagram
 npm run test:typeshed -- /path/to/typeshed
 ```
 

@@ -1,0 +1,40 @@
+# [TDBIN-RS-CRATE] TDBIN v0 runtime: the compact binary codec that generated
+# typeDiagram ADT code targets. Zero external deps so it builds offline; the
+# `thiserror`/`tracing` wiring lands with the logging pass ([TDBIN-RS-LOG]).
+[package]
+name = "tdbin"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "TDBIN v0: compact binary codec runtime for typeDiagram algebraic data types."
+readme = "README.md"
+keywords = ["typediagram", "serialization", "binary", "codec", "adt"]
+categories = ["encoding"]
+# [TDBIN-RS-PUBLISH] published to crates.io by the release workflow; ship only
+# the runtime — tests, fixtures, benches, and the fuzz harness stay in the repo.
+include = ["src/**/*.rs", "Cargo.toml", "README.md"]
+
+[lints]
+workspace = true
+
+# prost and rmp-serde are the COMPETITOR baselines for the honest size/speed
+# benchmark, pulled in only for the `size_gate` test and the `bench` example.
+# They are DEV-dependencies so the shipped runtime stays zero-dep
+# ([TDBIN-BENCH-CORPUS], [TDBIN-BENCH-GATE]). The prost mirror structs carry
+# `serde` derives so the SAME 1:1 fixture values feed the MessagePack baseline
+# (`rmp-serde`) with no third struct set.
+[dev-dependencies]
+criterion = { version = "0.8.2", default-features = false, features = ["cargo_bench_support"] }
+prost = "0.14"
+serde = { version = "1", features = ["derive"] }
+rmp-serde = "1"
+
+# The TDBIN-vs-Protobuf speed benchmark, run via `cargo run --release --example bench`.
+[[example]]
+name = "bench"
+
+# The statistical TDBIN-vs-Protobuf benchmark, run via `cargo bench -p tdbin --bench gate`.
+[[bench]]
+name = "gate"
+harness = false

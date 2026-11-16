@@ -10,8 +10,8 @@ name: CodeQL
 # Never add security-rule linter plugins that re-cover CodeQL: no doubling up.
 #
 # Matrix = (languages in this repo) ∩ (CodeQL-supported at skill-run time):
-#   javascript-typescript — the packages/* monorepo (core, cli, web, vscode)
-#   rust                   — the incoming crates/* workspace (build-mode: none)
+#   javascript-typescript — the src/* monorepo (core, cli, web, vscode)
+#   rust                   — the src/Cargo.toml workspace (build-mode: none)
 #   actions                — always, scans the workflow files themselves
 # Action SHAs are kept current by the github-actions Dependabot group.
 on:

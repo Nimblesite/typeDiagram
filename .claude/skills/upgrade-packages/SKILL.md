@@ -10,7 +10,7 @@ argument-hint: "[--check-only] [--major] [package-name]"
 
 Upgrade all project dependencies to their latest compatible (or latest major, if `--major`) versions.
 
-This repo is a TypeScript/Node monorepo with `package.json` + `package-lock.json` at the root managing the `packages/typediagram`, `packages/cli`, `packages/vscode`, and `packages/web` workspaces. The package manager is **npm**.
+This repo is a TypeScript/Node monorepo with `package.json` + `package-lock.json` at the root managing the `src/typediagram`, `src/cli`, `src/vscode`, and `src/web` workspaces. The package manager is **npm**.
 
 ## Arguments
 
@@ -23,7 +23,7 @@ This repo is a TypeScript/Node monorepo with `package.json` + `package-lock.json
 Confirm the expected manifests exist. For this repo:
 
 - Root: `package.json`, `package-lock.json`
-- Workspaces: `packages/*/package.json`
+- Workspaces: `src/*/package.json`
 
 If any of these are missing or the lockfile type has changed (e.g. a `yarn.lock` or `pnpm-lock.yaml` has appeared), STOP and tell the user before proceeding — the commands below assume npm.
 
@@ -38,10 +38,10 @@ npm outdated
 Also check each workspace individually if the root output groups them together confusingly:
 
 ```bash
-npm outdated --workspace=packages/typediagram
-npm outdated --workspace=packages/cli
-npm outdated --workspace=packages/vscode
-npm outdated --workspace=packages/web
+npm outdated --workspace=src/typediagram
+npm outdated --workspace=src/cli
+npm outdated --workspace=src/vscode
+npm outdated --workspace=src/web
 ```
 
 **Read the docs:** https://docs.npmjs.com/cli/v10/commands/npm-update

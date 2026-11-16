@@ -186,6 +186,10 @@ A named `union` type encodes as a struct of its own (reached by pointer, like an
 
 Variant payload fields are laid out by `[TDBIN-REC-ALLOC]` with one change: intervals and pointer slots allocated by **other variants of the same union are treated as free** (only one variant is ever live). Allocation order is global and deterministic: variants in declaration order, fields within a variant in declaration order. Tuple-form payloads (`Number(Int)`) are positional fields ordinal 0, 1, …. Writers MUST zero all slots belonging to inactive variants (`[TDBIN-SAFE-ZEROSLOT]`).
 
+### [TDBIN-UNION-STRUCT]
+
+The v0 generators (Rust and TypeScript) encode a struct-form variant (`Circle { radius: Float, label: String }`) or a multi-field tuple variant (`Pair(Int, String)`) exactly like a single-child variant: the declaration ordinal in data word 0, and pointer slot 0 → a struct whose fields are laid out by `[TDBIN-REC-ALLOC]` in declaration order (tuple positions are fields 0, 1, …). Field names never reach the wire. Codegen plans that struct as a synthetic payload record named `<Union><Variant>TdbinPayload` (tuple fields `v0`, `v1`, …); it appears in the layout manifest as a `ref` like any child, so Rust `LAYOUT_HASH` and TypeScript `layoutHash` agree. The user-facing ADT and its JSON shape are unchanged. A null payload pointer decodes as the payload record's default (`[TDBIN-PTR-NULL]`). Layout major 2 column groups reject struct-form variants with a diagnostic until a dense-group encoding is specified.
+
 ### [TDBIN-UNION-ENUM]
 
 A union whose variants are **all bare** (no payloads) is an **enum-union**: it is NOT pointer-encoded. As a field it inlines directly into the parent's data section as a scalar of the discriminant width; in lists it occupies 1 byte per element (`[TDBIN-LIST-ELEM]`). The encoding class is layout-pinned when the type is published: an enum-union stays enum-encoded for that schema major, and a struct-union stays pointer/struct encoded. Adding the first payload variant to an enum-union would flip the encoding class, so it is breaking (`[TDBIN-EVOLVE-BREAKING]`). Its width is a pure function of its own definition, so parents' layouts shift only if the enum's width changes — governed by `[TDBIN-EVOLVE-WIDTH]`.
@@ -350,7 +354,7 @@ Columnar layout major 2 (`[TDBIN-COL-*]`, [tdbin-columnar.md](tdbin-columnar.md)
 - **[TDBIN-FUTURE-COLUMNAR]** — DELIVERED as layout major 2: struct-of-arrays encoding for `List<record>` / `List<union>` (dense-union columns, validity bitmaps) is now normative in [tdbin-columnar.md](tdbin-columnar.md) (`[TDBIN-COL-*]`), built from existing pointer primitives without reinterpreting v1 composite elem kind 7. SIMD-BP128 bit-packed integer columns remain future work.
 - **[TDBIN-FUTURE-READER]** — zero-copy verify-once/access-lazily reader (nanosecond field access; research §2.4).
 - **[TDBIN-FUTURE-RPC]** — the `[TDRPC-*]` spec: typeDiagram **function definitions as the service contract** (research §6.0), streaming modes from signature shape, numeric method ids (no method-name strings on the wire), capability pointers (kind `11`), promise pipelining. Fed by the dedicated RPC research pass.
-- **[TDBIN-FUTURE-TS]** — TypeScript codec in `packages/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).
+- **[TDBIN-FUTURE-TS]** — TypeScript codec in `src/typediagram/` implementing this spec byte-for-byte (golden vectors are the conformance suite).
 - **[TDBIN-FUTURE-WIDTH-TYPES]** — width-refined DSL numerics (`I8…U64`, `F32`); wire widths and list element kinds already reserved.
 - **[TDBIN-FUTURE-ORDINALS]** — explicit per-declaration ordinal annotations to allow non-append evolution (Cap'n Proto-style).
 

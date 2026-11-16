@@ -41,7 +41,7 @@ jobs:
       # lightweight build + lint + web-unit check instead. The single `CI` job
       # always runs and reports, so it stays valid as a required status check
       # (path filters that skip the job would leave it pending forever).
-      # "Web scope" = every changed path is under packages/web/, docs/, or is a
+      # "Web scope" = every changed path is under src/web/, docs/, or is a
       # *.md file; anything else (framework/cli/vscode src, Makefile, configs,
       # workflows) forces the full pipeline.
       - name: Detect change scope
@@ -50,7 +50,7 @@ jobs:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
           HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          ALLOW='(^packages/web/)|(^docs/)|(\.md$)'
+          ALLOW='(^src/web/)|(^docs/)|(\.md$)'
           CHANGED="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
           echo "Changed files:"
           echo "$CHANGED"
@@ -75,7 +75,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # [CI-RUST-TOOLCHAIN] The Makefile wires the Rust `crates/` workspace into
+      # [CI-RUST-TOOLCHAIN] The Makefile wires the Rust `src/` workspace into
       # make test/lint/fmt (cargo test --workspace, cargo clippy -D warnings,
       # cargo fmt --check). Both CI scopes reach cargo: full scope via `make ci`,
       # web scope via `make lint` + `make _fmt_check`. Install/pin stable with the
@@ -110,7 +110,7 @@ jobs:
           npm run -w @typediagram/web build
 
       # ───────────────────────── Full scope ───────────────────────────
-      # Playwright needs chromium for the packages/web E2E tests. --with-deps
+      # Playwright needs chromium for the src/web E2E tests. --with-deps
       # ensures required OS libraries are present on ubuntu-latest.
       - name: Install Playwright browsers
         if: steps.scope.outputs.scope == 'full'
@@ -137,10 +137,10 @@ jobs:
       - name: Shipwright acceptance gates
         if: steps.scope.outputs.scope == 'full'
         run: |
-          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema schemas/shipwright.schema.json shipwright.json
+          npx --yes @nimblesite/shipwright-validate-manifest@0.9.0 --schema .github/schemas/shipwright.schema.json shipwright.json
           npm run -w typediagram build
-          node packages/cli/dist/bin.js --version
-          node packages/cli/dist/bin.js --version --json
+          node src/cli/dist/bin.js --version
+          node src/cli/dist/bin.js --version --json
 
       - name: Upload coverage
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -149,5 +149,5 @@ jobs:
           name: coverage-report
           path: |
             coverage/
-            packages/*/coverage/
+            src/*/coverage/
           retention-days: 7
