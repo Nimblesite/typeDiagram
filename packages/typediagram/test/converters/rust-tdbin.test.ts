@@ -336,9 +336,12 @@ describe("[CONV-RUST-TDBIN] fails loudly on unsupported shapes (no placeholders)
     expectErrorMessages(r, ["must be monomorphized"]);
   });
 
-  it("rejects a variant that is neither bare nor a single tuple field", () => {
-    const r = emitRustCodec(modelFor(`union U {\n  Multi(Int, String)\n}`));
-    expectErrorMessages(r, ["bare or a single tuple field"]);
+  it("encodes multi-field variants as payload records but rejects unencodable payload fields [TDBIN-UNION-STRUCT]", () => {
+    const multi = unwrap(emitRustCodec(modelFor(`union U {\n  Multi(Int, String)\n}`)));
+    expect(multi).toContain("Self::Multi(f0, f1) => {");
+    expect(multi).toContain("impl tdbin::Struct for UMultiTdbinPayload {");
+    const r = emitRustCodec(modelFor(`union U {\n  Bad {\n    m: Map<String, Int>\n  }\n}`));
+    expectErrorMessages(r, ["unsupported field type 'Map<String, Int>' in UBadTdbinPayload.m"]);
   });
 
   it("rejects a variant payload that has no v0 wire encoding", () => {
@@ -760,5 +763,30 @@ describe("[CONV-RUST-TDBIN] drift guard vs the committed crate fixtures", () => 
 
   it("reproduces generated_opt/mod.rs (Option<scalar> Measurement fixture)", () => {
     expectRustModuleReproduces(MEASUREMENT_TD, "../../../../crates/tdbin/tests/generated_opt/mod.rs");
+  });
+
+  it("reproduces generated_shapes/mod.rs and gates struct-form variants by layout [TDBIN-UNION-STRUCT] #61", () => {
+    const shapesTd = readFileSync(fileURLToPath(new URL("./fixtures/shapes.td", import.meta.url)), "utf8");
+    expectRustModuleReproduces(shapesTd, "../../../../crates/tdbin/tests/generated_shapes/mod.rs");
+    const module = unwrap(generateRustModule(unwrap(buildModel(unwrap(parse(shapesTd))))));
+    expect(module).toContain("pub struct ShapeRectTdbinPayload {");
+    expect(module).toContain("pub struct ShapePairTdbinPayload {\n    /// The `v0` field.\n    pub v0: i64,");
+    expect(module).toContain("Some(&ShapeRectTdbinPayload { w: *f0, h: *f1, corner: f2.clone() })");
+    expect(module).toContain("Ok(Self::Pair(payload.v0, payload.v1))");
+    expect(module).toContain("let payload = ShapeCircleTdbinPayload::default();");
+    const { decls } = unwrap(buildModel(unwrap(parse(shapesTd))));
+    const shape = decls.find((d) => d.name === "Shape");
+    expect(shape?.kind).toBe("union");
+    const manifest = shape === undefined ? "" : unwrap(layoutManifest(decls, shape, 1));
+    expect(manifest).toBe(
+      "tdbin-layout v1 major=1\n0:union d=1 p=1 [ref1@p0;ref2@p0;ref4@p0;ref3@p0;unit]\n1:record d=1 p=1 [f64@w0;str@p0]\n2:record d=2 p=1 [f64@w0;f64@w1;ref3@p0]\n3:record d=2 p=0 [f64@w0;f64@w1]\n4:record d=1 p=1 [i64@w0;str@p0]"
+    );
+    const columnar = generateRustModule(
+      unwrap(buildModel(unwrap(parse(`${shapesTd}\ntype Batch {\n  rows: List<Canvas>\n}`)))),
+      { layout: 2 }
+    );
+    expect(columnar.ok ? "" : (columnar.error[0]?.message ?? "")).toContain(
+      "variant 'Circle' has a struct-form payload, which layout 2 column groups do not support yet"
+    );
   });
 });

@@ -253,6 +253,14 @@ const emitUnionGroup = (u: ResolvedUnion): Result<string, Diagnostic[]> => {
   if (!plan.ok) {
     return plan;
   }
+  const inline = plan.value.variants.find((v) => v.payload?.kind === "inline");
+  if (inline !== undefined) {
+    return err(
+      diag(
+        `tdbin: union '${u.name}' variant '${inline.name}' has a struct-form payload, which layout 2 column groups do not support yet; use layout 1 [TDBIN-UNION-STRUCT]`
+      )
+    );
+  }
   const variants = unionColumns(plan.value);
   const columns = 1 + variants.reduce((sum, v) => sum + payloadSlots(v), 0);
   return ok(groupImpl(u.name, columns, unionWriteBody(variants), unionReadBody(variants)));

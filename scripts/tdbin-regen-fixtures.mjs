@@ -79,6 +79,19 @@ const FIXTURES = [
 `,
   },
   {
+    out: "crates/tdbin/tests/generated_shapes/mod.rs",
+    td: "packages/typediagram/test/converters/fixtures/shapes.td",
+    layout: 1,
+    marker: MARKER_V1,
+    header: `//! [TDBIN-UNION-STRUCT] GENERATED struct-form / multi-field tuple union
+//! variant fixture (#61), emitted by
+//! \`packages/typediagram/src/converters/rust-tdbin.ts\` (\`generateRustModule\`)
+//! from \`packages/typediagram/test/converters/fixtures/shapes.td\`. Included
+//! only by \`variants.rs\`. Regenerate with
+//! \`node scripts/tdbin-regen-fixtures.mjs\` rather than hand-editing.
+`,
+  },
+  {
     out: "crates/tdbin/tests/generated_corpus/mod.rs",
     td: "docs/benchmarks/tdbin-corpus.td",
     layout: 2,

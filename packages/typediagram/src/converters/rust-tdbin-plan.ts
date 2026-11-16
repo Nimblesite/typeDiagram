@@ -13,6 +13,7 @@ import {
 } from "../model/types.js";
 import { printTypeRef } from "./parse-typeref.js";
 import { mapTdToRs } from "./rust.js";
+import { isInlineVariant, isTupleVariant, payloadFieldName, variantPayloadName } from "./tdbin-variant-records.js";
 import { err, ok, type Result } from "../result.js";
 import {
   allocateAlignedPair,
@@ -74,7 +75,20 @@ export interface RecordPlan {
 }
 
 /** A union variant's payload placement (all share pointer slot 0). */
-export type VariantPlan = null | { kind: "child"; rustType: string } | { kind: "string" };
+export type VariantPlan =
+  | null
+  | { kind: "child"; rustType: string }
+  | { kind: "string" }
+  /** [TDBIN-UNION-STRUCT] several fields → pointer to a synthetic payload record. */
+  | { kind: "inline"; rustType: string; fields: InlineField[]; tuple: boolean };
+
+/** One struct-form variant field: its ADT name, payload-record name, and
+ *  whether the Rust type is `Copy` (deref instead of clone; clippy `clone_on_copy`). */
+export interface InlineField {
+  name: string;
+  payload: string;
+  copy: boolean;
+}
 
 /** A fully-classified union. */
 export interface UnionPlan {
@@ -403,19 +417,33 @@ export const classifyRecord = (
   return ok({ dataWords: cursor.dataSlot, ptrWords: cursor.ptrSlot, fields });
 };
 
-const classifyVariant = (v: ResolvedVariant): Result<VariantPlan, Diagnostic[]> => {
+const isCopy = (t: ResolvedTypeRef): boolean => {
+  const inner = optionInnerOf(t);
+  return scalarOf(t) !== undefined || semanticOf(t) !== undefined || (inner !== undefined && isCopy(inner));
+};
+
+const classifyVariant = (u: ResolvedUnion, v: ResolvedVariant): Result<VariantPlan, Diagnostic[]> => {
   if (v.fields.length === 0) {
     return ok(null);
   }
-  const single = variantPayloadType(v);
-  if (single === undefined) {
-    return err(diag(`tdbin: variant '${v.name}' must be bare or a single tuple field in v0`));
+  if (isInlineVariant(v)) {
+    return ok({
+      kind: "inline",
+      rustType: variantPayloadName(u, v),
+      fields: v.fields.map((f, i) => ({ name: f.name, payload: payloadFieldName(v, i), copy: isCopy(f.type) })),
+      tuple: isTupleVariant(v),
+    });
   }
-  return isDeclared(single)
+  const single = variantPayloadType(v);
+  return single !== undefined && isDeclared(single)
     ? ok({ kind: "child", rustType: mapTdToRs(single) })
-    : isPrim(single, "String")
+    : single !== undefined && isPrim(single, "String")
       ? ok({ kind: "string" })
-      : err(diag(`tdbin: variant '${v.name}' payload '${printTypeRef(single)}' unsupported in v0`));
+      : err(
+          diag(
+            `tdbin: variant '${v.name}' payload '${v.fields.map((f) => printTypeRef(f.type)).join(", ")}' unsupported in v0`
+          )
+        );
 };
 
 /** The single tuple payload type of a variant, if it has exactly that shape. */
@@ -425,7 +453,7 @@ export const variantPayloadType = (v: ResolvedVariant): ResolvedTypeRef | undefi
 export const classifyUnion = (u: ResolvedUnion): Result<UnionPlan, Diagnostic[]> => {
   const variants: UnionPlan["variants"] = [];
   for (const [ordinal, v] of u.variants.entries()) {
-    const payload = classifyVariant(v);
+    const payload = classifyVariant(u, v);
     if (!payload.ok) {
       return payload;
     }

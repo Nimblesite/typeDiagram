@@ -91,6 +91,14 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [x] `[TDBIN-FUTURE-RPC]` **`[TDRPC-*]` spec — streaming/RPC framework**: typeDiagram function definitions → service contract; unary/server-stream/client-stream/bidi from signature shape; numeric method ids; capability pointer kind `11`; promise pipelining; QUIC-first transport (RPC research pass, research §6) — roadmap opened in [tdrpc.md](../specs/tdrpc.md)
 - [x] `[TDBIN-FUTURE-WIDTH-TYPES]` width-refined DSL numerics; `[TDBIN-FUTURE-ORDINALS]` explicit ordinals for non-append evolution — roadmap opened in [tdbin-future-width-types.md](../specs/tdbin-future-width-types.md)
 
+## Phase 7 — Consumer blockers (GitHub issues)
+
+- [x] #85 `[TDBIN-SCHEMA-HASH]` generated TS codecs pin `layoutHash` identical to Rust `LAYOUT_HASH`; `decodeFramed` requires it (typed `HashMismatch`).
+- [x] #85 `[TDBIN-FRAME-BASE64]` `encodeFramedBase64` / `decodeFramedBase64` with typed `BadBase64`/`BadMagic`/`HashMismatch` errors.
+- [x] #85 `[TDBIN-TS-BUNDLE]` generated modules import only `typediagram-core/tdbin`; `sideEffects: false`; bundle 18.5 KB min / 6.3 KB gz.
+- [x] #61 `[TDBIN-UNION-STRUCT]` struct-form union variants encode/decode/verify in the Rust and TS generators (payload = pointer to a struct laid out by `[TDBIN-REC-ALLOC]`). Layout 1 only; layout 2 rejects with a diagnostic.
+- [ ] #61 follow-up: struct-form variants in layout 2 column groups (`[TDBIN-COL-UNION]` dense groups).
+
 ## Exit criteria (v1 = phases 0–4)
 
 - [x] `make ci` completes in one invocation (2026-07-12): lint, every test suite, coverage ratchet (thresholds bumped), workspace builds, and the bundle budget all passed in a single run.

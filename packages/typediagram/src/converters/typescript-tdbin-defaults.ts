@@ -24,7 +24,21 @@ export interface RecordPlan {
   readonly fields: readonly { readonly name: string; readonly plan: FieldPlan }[];
 }
 
-export type VariantPlan = null | { readonly kind: "child"; readonly typeName: string } | { readonly kind: "string" };
+export type VariantPlan =
+  | null
+  | { readonly kind: "child"; readonly typeName: string }
+  | { readonly kind: "string" }
+  /** [TDBIN-UNION-STRUCT] struct-form / multi-field tuple payload record. */
+  | { readonly kind: "inline"; readonly typeName: string; readonly fields: readonly InlineField[] };
+
+export interface InlineField {
+  readonly name: string;
+  readonly payload: string;
+}
+
+/** `{ kind: "Rect", w: src.w, _0: src.v0 }`: a variant value from a payload record. */
+export const inlineVariantValue = (variant: string, fields: readonly InlineField[], src: string): string =>
+  `{ kind: "${variant}", ${fields.map((f) => `${f.name}: ${src}.${f.payload}`).join(", ")} }`;
 
 export interface UnionPlan {
   readonly ptrWords: number;
@@ -59,7 +73,7 @@ const fieldDefault = (plan: FieldPlan, integerZero: string): string => {
   }
 };
 
-export const variantPayloadDefault = (payload: NonNullable<VariantPlan>): string =>
+export const variantPayloadDefault = (payload: Exclude<VariantPlan, null | { kind: "inline" }>): string =>
   payload.kind === "string" ? `""` : `default${payload.typeName}()`;
 
 const emitRecordDefault = (record: ResolvedRecord, plan: RecordPlan, integerZero: string): string => {
@@ -77,7 +91,9 @@ const emitUnionDefault = (union: ResolvedUnion, plan: UnionPlan): Result<string,
   const value =
     first.payload === null
       ? `{ kind: "${first.name}" }`
-      : `{ kind: "${first.name}", _0: ${variantPayloadDefault(first.payload)} }`;
+      : first.payload.kind === "inline"
+        ? inlineVariantValue(first.name, first.payload.fields, `default${first.payload.typeName}()`)
+        : `{ kind: "${first.name}", _0: ${variantPayloadDefault(first.payload)} }`;
   return ok(`const default${union.name} = (): ${union.name} => (${value});`);
 };
 
@@ -88,7 +104,7 @@ const requiredChildNames = (plan: RecordPlan): string[] =>
 
 const childPayloadNames = (plan: UnionPlan): string[] =>
   plan.variants.flatMap((variant) =>
-    variant.payload !== null && variant.payload.kind === "child" ? [variant.payload.typeName] : []
+    variant.payload !== null && variant.payload.kind !== "string" ? [variant.payload.typeName] : []
   );
 
 const codecDefaultRefs = (plan: DeclPlan): string[] =>
@@ -96,7 +112,11 @@ const codecDefaultRefs = (plan: DeclPlan): string[] =>
 
 const defaultDeps = (plan: DeclPlan): string[] => {
   const payload = plan.kind === "union" ? plan.plan.variants[0]?.payload : undefined;
-  return plan.kind === "record" ? requiredChildNames(plan.plan) : payload?.kind === "child" ? [payload.typeName] : [];
+  return plan.kind === "record"
+    ? requiredChildNames(plan.plan)
+    : payload !== undefined && payload !== null && payload.kind !== "string"
+      ? [payload.typeName]
+      : [];
 };
 
 const findDefaultCycle = (

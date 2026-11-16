@@ -64,6 +64,7 @@ import {
 } from "./rust-tdbin-plan.js";
 import { columnarReachable, unionColumns } from "./rust-tdbin-columnar.js";
 import { type ColPlan, columnPlans, type NestedPlan } from "./rust-tdbin-columns.js";
+import { withVariantRecords } from "./tdbin-variant-records.js";
 
 const FNV_OFFSET = 0xcbf29ce484222325n;
 const FNV_PRIME = 0x100000001b3n;
@@ -113,7 +114,7 @@ const plannedRefNames = (planned: Planned): string[] =>
   planned.kind === "record"
     ? planned.plan.fields.flatMap((f) => fieldRefNames(f.plan))
     : planned.plan.variants.flatMap((v) =>
-        v.payload !== null && v.payload.kind === "child" ? [v.payload.rustType] : []
+        v.payload !== null && v.payload.kind !== "string" ? [v.payload.rustType] : []
       );
 
 const planOf = (decls: readonly ResolvedDecl[], d: ResolvedDecl, layout: Layout): Result<Planned, Diagnostic[]> => {
@@ -365,7 +366,7 @@ export const layoutManifest = (
   root: ResolvedDecl,
   layout: Layout
 ): Result<string, Diagnostic[]> => {
-  const ctx: ManifestCtx = { decls, layout, indices: new Map(), order: [] };
+  const ctx: ManifestCtx = { decls: withVariantRecords(decls), layout, indices: new Map(), order: [] };
   const walked = discover(ctx, root.name);
   if (!walked.ok) {
     return walked;

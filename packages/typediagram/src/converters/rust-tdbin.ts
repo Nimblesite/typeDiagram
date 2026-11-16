@@ -17,6 +17,7 @@ import { classifyRecord, classifyUnion, diag, type Layout } from "./rust-tdbin-p
 import { emitRecordCodec, emitUnionCodec, emitUnionDefault } from "./rust-tdbin-fields.js";
 import { columnarReachable, emitColumnGroup } from "./rust-tdbin-columnar.js";
 import { fnv1a64, layoutHashLiteral, layoutManifest } from "./rust-tdbin-hash.js";
+import { withVariantRecords } from "./tdbin-variant-records.js";
 
 /** Codec generation options. */
 export interface RustCodecOptions {
@@ -98,11 +99,12 @@ const declBlocks = (ctx: EmitCtx, d: ResolvedDecl): Result<string[], Diagnostic[
  *  monomorphized first. */
 export const emitRustCodec = (model: Model, options?: RustCodecOptions): Result<string, Diagnostic[]> => {
   const layout: Layout = options?.layout ?? 1;
-  const visible = visibleDataDeclsForTarget(model.decls, "rust");
+  const decls = withVariantRecords(model.decls);
+  const visible = withVariantRecords(visibleDataDeclsForTarget(model.decls, "rust"));
   const ctx: EmitCtx = {
-    decls: model.decls,
+    decls,
     layout,
-    columnar: layout === 2 ? columnarReachable(model.decls, visible) : new Set<string>(),
+    columnar: layout === 2 ? columnarReachable(decls, visible) : new Set<string>(),
     frozenManifest: options?.frozenManifest,
   };
   const blocks: string[] = [];
@@ -141,6 +143,11 @@ export const generateRustModule = (model: Model, options?: RustCodecOptions): Re
   if (!codec.ok) {
     return codec;
   }
-  const types = visibleDataDeclsForTarget(model.decls, "rust").map(emitTypeWithDocs).join("\n");
+  // [TDBIN-UNION-STRUCT] synthetic payload records ship beside the ADT so the
+  // struct-form variant codec has a concrete `tdbin::Struct` to point at.
+  const types = withVariantRecords(visibleDataDeclsForTarget(model.decls, "rust"))
+    .filter((d) => d.kind !== "function")
+    .map(emitTypeWithDocs)
+    .join("\n");
   return ok(`${types}\n${codec.value}\n`);
 };

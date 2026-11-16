@@ -1,6 +1,8 @@
 // [CONV-TS-TDBIN] Pins the TypeScript TDBIN code generator: it emits typed
 // StructCodec objects over the runtime in `src/tdbin`, with layout baked into
 // the generated code ([TDBIN-FUTURE-TS], [TDBIN-REC-ALLOC]).
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import * as ts from "typescript-compiler";
 import { describe, expect, it } from "vitest";
@@ -239,10 +241,14 @@ union Notice {
 
   it("rejects unsupported generic and variant shapes", () => {
     const generic = emitTypeScriptCodec(modelFor("type Box<T> {\n  value: T\n}"));
-    const multi = emitTypeScriptCodec(modelFor("union Bad {\n  Both(Int, String)\n}"));
+    const multi = emitTypeScriptCodec(
+      modelFor("union Bad {\n  Both(Int, String)\n  Map {\n    m: Map<String, Int>\n  }\n}")
+    );
     const payload = emitTypeScriptCodec(modelFor("union Bad {\n  Count(Int)\n}"));
     expect(generic.ok ? "" : generic.error[0]?.message).toContain("must be monomorphized");
-    expect(multi.ok ? "" : multi.error[0]?.message).toContain("bare or a single tuple field");
+    expect(multi.ok ? "" : multi.error[0]?.message).toContain(
+      "unsupported field type 'Map<String, Int>' in BadMapTdbinPayload.m"
+    );
     expect(payload.ok ? "" : payload.error[0]?.message).toContain("payload 'Int' unsupported");
   });
 
@@ -517,5 +523,70 @@ union Notice {
     const big = new Uint8Array(70_000).map((_, index) => index % 251);
     expect(Buffer.from(unwrap(tdbin.fromBase64(tdbin.toBase64(big)))).equals(Buffer.from(big))).toBe(true);
     expect(tdbin.toBase64(big)).toBe(Buffer.from(big).toString("base64"));
+  });
+
+  it("round-trips struct-form and multi-field tuple union variants with Rust-identical hashes [TDBIN-UNION-STRUCT] #61", () => {
+    type Point = { readonly x: number; readonly y: number };
+    type Shape =
+      | { readonly kind: "Circle"; readonly radius: number; readonly label: string }
+      | { readonly kind: "Rect"; readonly w: number; readonly h: number; readonly corner: Point }
+      | { readonly kind: "Pair"; readonly _0: number; readonly _1: string }
+      | { readonly kind: "Tagged"; readonly _0: Point }
+      | { readonly kind: "Empty" };
+    interface Canvas {
+      readonly name: string;
+      readonly shape: Shape;
+      readonly backup: Shape | undefined;
+    }
+    const td = readFileSync(fileURLToPath(new URL("./fixtures/shapes.td", import.meta.url)), "utf8");
+    const tsSource = unwrap(emitTypeScriptCodec(modelFor(td)));
+    const rust = unwrap(emitRustCodec(modelFor(td)));
+    const canvasCodec = codecFor<Canvas>(tsSource, "CanvasCodec");
+    const shapeCodec = codecFor<Shape>(tsSource, "ShapeCodec");
+    expect(shapeCodec.ptrWords).toBe(1);
+    const rustHash = (type: string) => {
+      const block = rust.slice(rust.indexOf(`impl tdbin::Struct for ${type} {`));
+      const line = block.slice(
+        block.indexOf("LAYOUT_HASH: u64 = ") + 19,
+        block.indexOf(";", block.indexOf("LAYOUT_HASH"))
+      );
+      return BigInt(line.replaceAll("_", ""));
+    };
+    expect(canvasCodec.layoutHash).toBe(rustHash("Canvas"));
+    expect(shapeCodec.layoutHash).toBe(rustHash("Shape"));
+    expect(rust).toContain("Self::Rect { w: f0, h: f1, corner: f2 } => {");
+    expect(rust).toContain("Self::Pair(f0, f1) => {");
+    const shapes: Shape[] = [
+      { kind: "Circle", radius: 2.5, label: "sun" },
+      { kind: "Rect", w: -1, h: 1e9, corner: { x: 0.5, y: -0.5 } },
+      { kind: "Pair", _0: -9_007_199_254_740_991, _1: "pair" },
+      { kind: "Tagged", _0: { x: 3, y: 4 } },
+      { kind: "Empty" },
+    ];
+    for (const shape of shapes) {
+      for (const backup of [undefined, ...shapes]) {
+        const canvas: Canvas = { name: shape.kind, shape, backup };
+        expect(unwrap(tdbin.decode(canvasCodec, unwrap(tdbin.encode(canvasCodec, canvas))))).toEqual(canvas);
+        expect(
+          unwrap(tdbin.decodeFramedBase64(canvasCodec, unwrap(tdbin.encodeFramedBase64(canvasCodec, canvas))))
+        ).toEqual(canvas);
+      }
+      expect(unwrap(tdbin.decode(shapeCodec, unwrap(tdbin.encode(shapeCodec, shape))))).toEqual(shape);
+    }
+    const zeroCircle = unwrap(tdbin.encode(shapeCodec, { kind: "Circle", radius: 0, label: "" }));
+    const zeroRect = unwrap(tdbin.encode(shapeCodec, { kind: "Rect", w: 0, h: 0, corner: { x: 0, y: 0 } }));
+    expect(Buffer.from(zeroCircle).equals(Buffer.from(zeroRect))).toBe(false);
+    const NULL_SHAPE_TD =
+      "type Canvas {\n  name: String\n  shape: Option<Point>\n  backup: Option<Point>\n}\ntype Point {\n  x: Float\n  y: Float\n}";
+    const nullWriter = codecFor<{ name: string; shape: undefined; backup: undefined }>(
+      unwrap(emitTypeScriptCodec(modelFor(NULL_SHAPE_TD))),
+      "CanvasCodec"
+    );
+    const nulls = unwrap(tdbin.encode(nullWriter, { name: "n", shape: undefined, backup: undefined }));
+    expect(unwrap(tdbin.decode(canvasCodec, nulls))).toEqual({
+      name: "n",
+      shape: { kind: "Circle", radius: 0, label: "" },
+      backup: undefined,
+    });
   });
 });

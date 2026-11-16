@@ -15,6 +15,7 @@ import {
   type RecordPlan,
   rsNumber,
   type UnionPlan,
+  type VariantPlan,
 } from "./rust-tdbin-plan.js";
 
 export const bytes16Source = (semantic: Bytes16Semantic, value: string): string =>
@@ -352,28 +353,67 @@ export const emitRecordCodec = (rec: ResolvedRecord, plan: RecordPlan, layoutHas
 
 // Variants are constructed inside `impl tdbin::Struct for <union>`, so they are
 // spelled `Self::Variant` (clippy `use_self`, denied under pedantic).
-const writeVariantArm = (v: UnionPlan["variants"][number]): string => {
-  const head = `            Self::${v.name}`;
-  if (v.payload === null) {
-    return `${head} => {\n                w.scalar(at, 0, ${rsNumber(v.ordinal)})?;\n                Ok(())\n            }`;
-  }
-  const call =
-    v.payload.kind === "child"
-      ? `w.child(at, Self::DATA_WORDS, 0, Some(payload))`
-      : `w.string(at, Self::DATA_WORDS, 0, Some(payload))`;
-  return `${head}(payload) => {\n                w.scalar(at, 0, ${rsNumber(v.ordinal)})?;\n                ${call}\n            }`;
+type VariantArm = UnionPlan["variants"][number];
+type InlinePayload = Extract<VariantPlan, { kind: "inline" }>;
+
+/** Bindings are positional (`f0`, `f1`, …) so a field named `w`/`r`/`at`
+ *  never shadows the codec's writer, reader or offset ([TDBIN-UNION-STRUCT]). */
+const inlinePattern = (name: string, p: InlinePayload): string => {
+  const binds = p.fields.map((_, i) => `f${rsNumber(i)}`);
+  return p.tuple
+    ? `Self::${name}(${binds.join(", ")})`
+    : `Self::${name} { ${p.fields.map((f, i) => `${f.name}: ${binds[i] ?? ""}`).join(", ")} }`;
 };
 
-const readVariantArm = (v: UnionPlan["variants"][number]): string => {
-  if (v.payload === null) {
+const inlineFromPayload = (name: string, p: InlinePayload): string =>
+  p.tuple
+    ? `Self::${name}(${p.fields.map((f) => `payload.${f.payload}`).join(", ")})`
+    : `Self::${name} { ${p.fields.map((f) => `${f.name}: payload.${f.payload}`).join(", ")} }`;
+
+/** `ShapeRectTdbinPayload { w: *f0, corner: f2.clone(), … }` built from the arm bindings. */
+const inlineToPayload = (p: InlinePayload): string =>
+  `${p.rustType} { ${p.fields.map((f, i) => `${f.payload}: ${f.copy ? `*f${rsNumber(i)}` : `f${rsNumber(i)}.clone()`}`).join(", ")} }`;
+
+const variantWrite = (v: VariantArm): { pattern: string; call: string } => {
+  const disc = `w.scalar(at, 0, ${rsNumber(v.ordinal)})?;`;
+  const p = v.payload;
+  return p === null
+    ? { pattern: `Self::${v.name}`, call: `${disc}\n                Ok(())` }
+    : p.kind === "inline"
+      ? {
+          pattern: inlinePattern(v.name, p),
+          call: `${disc}\n                w.child(at, Self::DATA_WORDS, 0, Some(&${inlineToPayload(p)}))`,
+        }
+      : {
+          pattern: `Self::${v.name}(payload)`,
+          call: `${disc}\n                ${p.kind === "child" ? "w.child" : "w.string"}(at, Self::DATA_WORDS, 0, Some(payload))`,
+        };
+};
+
+// Variants are constructed inside `impl tdbin::Struct for <union>`, so they are
+// spelled `Self::Variant` (clippy `use_self`, denied under pedantic).
+const writeVariantArm = (v: VariantArm): string => {
+  const { pattern, call } = variantWrite(v);
+  return `            ${pattern} => {\n                ${call}\n            }`;
+};
+
+const readVariantArm = (v: VariantArm): string => {
+  const p = v.payload;
+  if (p === null) {
     return `            ${rsNumber(v.ordinal)} => {
                 r.require_null_pointer(at, 0)?;
                 Ok(Self::${v.name})
             },`;
   }
+  if (p.kind === "inline") {
+    return `            ${rsNumber(v.ordinal)} => {
+                let payload = r.child::<${p.rustType}>(at, Self::DATA_WORDS, 0)?.unwrap_or_default();
+                Ok(${inlineFromPayload(v.name, p)})
+            },`;
+  }
   const read =
-    v.payload.kind === "child"
-      ? `r.child::<${v.payload.rustType}>(at, Self::DATA_WORDS, 0)?.unwrap_or_default()`
+    p.kind === "child"
+      ? `r.child::<${p.rustType}>(at, Self::DATA_WORDS, 0)?.unwrap_or_default()`
       : `r.string(at, Self::DATA_WORDS, 0)?.unwrap_or_default()`;
   return `            ${rsNumber(v.ordinal)} => Ok(Self::${v.name}(${read})),`;
 };
@@ -410,12 +450,16 @@ export const emitUnionCodec = (u: ResolvedUnion, plan: UnionPlan, layoutHash: st
     `}`,
   ].join("\n");
 
-const defaultVariant = (v: UnionPlan["variants"][number]): string =>
-  v.payload === null
+const defaultVariant = (v: VariantArm): string => {
+  const p = v.payload;
+  return p === null
     ? `Self::${v.name}`
-    : v.payload.kind === "child"
-      ? `Self::${v.name}(${v.payload.rustType}::default())`
-      : `Self::${v.name}(String::default())`;
+    : p.kind === "inline"
+      ? `{\n            let payload = ${p.rustType}::default();\n            ${inlineFromPayload(v.name, p)}\n        }`
+      : p.kind === "child"
+        ? `Self::${v.name}(${p.rustType}::default())`
+        : `Self::${v.name}(String::default())`;
+};
 
 /** Unions default to their FIRST variant so required union fields can decode a
  *  null pointer as the schema default ([TDBIN-PTR-NULL], [TDBIN-REC-SHORT]). */

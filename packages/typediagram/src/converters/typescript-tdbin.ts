@@ -4,7 +4,6 @@
 // the hot path ([TDBIN-FUTURE-TS], [TDBIN-REC-ALLOC]).
 import type { Diagnostic } from "../parser/diagnostics.js";
 import {
-  isTupleVariantFields,
   type Model,
   type ResolvedDecl,
   type ResolvedRecord,
@@ -25,9 +24,11 @@ import {
   pointerDefault,
   type RecordPlan,
   type UnionPlan,
+  inlineVariantValue,
   variantPayloadDefault,
   type VariantPlan,
 } from "./typescript-tdbin-defaults.js";
+import { isInlineVariant, payloadFieldName, variantPayloadName, withVariantRecords } from "./tdbin-variant-records.js";
 import type { TypeScriptOpts } from "./types.js";
 import { typescript } from "./typescript.js";
 
@@ -131,26 +132,33 @@ const classifyRecord = (decls: readonly ResolvedDecl[], rec: ResolvedRecord): Re
   return ok({ dataWords: cursor.dataSlot, ptrWords: cursor.ptrSlot, fields });
 };
 
-const classifyVariant = (variant: ResolvedVariant): Result<VariantPlan, Diagnostic[]> => {
+const classifyVariant = (union: ResolvedUnion, variant: ResolvedVariant): Result<VariantPlan, Diagnostic[]> => {
   if (variant.fields.length === 0) {
     return ok(null);
   }
-  const single =
-    variant.fields.length === 1 && isTupleVariantFields(variant.fields) ? variant.fields[0]?.type : undefined;
-  if (single === undefined) {
-    return err(diag(`tdbin-ts: variant '${variant.name}' must be bare or a single tuple field in v0`));
+  if (isInlineVariant(variant)) {
+    return ok({
+      kind: "inline",
+      typeName: variantPayloadName(union, variant),
+      fields: variant.fields.map((f, i) => ({ name: f.name, payload: payloadFieldName(variant, i) })),
+    });
   }
-  return single.resolution.kind === "declared"
+  const single = variant.fields[0]?.type;
+  return single?.resolution.kind === "declared"
     ? ok({ kind: "child", typeName: single.resolution.declName })
-    : isPrim(single, "String")
+    : single !== undefined && isPrim(single, "String")
       ? ok({ kind: "string" })
-      : err(diag(`tdbin-ts: variant '${variant.name}' payload '${printTypeRef(single)}' unsupported in v0`));
+      : err(
+          diag(
+            `tdbin-ts: variant '${variant.name}' payload '${single === undefined ? "?" : printTypeRef(single)}' unsupported in v0`
+          )
+        );
 };
 
 const classifyUnion = (union: ResolvedUnion): Result<UnionPlan, Diagnostic[]> => {
   const variants: Array<{ name: string; ordinal: number; payload: VariantPlan }> = [];
   for (const [ordinal, variant] of union.variants.entries()) {
-    const payload = classifyVariant(variant);
+    const payload = classifyVariant(union, variant);
     if (!payload.ok) {
       return payload;
     }
@@ -314,31 +322,38 @@ const emitRecordCodec = (record: ResolvedRecord, plan: RecordPlan, hash: bigint,
 };
 
 const writeVariantPayload = (union: string, variant: UnionPlan["variants"][number]): string => {
-  if (variant.payload === null) {
+  const p = variant.payload;
+  if (p === null) {
     return `        return disc;`;
   }
+  const at = `writer, at, ${union}Codec.dataWords, 0`;
   const payload =
-    variant.payload.kind === "child"
-      ? `tdbin.writer.child(writer, at, ${union}Codec.dataWords, 0, ${variant.payload.typeName}Codec, value._0)`
-      : `tdbin.writer.string(writer, at, ${union}Codec.dataWords, 0, value._0)`;
+    p.kind === "inline"
+      ? `tdbin.writer.child(${at}, ${p.typeName}Codec, { ${p.fields.map((f) => `${f.payload}: value.${f.name}`).join(", ")} })`
+      : p.kind === "child"
+        ? `tdbin.writer.child(${at}, ${p.typeName}Codec, value._0)`
+        : `tdbin.writer.string(${at}, value._0)`;
   return `        return disc.ok ? ${payload} : disc;`;
 };
 
 const readVariantPayload = (union: string, variant: UnionPlan["variants"][number]): string[] => {
-  if (variant.payload === null) {
+  const p = variant.payload;
+  if (p === null) {
     return [
       `        const inactive = tdbin.reader.requireNullPointer(reader, at, 0);`,
       `        return inactive.ok ? ok({ kind: "${variant.name}" }) : inactive;`,
     ];
   }
-  const payload =
-    variant.payload.kind === "child"
-      ? `tdbin.reader.child(reader, at, ${union}Codec.dataWords, 0, ${variant.payload.typeName}Codec)`
-      : `tdbin.reader.string(reader, at, ${union}Codec.dataWords, 0)`;
+  const at = `reader, at, ${union}Codec.dataWords, 0`;
+  const read = p.kind === "string" ? `tdbin.reader.string(${at})` : `tdbin.reader.child(${at}, ${p.typeName}Codec)`;
+  const value =
+    p.kind === "inline"
+      ? inlineVariantValue(variant.name, p.fields, `(payload.value ?? default${p.typeName}())`)
+      : `{ kind: "${variant.name}", _0: payload.value ?? ${variantPayloadDefault(p)} }`;
   return [
-    `        const payload = ${payload};`,
+    `        const payload = ${read};`,
     `        if (!payload.ok) return payload;`,
-    `        return ok({ kind: "${variant.name}", _0: payload.value ?? ${variantPayloadDefault(variant.payload)} });`,
+    `        return ok(${value});`,
   ];
 };
 
@@ -411,8 +426,9 @@ const planDecl = (decls: readonly ResolvedDecl[], decl: ResolvedDecl): Result<De
 
 const planDecls = (model: Model): Result<DeclPlan[], Diagnostic[]> => {
   const plans: DeclPlan[] = [];
-  for (const decl of visibleDeclsForTarget(model.decls, "typescript")) {
-    const planned = planDecl(model.decls, decl);
+  const decls = withVariantRecords(model.decls);
+  for (const decl of withVariantRecords(visibleDeclsForTarget(model.decls, "typescript"))) {
+    const planned = planDecl(decls, decl);
     if (!planned.ok) {
       return planned;
     }
@@ -451,7 +467,7 @@ export const generateTypeScriptModule = (model: Model, options: TypeScriptOpts =
       `import { ok } from "typediagram-core/tdbin";`,
       `import * as tdbin from "typediagram-core/tdbin";`,
       ``,
-      typescript.toSource(model, options),
+      typescript.toSource({ ...model, decls: withVariantRecords(model.decls) }, options),
       codec.value,
       ``,
     ].join("\n")
