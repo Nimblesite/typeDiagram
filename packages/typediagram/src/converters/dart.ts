@@ -115,7 +115,33 @@ const parseDartFields = (body: string) => {
   return fields;
 };
 
+const dartDiag = (message: string): Diagnostic => ({ severity: "error", message, line: 0, col: 0, length: 0 });
+
+/** Dart function types (`void Function(String)`) have no typeDiagram form. */
+const functionTypeDiags = (owner: string, fields: ReadonlyArray<{ name: string; type: string }>): Diagnostic[] =>
+  fields
+    .filter((f) => f.type.includes("Function("))
+    .map((f) => dartDiag(`Dart function type '${f.type}' in ${owner}.${f.name} has no typeDiagram equivalent`));
+
+/** [CONV-DART-RECORD] `typedef X = ({String a, int? b});` → record fields, or
+ *  diagnostics for positional fields / function types (never invalid .td). */
+const recordTypedefFields = (name: string, target: string) => {
+  const inner = target.slice(1, target.lastIndexOf(")")).trim();
+  const named = inner.startsWith("{") && inner.endsWith("}");
+  const fields = named
+    ? splitTopLevelCommas(inner.slice(1, -1)).map((part) => {
+        const cut = part.search(/\s\w+$/);
+        return { name: part.slice(cut + 1).trim(), type: part.slice(0, cut).trim() };
+      })
+    : [];
+  const diags = named
+    ? functionTypeDiags(name, fields)
+    : [dartDiag(`Dart record '${name}' has positional fields; only named record fields map to typeDiagram`)];
+  return { fields: fields.map((f) => ({ name: f.name, type: mapDartType(f.type) })), diags };
+};
+
 const fromDart = (source: string): Result<Model, Diagnostic[]> => {
+  const diagnostics: Diagnostic[] = [];
   const builder = new ModelBuilder();
   let found = false;
 
@@ -222,13 +248,21 @@ const fromDart = (source: string): Result<Model, Diagnostic[]> => {
       builder.add(union(p.name, variants));
       continue;
     }
-    // alias
+    if (p.target.startsWith("(")) {
+      const rec = recordTypedefFields(p.name, p.target);
+      diagnostics.push(...rec.diags);
+      builder.add(record(p.name, resolveFieldTypes(rec.fields), p.generics));
+      continue;
+    }
+    diagnostics.push(...functionTypeDiags(p.name, [{ name: "target", type: p.target }]));
     builder.add(alias(p.name, parseTypeRef(mapDartType(p.target)), p.generics));
   }
 
-  return found
-    ? builder.build()
-    : err([{ severity: "error", message: "No Dart type definitions found", line: 0, col: 0, length: 0 }]);
+  return diagnostics.length > 0
+    ? err(diagnostics)
+    : found
+      ? builder.build()
+      : err([{ severity: "error", message: "No Dart type definitions found", line: 0, col: 0, length: 0 }]);
 };
 
 // ── To Dart ──

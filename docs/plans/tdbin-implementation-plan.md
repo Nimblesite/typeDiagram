@@ -101,6 +101,7 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [x] #62 `[CLI-TDBIN-LANG]` `typediagram encode|verify --to typescript` emits/checks the TS codec module (Rust stays the default).
 - [x] #62 `[TDBIN-TS-LIST]` TS codec supports every layout-1 `List<T>` / `Option<List<T>>` form; Rust↔TS golden byte identity (`golden/report_lists.hex`).
 - [x] #65 `[CLI-CONFIG-TDBIN]` `--config` `tdbin` outputs (rust full/codec-only, typescript); `--watch` regenerates types and codecs from one parse.
+- [x] #77 `[CONV-DART-RECORD]` Dart named record typedefs import as records; function types / positional records fail loudly with every diagnostic (no more exit 0 with invalid `.td`).
 - [ ] #61 follow-up: struct-form variants in layout 2 column groups (`[TDBIN-COL-UNION]` dense groups).
 
 ## Exit criteria (v1 = phases 0–4)

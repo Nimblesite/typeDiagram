@@ -37,9 +37,9 @@ export const splitTopLevelCommas = (s: string): string[] => {
   let start = 0;
   for (let i = 0; i < s.length; i++) {
     const c = s.charAt(i);
-    if (c === "<") {
+    if (c === "<" || c === "(" || c === "{") {
       depth += 1;
-    } else if (c === ">") {
+    } else if (c === ">" || c === ")" || c === "}") {
       depth -= 1;
     } else if (c === "," && depth === 0) {
       parts.push(s.slice(start, i).trim());

@@ -143,6 +143,37 @@ describe("[CLI-E2E-TO] --to language export", () => {
   });
 });
 
+describe("[CLI-FROM-DART-RECORDS] Dart record typedefs (#77)", () => {
+  it("imports named record typedefs as records, and never exits 0 with invalid .td", async () => {
+    const td = await run(["--from", "dart", "--emit", "td", fixturePath("records.dart")]);
+    expect(td.stderr).toBe("");
+    expect(td.code).toBe(0);
+    expect(td.stdout).toContain("type SessionData {\n  draft: String\n  phase: String\n}");
+    expect(td.stdout).toContain(
+      "type WorkspaceState {\n  sessions: Map<String, SessionData>\n  contextFiles: List<String>\n  retries: Option<Int>\n}"
+    );
+    expect(td.stdout).toContain("type Pair<T> {\n  first: T\n  rest: List<T>\n}");
+    expect(td.stdout).toContain("alias Email = String");
+    expect(td.stdout).not.toContain("({");
+    const svg = await run(["--from", "dart", "--emit", "svg", fixturePath("records.dart")]);
+    expect(svg.code).toBe(0);
+    expect(svg.stdout).toContain("<svg");
+    expect(svg.stdout).toContain("WorkspaceState");
+    const bad = await run(["--from", "dart", "--emit", "td", fixturePath("records-fn.dart")]);
+    expect(bad.code).toBe(1);
+    expect(bad.stdout).toBe("");
+    expect(bad.stderr).toContain(
+      "Dart function type 'void Function(String)' in Actions.editDraft has no typeDiagram equivalent"
+    );
+    expect(bad.stderr).toContain(
+      "Dart function type 'void Function()' in Actions.submit has no typeDiagram equivalent"
+    );
+    expect(bad.stderr).toContain(
+      "Dart record 'Point' has positional fields; only named record fields map to typeDiagram"
+    );
+  });
+});
+
 describe("[CLI-TDBIN] generated Rust TDBIN glue", () => {
   it("encode emits generated Rust ADTs plus TDBIN codec impls", async () => {
     const { code, stdout, stderr } = await run(["encode", fixturePath("scalars.td")]);

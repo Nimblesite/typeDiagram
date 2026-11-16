@@ -139,9 +139,7 @@ describe("[CONV-RUST-TDBIN] record + union codec structure", () => {
     // A bare first variant is derived (clippy `derivable_impls`), not hand-written.
     expect(code).not.toContain("impl Default for Color");
     const module = unwrap(
-      generateRustModule(
-        unwrap(buildModel(unwrap(parse(`union Color {\n  Red\n  Green\n}\ntype P {\n  c: Color\n}`))))
-      )
+      generateRustModule(unwrap(buildModel(unwrap(parse(`union Color {\n  Red\n  Green\n}\ntype P {\n  c: Color\n}`)))))
     );
     expect(module).toContain(
       "#[derive(Debug, Clone, PartialEq, Default)]\npub enum Color {\n    /// The `Red` variant.\n    #[default]\n    Red,"

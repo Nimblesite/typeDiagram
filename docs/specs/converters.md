@@ -172,6 +172,10 @@ F# discriminated unions map directly. Record syntax is used for struct types.
 
 Uses Dart 3 `sealed class` for tagged unions. First-class generics are preserved.
 
+### Record typedefs [CONV-DART-RECORD]
+
+`typedef SessionData = ({String draft, String phase});` imports as `type SessionData { draft: String  phase: String }`. Generic and nullable fields keep their types (`Map<String, SessionData>`, `Set<T>` → `List<T>`, `int?` → `Option<Int>`). Function types (`void Function(String)`) and positional record fields (`(int, int)`) have no typeDiagram equivalent, so the import fails, listing every offending declaration, instead of emitting invalid `.td`.
+
 ## PHP
 
 ### What maps

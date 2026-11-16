@@ -1,6 +1,8 @@
 // [CONV-DART-TEST] Dart converter integration tests.
 import { describe, expect, it } from "vitest";
 import { dart } from "../../src/converters/index.js";
+import { printTypeRef } from "../../src/converters/parse-typeref.js";
+import { printSource } from "../../src/model/index.js";
 import {
   aliasTargetName,
   expectFieldTypes,
@@ -10,6 +12,7 @@ import {
   recordFields,
   toSourceFromTd,
   unionVariants,
+  unwrap,
 } from "./helpers.js";
 
 describe("[CONV-DART-FROM] Dart -> typeDiagram", () => {
@@ -183,5 +186,32 @@ final class Circle implements Shape {
     const variants = unionVariants(model, "Shape");
     expect(variants).toHaveLength(1);
     expect(variants[0]?.name).toBe("Circle");
+  });
+});
+
+describe("[CONV-DART-RECORD] Dart record typedefs -> typeDiagram (#77)", () => {
+  it("maps named records to records and rejects function types and positional records with every diagnostic", () => {
+    const model = unwrap(
+      dart.fromSource(`typedef SessionData = ({String draft, String phase});
+typedef WorkspaceState = ({Map<String, SessionData> sessions, Set<String> contextFiles, int? retries});
+typedef Pair<T> = ({T first, List<T> rest});
+typedef Email = String;`)
+    );
+    expect(recordFields(model, "SessionData").map((f) => f.name)).toEqual(["draft", "phase"]);
+    expect(recordFields(model, "WorkspaceState").map((f) => printTypeRef(f.type))).toEqual([
+      "Map<String, SessionData>",
+      "List<String>",
+      "Option<Int>",
+    ]);
+    expect(recordFields(model, "Pair").map((f) => printTypeRef(f.type))).toEqual(["T", "List<T>"]);
+    expect(printSource(model)).toContain("alias Email = String");
+    const bad = dart.fromSource(`typedef Actions = ({void Function(String) editDraft, int count});
+typedef Point = (int, int);
+typedef Callback = void Function();`);
+    expect(bad.ok ? [] : bad.error.map((d) => d.message)).toEqual([
+      "Dart function type 'void Function(String)' in Actions.editDraft has no typeDiagram equivalent",
+      "Dart record 'Point' has positional fields; only named record fields map to typeDiagram",
+      "Dart function type 'void Function()' in Callback.target has no typeDiagram equivalent",
+    ]);
   });
 });
