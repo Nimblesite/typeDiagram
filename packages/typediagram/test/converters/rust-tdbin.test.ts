@@ -774,6 +774,34 @@ describe("[CONV-RUST-TDBIN] drift guard vs the committed crate fixtures", () => 
     expectRustModuleReproduces(MEASUREMENT_TD, "../../../../crates/tdbin/tests/generated_opt/mod.rs");
   });
 
+  it("reproduces generated_widths/mod.rs; width types hash distinctly and reject layout 2 [TDBIN-WIDTH-RANGE] #85", () => {
+    const widthsTd = readFileSync(fileURLToPath(new URL("./fixtures/widths.td", import.meta.url)), "utf8");
+    expectRustModuleReproduces(widthsTd, "../../../../crates/tdbin/tests/generated_widths/mod.rs");
+    const { decls } = unwrap(buildModel(unwrap(parse(widthsTd))));
+    const stats = decls.find((d) => d.name === "Stats");
+    const manifest = stats === undefined ? "" : unwrap(layoutManifest(decls, stats, 1));
+    expect(manifest).toBe(
+      "tdbin-layout v1 major=1\n0:record d=9 p=11 [i32@w0;u8@w1;u16@w2;u32@w3;u64@w4;usize@w5;str@p0;opt(bit@w6.0,u64@w7);opt(bit@w6.1,u16@w8);str?@p1;list(i32)@p2;list(u8)@p3;list(u16)@p4;list(u32)@p5;list(u64)@p6;list(usize)@p7;list(str)@p8;list(usize)?@p9;list(str)?@p10]"
+    );
+    const intOnly = unwrap(buildModel(unwrap(parse("type Stats {\n  delta: Int\n}"))));
+    const i32Only = unwrap(buildModel(unwrap(parse("type Stats {\n  delta: I32\n}"))));
+    const hashOf = (m: typeof intOnly) => {
+      const root = m.decls[0];
+      return root === undefined ? 0n : fnv1a64(unwrap(layoutManifest(m.decls, root, 1)));
+    };
+    expect(hashOf(intOnly)).not.toBe(hashOf(i32Only));
+    const code = unwrap(emitRustCodec(unwrap(buildModel(unwrap(parse(widthsTd))))));
+    expect(code).toContain("let delta = tdbin::scalar::i32_from(r.scalar(at, 0)?)?;");
+    expect(code).toContain("let hash = tdbin::scalar::u64_from(r.scalar(at, 4)?);");
+    expect(code).toContain("w.u16_list(at, Self::DATA_WORDS, 4, Some(&self.ports))?;");
+    expect(code).toContain("w.string(at, Self::DATA_WORDS, 0, Some(tdbin::scalar::path_str(&self.file)?))?;");
+    const columnar = generateRustModule(
+      unwrap(buildModel(unwrap(parse(`${widthsTd}\ntype Batch {\n  rows: List<StatsRaw>\n}`)))),
+      { layout: 2 }
+    );
+    expect(columnar.ok ? "" : (columnar.error[0]?.message ?? "")).toContain("has no columnar encoding under layout 2");
+  });
+
   it("reproduces generated_shapes/mod.rs and gates struct-form variants by layout [TDBIN-UNION-STRUCT] #61", () => {
     const shapesTd = readFileSync(fileURLToPath(new URL("./fixtures/shapes.td", import.meta.url)), "utf8");
     expectRustModuleReproduces(shapesTd, "../../../../crates/tdbin/tests/generated_shapes/mod.rs");

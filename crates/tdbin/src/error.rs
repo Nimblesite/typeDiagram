@@ -15,6 +15,9 @@ pub enum EncodeError {
     /// A relative pointer offset did not fit the signed 30-bit field
     /// ([TDBIN-PTR-STRUCT]).
     OffsetOutOfRange,
+    /// A `Path` field was not valid UTF-8, so it has no `String` wire form
+    /// ([TDBIN-WIDTH-PATH]).
+    NonUtf8Path,
 }
 
 impl fmt::Display for EncodeError {
@@ -23,6 +26,7 @@ impl fmt::Display for EncodeError {
             Self::BadLength => "body length is not word-aligned",
             Self::LimitExceeded => "value exceeds a TDBIN wire-format limit",
             Self::OffsetOutOfRange => "pointer offset does not fit the signed 30-bit field",
+            Self::NonUtf8Path => "path is not valid UTF-8",
         };
         f.write_str(msg)
     }
@@ -92,6 +96,9 @@ pub enum DecodeError {
     UnexpectedNull,
     /// The root pointer was null.
     NullRoot,
+    /// A width-refined integer held a value outside its declared range
+    /// ([TDBIN-WIDTH-RANGE]).
+    ValueOutOfRange,
 }
 
 impl fmt::Display for DecodeError {
@@ -126,6 +133,7 @@ impl fmt::Display for DecodeError {
             }
             Self::UnexpectedNull => f.write_str("required pointer field was null"),
             Self::NullRoot => f.write_str("root pointer was null"),
+            Self::ValueOutOfRange => f.write_str("integer is outside its declared width"),
         }
     }
 }

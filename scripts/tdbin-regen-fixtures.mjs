@@ -104,6 +104,18 @@ const FIXTURES = [
 `,
   },
   {
+    out: "crates/tdbin/tests/generated_widths/mod.rs",
+    td: "packages/typediagram/test/converters/fixtures/widths.td",
+    layout: 1,
+    marker: MARKER_V1,
+    header: `//! [TDBIN-WIDTH-RANGE] GENERATED width-refined integer + Path fixture (#85),
+//! emitted by \`packages/typediagram/src/converters/rust-tdbin.ts\`
+//! (\`generateRustModule\`) from
+//! \`packages/typediagram/test/converters/fixtures/widths.td\`. Included only
+//! by \`widths.rs\`. Regenerate with \`node scripts/tdbin-regen-fixtures.mjs\`.
+`,
+  },
+  {
     out: "crates/tdbin/tests/generated_corpus/mod.rs",
     td: "docs/benchmarks/tdbin-corpus.td",
     layout: 2,

@@ -16,7 +16,7 @@ impl Writer {
     /// Resolve pointer `slot`, writing the null pointer for `None` and otherwise
     /// delegating to `write_some` with the resolved pointer word. Every public
     /// `*_list` method shares this null-vs-body framing ([TDBIN-LIST-ELEM]).
-    fn write_list_slot<T>(
+    pub(crate) fn write_list_slot<T>(
         &mut self,
         at: usize,
         data_words: u16,

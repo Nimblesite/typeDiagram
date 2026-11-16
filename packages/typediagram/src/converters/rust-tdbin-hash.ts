@@ -96,7 +96,12 @@ interface ManifestCtx {
   order: Planned[];
 }
 
-const scalarKind = (bits: string): string => (bits === "i64_bits" ? "i64" : "f64");
+/** `i64_bits` → `i64`, `u16_bits` → `u16`, … ([TDBIN-WIDTH-RANGE] widths hash distinctly). */
+const scalarKind = (bits: string): string => bits.slice(0, -"_bits".length);
+
+/** List element token per flat list method; `byte_list`/`word_list` carry U8/U64. */
+const FLAT_ELEM: Record<string, string> = { byte_list: "u8", word_list: "u64" };
+const flatElem = (method: string): string => FLAT_ELEM[method] ?? method.slice(0, -"_list".length);
 
 const semanticKind = (semantic: "Uuid" | "Decimal"): string => (semantic === "Uuid" ? "uuid" : "dec");
 
@@ -163,7 +168,7 @@ const listElem = (ctx: ManifestCtx, list: ListPlan): Result<string, Diagnostic[]
     case "bool":
       return ok("bit");
     case "flat":
-      return ok(list.method === "i64_list" ? "i64" : "f64");
+      return ok(flatElem(list.method));
     case "intBlock":
       return ok("i64b");
     case "dateTime":
@@ -171,6 +176,7 @@ const listElem = (ctx: ManifestCtx, list: ListPlan): Result<string, Diagnostic[]
     case "bytes16":
       return ok(semanticKind(list.semantic));
     case "string":
+    case "path":
       return ok("str");
     case "bytes":
       return ok("byt");
@@ -216,6 +222,7 @@ const renderField = (ctx: ManifestCtx, p: FieldPlan): Result<string, Diagnostic[
     case "optBytes16":
       return ok(`opt(bit@w${String(p.presenceSlot)}.${String(p.presenceBit)},${optValue(p)})`);
     case "string":
+    case "path":
       return ok(`str${opt(p.optional)}@p${String(p.slot)}`);
     case "bytes":
       return ok(`byt${opt(p.optional)}@p${String(p.slot)}`);

@@ -26,6 +26,7 @@ mod reader;
 mod reader_lists;
 pub mod reflect;
 mod verify;
+mod width_lists;
 mod writer;
 mod writer_lists;
 

@@ -269,7 +269,7 @@ impl<'a> Reader<'a> {
     }
 
     /// Borrow and charge a raw fixed-width list body.
-    fn borrow_raw(
+    pub(crate) fn borrow_raw(
         &self,
         ptr_word: usize,
         offset: i64,

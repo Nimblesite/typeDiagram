@@ -104,6 +104,9 @@ v0 wire subset (documented in-crate): one word per scalar int/float, direct bool
 - [x] #77 `[CONV-DART-RECORD]` Dart named record typedefs import as records; function types / positional records fail loudly with every diagnostic (no more exit 0 with invalid `.td`).
 - [x] #60 `[TDBIN-RS-PUBLISH]` `tdbin` crate is publishable (metadata, README, runtime-only `include`, `cargo publish --dry-run` verified); release workflow publishes it at the tag version via the stamped `[workspace.package].version`.
 - [ ] #60 Add the `CARGO_REGISTRY_TOKEN` repo secret, then confirm the first release lands on crates.io.
+- [x] #85 `[MODEL-WIDTH]` `I32/U8/U16/U32/U64/Size/Path` primitives in every converter.
+- [x] #85 `[TDBIN-WIDTH-RANGE]` `[TDBIN-WIDTH-LIST]` `[TDBIN-WIDTH-PATH]` Rust runtime + codegen: one-word range-checked scalars, 1/2/4/8-byte lists, `PathBuf` as UTF-8 string.
+- [ ] #85 TypeScript codec for width types and `Path`.
 - [ ] #61 follow-up: struct-form variants in layout 2 column groups (`[TDBIN-COL-UNION]` dense groups).
 
 ## Exit criteria (v1 = phases 0–4)

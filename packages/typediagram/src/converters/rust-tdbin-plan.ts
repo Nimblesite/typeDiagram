@@ -30,22 +30,49 @@ export type Layout = 1 | 2;
 
 /** Word scalars stored raw in the data section, with their codec fns. Bool is
  *  NOT here: direct and optional Bools are bit-allocated ([TDBIN-WIRE-WORD]). */
-const SCALARS: Record<string, { bits: string; from: string }> = {
+/** One-word scalars. `fallible` decodes narrow with a typed range check
+ *  ([TDBIN-WIDTH-RANGE]), so the read appends `?`. */
+export interface ScalarCodec {
+  bits: string;
+  from: string;
+  fallible?: boolean;
+}
+
+const SCALARS: Record<string, ScalarCodec> = {
   Int: { bits: "i64_bits", from: "i64_from" },
   Float: { bits: "f64_bits", from: "f64_from" },
+  I32: { bits: "i32_bits", from: "i32_from", fallible: true },
+  U8: { bits: "u8_bits", from: "u8_from", fallible: true },
+  U16: { bits: "u16_bits", from: "u16_from", fallible: true },
+  U32: { bits: "u32_bits", from: "u32_from", fallible: true },
+  U64: { bits: "u64_bits", from: "u64_from" },
+  Size: { bits: "usize_bits", from: "usize_from", fallible: true },
+};
+
+/** [TDBIN-WIDTH-LIST] list method per one-word scalar element. */
+const FLAT_LIST: Record<string, string> = {
+  Int: "i64_list",
+  Float: "f64_list",
+  I32: "i32_list",
+  U8: "byte_list",
+  U16: "u16_list",
+  U32: "u32_list",
+  U64: "word_list",
+  Size: "usize_list",
 };
 
 /** How a record field is laid out on the wire. */
 export type FieldPlan =
-  | { kind: "scalar"; slot: number; bits: string; from: string }
+  | ({ kind: "scalar"; slot: number } & ScalarCodec)
   | { kind: "boolBit"; slot: number; bit: number }
   | { kind: "dateTime"; slot: number }
   | { kind: "bytes16"; slot: number; semantic: Bytes16Semantic }
-  | { kind: "optScalar"; presenceSlot: number; presenceBit: number; valueSlot: number; bits: string; from: string }
+  | ({ kind: "optScalar"; presenceSlot: number; presenceBit: number; valueSlot: number } & ScalarCodec)
   | { kind: "optBool"; presenceSlot: number; presenceBit: number; valueSlot: number; valueBit: number }
   | { kind: "optDateTime"; presenceSlot: number; presenceBit: number; valueSlot: number }
   | { kind: "optBytes16"; presenceSlot: number; presenceBit: number; valueSlot: number; semantic: Bytes16Semantic }
   | { kind: "string"; slot: number; optional: boolean }
+  | { kind: "path"; slot: number; optional: boolean }
   | { kind: "bytes"; slot: number; optional: boolean }
   | { kind: "child"; slot: number; optional: boolean; rustType: string }
   | { kind: "list"; slot: number; optional: boolean; list: ListPlan }
@@ -54,11 +81,12 @@ export type FieldPlan =
 
 export type ListPlan =
   | { kind: "bool" }
-  | { kind: "flat"; method: "i64_list" | "f64_list" }
+  | { kind: "flat"; method: string }
   | { kind: "intBlock" }
   | { kind: "dateTime" }
   | { kind: "bytes16"; semantic: Bytes16Semantic }
   | { kind: "string" }
+  | { kind: "path" }
   | { kind: "bytes" }
   | { kind: "child"; rustType: string }
   | { kind: "enum"; rustType: string; variants: string[] };
@@ -146,14 +174,16 @@ const pointerInner = (
 ): FieldPlan | FieldError | null =>
   isPrim(t, "String")
     ? { kind: "string", slot, optional }
-    : isPrim(t, "Bytes")
-      ? { kind: "bytes", slot, optional }
-      : isDeclared(t)
-        ? { kind: "child", slot, optional, rustType: mapTdToRs(t) }
-        : null;
+    : isPrim(t, "Path")
+      ? { kind: "path", slot, optional }
+      : isPrim(t, "Bytes")
+        ? { kind: "bytes", slot, optional }
+        : isDeclared(t)
+          ? { kind: "child", slot, optional, rustType: mapTdToRs(t) }
+          : null;
 
 /** The one-word scalar codec for a bare primitive (Bool/Int/Float), else undefined. */
-export const scalarOf = (t: ResolvedTypeRef): { bits: string; from: string } | undefined =>
+export const scalarOf = (t: ResolvedTypeRef): ScalarCodec | undefined =>
   t.args.length === 0 && t.resolution.kind === "primitive" ? SCALARS[t.name] : undefined;
 
 const isSemanticName = (name: string): name is SemanticScalar =>
@@ -225,8 +255,8 @@ const childListPlan = (decls: readonly ResolvedDecl[], t: ResolvedTypeRef): List
   return null;
 };
 
-const flatListMethod = (t: ResolvedTypeRef): "i64_list" | "f64_list" | undefined =>
-  isPrim(t, "Int") ? "i64_list" : isPrim(t, "Float") ? "f64_list" : undefined;
+const flatListMethod = (t: ResolvedTypeRef): string | undefined =>
+  t.args.length === 0 && t.resolution.kind === "primitive" ? FLAT_LIST[t.name] : undefined;
 
 const listPlanFor = (decls: readonly ResolvedDecl[], inner: ResolvedTypeRef): ListPlan | FieldError | null => {
   const flat = flatListMethod(inner);
@@ -247,6 +277,9 @@ const listPlanFor = (decls: readonly ResolvedDecl[], inner: ResolvedTypeRef): Li
   }
   if (isPrim(inner, "String")) {
     return { kind: "string" };
+  }
+  if (isPrim(inner, "Path")) {
+    return { kind: "path" };
   }
   if (isPrim(inner, "Bytes")) {
     return { kind: "bytes" };
@@ -353,8 +386,7 @@ const classifyOption = (
       presenceSlot: presence.slot,
       presenceBit: presence.bit,
       valueSlot: allocateWord(cursor),
-      bits: innerScalar.bits,
-      from: innerScalar.from,
+      ...innerScalar,
     };
   }
   const plan = pointerInner(decls, inner, cursor.ptrSlot, true);
@@ -380,7 +412,7 @@ const classifyField = (
   }
   const scalar = scalarOf(t);
   if (scalar !== undefined) {
-    return { kind: "scalar", slot: allocateWord(cursor), bits: scalar.bits, from: scalar.from };
+    return { kind: "scalar", slot: allocateWord(cursor), ...scalar };
   }
   const optionInner = optionInnerOf(t);
   if (optionInner !== undefined) {

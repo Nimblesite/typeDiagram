@@ -31,6 +31,19 @@ const dateTimeFromBits = (word: string): string => dateTimeResult(`tdbin::scalar
 
 const listSource = (self: string, optional: boolean): string => (optional ? `${self}.as_deref()` : `Some(&${self})`);
 
+/** [TDBIN-WIDTH-PATH] `List<Path>` is a `List<String>` on the wire; a non-UTF-8
+ *  path fails the encode with `NonUtf8Path`. */
+const writePathList = (name: string, self: string, slot: number, optional: boolean): string => {
+  const strings = (source: string): string =>
+    `${source}.iter().map(|path| tdbin::scalar::path_string(path)).collect::<Result<Vec<_>, _>>()`;
+  return [
+    optional
+      ? `        let ${name}_strings = ${self}.as_ref().map(|values| { ${strings("values")} }).transpose()?;`
+      : `        let ${name}_strings = ${strings(self)}?;`,
+    `        w.string_list(at, Self::DATA_WORDS, ${rsNumber(slot)}, ${optional ? `${name}_strings.as_deref()` : `Some(&${name}_strings)`})?;`,
+  ].join("\n");
+};
+
 const collectWordList = (source: string, map: string): string => `${source}.iter().map(${map}).collect::<Vec<_>>()`;
 
 const writeDateTimeList = (name: string, self: string, slot: number, optional: boolean): string => {
@@ -101,6 +114,8 @@ const writeList = (name: string, p: Extract<FieldPlan, { kind: "list" }>): strin
       return writeBytes16List(name, self, p.list, p.slot, p.optional);
     case "string":
       return `        w.string_list(at, Self::DATA_WORDS, ${rsNumber(p.slot)}, ${listSource(self, p.optional)})?;`;
+    case "path":
+      return writePathList(name, self, p.slot, p.optional);
     case "bytes":
       return `        w.bytes_list(at, Self::DATA_WORDS, ${rsNumber(p.slot)}, ${listSource(self, p.optional)})?;`;
     case "child":
@@ -163,6 +178,8 @@ export const writeField = (name: string, p: FieldPlan): string => {
       return writeOptBytes16(name, p);
     case "string":
       return `        w.string(at, Self::DATA_WORDS, ${rsNumber(p.slot)}, ${p.optional ? `${self}.as_deref()` : `Some(&${self})`})?;`;
+    case "path":
+      return `        w.string(at, Self::DATA_WORDS, ${rsNumber(p.slot)}, ${p.optional ? `${self}.as_deref().map(tdbin::scalar::path_str).transpose()?` : `Some(tdbin::scalar::path_str(&${self})?)`})?;`;
     case "bytes":
       return `        w.bytes(at, Self::DATA_WORDS, ${rsNumber(p.slot)}, ${p.optional ? `${self}.as_deref()` : `Some(&${self})`})?;`;
     case "child":
@@ -252,6 +269,8 @@ const readList = (name: string, p: Extract<FieldPlan, { kind: "list" }>): string
       return readBytes16List(name, p.list, p.slot, p.optional);
     case "string":
       return `        let ${name} = r.string_list(at, Self::DATA_WORDS, ${rsNumber(p.slot)})${readTail(p.optional)};`;
+    case "path":
+      return `        let ${name} = r.string_list(at, Self::DATA_WORDS, ${rsNumber(p.slot)})?${p.optional ? ".map(|values| { values.into_iter().map(std::path::PathBuf::from).collect::<Vec<_>>() })" : ".map_or_else(Vec::new, |values| { values.into_iter().map(std::path::PathBuf::from).collect() })"};`;
     case "bytes":
       return `        let ${name} = r.bytes_list(at, Self::DATA_WORDS, ${rsNumber(p.slot)})${readTail(p.optional)};`;
     case "child":
@@ -267,7 +286,7 @@ const readPresenceBit = (name: string, p: { presenceSlot: number; presenceBit: n
 const readOptScalar = (name: string, p: Extract<FieldPlan, { kind: "optScalar" }>): string =>
   [
     readPresenceBit(name, p),
-    `        let ${name}_value = tdbin::scalar::${p.from}(r.scalar(at, ${rsNumber(p.valueSlot)})?);`,
+    `        let ${name}_value = tdbin::scalar::${p.from}(r.scalar(at, ${rsNumber(p.valueSlot)})?)${p.fallible === true ? "?" : ""};`,
     `        let ${name} = ${name}_present.then_some(${name}_value);`,
   ].join("\n");
 
@@ -299,7 +318,7 @@ const readVarList = (name: string, p: Extract<FieldPlan, { kind: "varList" }>): 
 export const readField = (name: string, p: FieldPlan): string => {
   switch (p.kind) {
     case "scalar":
-      return `        let ${name} = tdbin::scalar::${p.from}(r.scalar(at, ${rsNumber(p.slot)})?);`;
+      return `        let ${name} = tdbin::scalar::${p.from}(r.scalar(at, ${rsNumber(p.slot)})?)${p.fallible === true ? "?" : ""};`;
     case "boolBit":
       return `        let ${name} = r.bool_bit(at, ${rsNumber(p.slot)}, ${rsNumber(p.bit)})?;`;
     case "dateTime":
@@ -319,6 +338,8 @@ export const readField = (name: string, p: FieldPlan): string => {
       return readOptBytes16(name, p);
     case "string":
       return `        let ${name} = r.string(at, Self::DATA_WORDS, ${rsNumber(p.slot)})${readTail(p.optional)};`;
+    case "path":
+      return `        let ${name} = r.string(at, Self::DATA_WORDS, ${rsNumber(p.slot)})?${p.optional ? ".map(std::path::PathBuf::from)" : ".map_or_else(std::path::PathBuf::new, std::path::PathBuf::from)"};`;
     case "bytes":
       return `        let ${name} = r.bytes(at, Self::DATA_WORDS, ${rsNumber(p.slot)})${readTail(p.optional)};`;
     case "child":
